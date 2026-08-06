@@ -67,6 +67,10 @@ pub enum Phase with Eq, ToString {
 /// - `hiScore` survives a restart, the way an arcade cabinet's does.
 /// - `level` counts from 1 and drives the difficulty curve.
 /// - `pause` is ticks remaining in a non-playing phase, used for the between-levels beat.
+/// - `shield` is ticks of invulnerability remaining, earned by shooting the mystery ship.
+/// - `sounds` holds only what happened during the tick just taken; it is cleared each step.
+/// - `marchNote` and `marchedSince` drive the bassline: notes are spaced by *distance*
+///   marched, not by time, so the tempo tracks the formation's speed for free.
 ///
 pub type alias World = {
     phase = Phase,
@@ -87,7 +91,11 @@ pub type alias World = {
     pause = Int32,
     blasts = List[Blast],
     mystery = Option[Mystery],
-    mysteryTimer = Int32
+    mysteryTimer = Int32,
+    shield = Int32,
+    sounds = List[SoundCmd],
+    marchNote = Int32,
+    marchedSince = Float32
 }
 
 ///
@@ -116,13 +124,13 @@ mod Rules {
     pub def bulletSpeed(): Float32 = 7.0f32
 
     /// Ticks between shots. Without this, holding fire fills the screen.
-    pub def fireCooldown(): Int32 = 18
+    pub def fireCooldown(): Int32 = 12
 
     pub def bombSize(): Vec2 = { x = 6.0f32, y = 14.0f32 }
     pub def bombSpeed(): Float32 = 3.0f32
 
     /// One in this many steps, some invader drops a bomb.
-    pub def bombChance(): Int32 = 45
+    pub def bombChance(): Int32 = 90
 
     /// One hit box for every kind, so a squid is no harder to hit than an octopus.
     pub def invaderSize(): Vec2 = { x = 24.0f32, y = 16.0f32 }
@@ -178,7 +186,7 @@ mod Rules {
     pub def blastRadius(): Float32 = 6.0f32
 
     /// The formation's speed on level 1 with every invader still alive.
-    pub def baseMarchSpeed(): Float32 = 0.8f32
+    pub def baseMarchSpeed(): Float32 = 0.65f32
 
     ///
     /// How much faster the last invader moves than a full formation.
@@ -187,7 +195,7 @@ mod Rules {
     /// so fewer invaders meant a faster sweep. Here it is deliberate, but the feel is the
     /// same: the closing moments of a level are frantic.
     ///
-    def thinningSpeedUp(): Float32 = 5.0f32
+    def thinningSpeedUp(): Float32 = 2.0f32
 
     /// How much faster each level starts than the one before.
     def levelSpeedUp(): Float32 = 0.18f32
@@ -217,7 +225,12 @@ mod Rules {
 
     // -- the mystery ship -------------------------------------------------------------
 
-    pub def mysterySize(): Vec2 = { x = 32.0f32, y = 14.0f32 }
+    /// The saucer is stretched horizontally: three times the width, unchanged height.
+    pub def mysteryScaleX(): Float32 = 3.0f32
+    pub def mysteryScaleY(): Float32 = 2.0f32
+
+    /// The 16x7 sprite at the scales above.
+    pub def mysterySize(): Vec2 = { x = 96.0f32, y = 14.0f32 }
 
     /// High enough to be clear of the formation's starting row.
     pub def mysteryY(): Float32 = 70.0f32
@@ -226,6 +239,17 @@ mod Rules {
 
     /// Ticks between appearances -- about twenty-five seconds, as in the original.
     pub def mysteryInterval(): Int32 = 1500
+
+    ///
+    /// How long the shield earned from the mystery ship lasts.
+    ///
+    /// Long enough to be worth chasing the bonus for, short enough that you cannot bank it
+    /// and stop paying attention.
+    ///
+    pub def shieldTicks(): Int32 = 600
+
+    /// The shield starts flashing this long before it fails, as a warning.
+    pub def shieldWarningTicks(): Int32 = 150
 
     ///
     /// What the mystery ship is worth.
@@ -240,6 +264,14 @@ mod Rules {
         let (pick, next) = Rng.nextInt32Below(Vector.length(mysteryScores()), rng);
         (Vector.get(pick, mysteryScores()), next)
     }
+
+    ///
+    /// How far the formation marches between notes of the bassline.
+    ///
+    /// Spacing the notes by distance rather than by time is what makes the music accelerate
+    /// with the invaders without any extra bookkeeping.
+    ///
+    pub def marchNoteDistance(): Float32 = 12.0f32
 
     /// How long an invader's starburst stays on screen.
     pub def invaderBlastTicks(): Int32 = 18
@@ -256,7 +288,7 @@ mod Rules {
     pub def deathPauseTicks(): Int32 = 54
 
     /// How far the formation drops each time it reaches a wall.
-    pub def marchDrop(): Float32 = 24.0f32
+    pub def marchDrop(): Float32 = 20.0f32
 
     /// Invaders reaching this line end the game.
     pub def invasionLine(): Float32 = playerY() - invaderSize()#y

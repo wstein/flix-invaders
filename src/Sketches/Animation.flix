@@ -242,7 +242,8 @@ mod Animation {
               maxFrames = limit, fontPath = None },
             initial,
             step,
-            view)
+            view,
+            _world -> Nil)
     }
 
 }

@@ -17,7 +17,8 @@ pinned compiler into `.flix/`, so local runs match CI exactly.
 
 ## Layout
 
-- `src/Runtime/` — the effect boundary; `Runtime/Sketch.flix` is the **only** file that touches Java
+- `src/Runtime/` — the effect boundary. `Runtime/Sketch.flix` (window) and
+  `Runtime/Audio.flix` (sound card) are the **only** files that touch Java
 - `src/Sketches/` — teaching sketches
 - `src/Invaders/` — the pure game model; no `IO`, no window
 - `test/` — `@Test` functions; must stay headless (CI enforces this)
@@ -51,6 +52,14 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   the sketch will touch `Ref`s whose region has exited.
 - **Use `System.nanoTime()` for frame timing.** The stdlib `Time.Clock` handler uses
   `System.currentTimeMillis()`, which is wall-clock and not monotonic.
+- **A machine with no sound card throws `IllegalArgumentException`, not
+  `LineUnavailableException`.** `AudioSystem` only throws the declared checked exception when
+  a mixer exists but refuses; with no mixer at all it throws unchecked from `getLine`. Catch
+  `Exception` at the audio boundary or CI dies with a bare exit code.
+- **`getResourceAsStream` returns null for project files.** Flix's class loaders parent to
+  the *platform* loader and never consult project resources. Read assets from a file path —
+  and note it would start working under `flix build-jar`, so a resource-based path fails
+  inconsistently, which is worse.
 
 ## Writing Flix
 

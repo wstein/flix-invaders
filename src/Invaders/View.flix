@@ -91,9 +91,32 @@ mod View {
         case None => ()
         case Some(m) => {
             Canvas.fill(Palette.invaderMagenta());
-            Sprite.draw(Sprites.mystery(), { x = m#x, y = Rules.mysteryY() }, Rules.spriteScale())
+            Sprite.drawScaled(Sprites.mystery(), { x = m#x, y = Rules.mysteryY() },
+                              Rules.mysteryScaleX(), Rules.mysteryScaleY())
         }
     }
+
+    ///
+    /// The shield, as a bracket over the cannon.
+    ///
+    /// It flashes for the last stretch so its expiry is something you see coming rather than
+    /// discover by dying.
+    ///
+    def drawShield(w: World): Unit \ Canvas =
+        if (w#shield <= 0) ()
+        else {
+            let failing = w#shield < Rules.shieldWarningTicks();
+            let blink = Int32.remainder(w#shield / 8, 2) == 0;
+            if (failing and blink) ()
+            else {
+                let half = Rules.playerSize()#x / 2.0f32 + 6.0f32;
+                let top = Rules.playerY() - Rules.playerSize()#y / 2.0f32 - 8.0f32;
+                Canvas.fill(Palette.invaderCyan());
+                Canvas.rect(w#playerX - half, top, half * 2.0f32, 3.0f32);
+                Canvas.rect(w#playerX - half, top, 3.0f32, 10.0f32);
+                Canvas.rect(w#playerX + half - 3.0f32, top, 3.0f32, 10.0f32)
+            }
+        }
 
     def drawBlasts(w: World): Unit \ Canvas =
         List.forEach(b -> {
@@ -228,6 +251,7 @@ mod View {
         drawBunkers(w);
         drawShots(w);
         drawPlayer(w);
+        drawShield(w);
         drawBlasts(w);
         drawHud(w);
         drawCabinet(w);

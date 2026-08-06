@@ -19,7 +19,7 @@ git clone https://github.com/wstein/flix-proc-invaders
 cd flix-proc-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 150 tests -- no window is ever opened
+bin/flix test      # 211 tests -- no window and no audio device is ever opened
 bin/flix run       # play Space Invaders
 ```
 
@@ -27,7 +27,9 @@ bin/flix run       # play Space Invaders
 it, so local runs and CI behave identically.
 
 **Controls:** left and right arrows move, space fires, enter restarts after the game ends,
-escape quits. Shelter behind the bunkers — they stop bombs, but they wear away.
+escape quits. Shelter behind the bunkers — they stop bombs, but they wear away. Shoot the
+mystery ship for points *and* a temporary shield. Clearing the formation starts a harder
+level; there is no winning, only surviving longer.
 
 ## Start with the sketches, not the game
 
@@ -50,14 +52,14 @@ or move the sun by editing the two numbers in its `Canvas.ellipse` call. Re-run
 ```text
 Pure game model + deterministic tests     src/Invaders/   -- no IO, no window
         |
-Canvas / Input effects                    src/Runtime/Canvas.flix, Input.flix
+Canvas / Input effects, SoundCmd data     src/Runtime/Canvas.flix, Input.flix, Sound.flix
         |
-One runtime adapter                       src/Runtime/Sketch.flix  <-- the only file
-        |                                                              that touches Java
-Processing Core, one desktop 2D window    JAVA2D renderer
+Two runtime adapters                      src/Runtime/Sketch.flix (window)
+        |                                 src/Runtime/Audio.flix  (sound card)
+Processing Core + javax.sound.sampled     JAVA2D renderer, synthesized PCM
 ```
 
-Exactly one file in `src/` mentions Java. Everything under `src/Invaders/` is pure:
+Exactly two files in `src/` mention Java — one for the window, one for the sound card. Everything under `src/Invaders/` is pure:
 `Game.step` takes a world and an input snapshot and returns a new world, and `View.render`
 describes what to draw without knowing a window exists. That is what lets the whole test
 suite run headless, and what makes identical input replay to an identical world.
@@ -83,6 +85,16 @@ suite run headless, and what makes identical input replay to an identical world.
 - **The bunkers are real.** Each is a grid of blocks; a hit destroys the blocks around the
   one it struck, and the shot stops there. [TestBunkers.flix](test/TestBunkers.flix) checks
   they actually protect the player rather than merely being drawn in the way.
+- **Balance is a test, not a vibe.** [TestDifficulty.flix](test/TestDifficulty.flix) drives
+  the real game with a bot that leads its targets and asserts it gets past level one — and
+  that it does not run forever unchallenged. It caught a real regression: with the march
+  speed-up at five times, a bot that never misses cleared only 43–52% of the first formation,
+  matching what a human reported after playing it.
+- **Sound is data, not an effect.** `Game.step` stays pure and records what happened as a
+  list of `SoundCmd`; the runtime reads it and makes noise. So replay stays exact, the tests
+  assert on sound without a device, and a machine with no sound card runs the same
+  simulation as one with speakers. The four-note bassline is spaced by *distance marched*
+  rather than by a timer, so its tempo tracks the formation's speed-up for free.
 - **Colours are checked, not eyeballed.** [TestContrast.flix](test/TestContrast.flix)
   asserts WCAG 2.1 contrast ratios for the whole [palette](src/Runtime/Palette.flix) — 4.5:1
   for text, 3:1 for shapes. A less legible colour fails the build.
@@ -91,9 +103,10 @@ suite run headless, and what makes identical input replay to an identical world.
 
 ## Non-goals
 
-Deliberately out of scope: image assets, networking, persistence, a game engine, a browser
-playground, and a Processing Mode. The sprites are pixel art written as text in the source,
-not files -- the only binary asset is the arcade font.
+Deliberately out of scope: image and audio assets, networking, persistence, a game engine, a
+browser playground, and a Processing Mode. The sprites are pixel art written as text in the
+source and the sounds are synthesized from arithmetic — the only binary asset is the arcade
+font.
 
 ## Remix it
 

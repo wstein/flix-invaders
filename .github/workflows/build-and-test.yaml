@@ -34,13 +34,15 @@ jobs:
       - name: Test
         run: bin/flix test
 
-      # The test suite must stay headless: no @Test may open a window. Runners have no
-      # display, and Processing's ShimAWT calls System.exit(1) on HeadlessException,
-      # which would surface as a bare exit code with no stack trace.
+      # The test suite must stay headless: no @Test may open a window or a sound line.
+      # Runners have neither a display nor a mixer -- Processing's ShimAWT calls
+      # System.exit(1) on HeadlessException, and AudioSystem throws an unchecked
+      # IllegalArgumentException when no mixer exists.
       - name: Verify tests are headless
         run: |
-          if grep -rn 'Sketch\.start' test/; then
-            echo "::error::test/ must not open a window; use Canvas.runCollecting instead."
+          if grep -rn 'Sketch\.start\|Audio\.' test/; then
+            echo "::error::test/ must not open a window or an audio device."
+            echo "::error::Use Canvas.runCollecting for rendering and assert on World.sounds for audio."
             exit 1
           fi
 

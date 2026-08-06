@@ -77,19 +77,29 @@ mod Sprite {
         }, 0, runs(sprite))
 
     ///
-    /// Draws a sprite centred on `centre`, with each sprite pixel `scale` screen pixels wide.
+    /// Draws a sprite centred on `centre`, stretched independently in each axis.
     ///
-    pub def draw(sprite: Sprite, centre: Vec2, scale: Float32): Unit \ Canvas = {
-        let left = centre#x - Int32.toFloat32(sprite#width) * scale / 2.0f32;
-        let top = centre#y - Int32.toFloat32(sprite#height) * scale / 2.0f32;
+    /// Separate axes so a shape can be made wide without also becoming tall -- which is what
+    /// a flying saucer wants and a square pixel does not give you.
+    ///
+    pub def drawScaled(sprite: Sprite, centre: Vec2, scaleX: Float32, scaleY: Float32
+    ): Unit \ Canvas = {
+        let left = centre#x - Int32.toFloat32(sprite#width) * scaleX / 2.0f32;
+        let top = centre#y - Int32.toFloat32(sprite#height) * scaleY / 2.0f32;
         List.forEach(segment -> {
             let (y, x, length) = segment;
-            Canvas.rect(left + Int32.toFloat32(x) * scale,
-                        top + Int32.toFloat32(y) * scale,
-                        Int32.toFloat32(length) * scale,
-                        scale)
+            Canvas.rect(left + Int32.toFloat32(x) * scaleX,
+                        top + Int32.toFloat32(y) * scaleY,
+                        Int32.toFloat32(length) * scaleX,
+                        scaleY)
         }, runs(sprite))
     }
+
+    ///
+    /// Draws a sprite centred on `centre`, with each sprite pixel `scale` screen pixels wide.
+    ///
+    pub def draw(sprite: Sprite, centre: Vec2, scale: Float32): Unit \ Canvas =
+        drawScaled(sprite, centre, scale, scale)
 
 }
 

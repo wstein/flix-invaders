@@ -47,10 +47,18 @@ mod Game {
           pause = 0,
           blasts = Nil,
           mystery = None,
-          mysteryTimer = Rules.mysteryInterval() }
+          mysteryTimer = Rules.mysteryInterval(),
+          shield = 0,
+          sounds = Nil,
+          marchNote = 0,
+          marchedSince = 0.0f32 }
 
     def clampTo(lo: Float32, hi: Float32, v: Float32): Float32 =
         if (v < lo) lo else if (v > hi) hi else v
+
+    /// Records a sound for this tick.
+    def emit(cmd: SoundCmd, w: World): World =
+        { sounds = cmd :: w#sounds | w }
 
     // -- pipeline stages --------------------------------------------------------------
 
@@ -68,7 +76,7 @@ mod Game {
         else if (not Set.memberOf(Key.Space, input#held)) w
         else {
             let muzzle = { x = w#playerX, y = Rules.playerY() - Rules.playerSize()#y };
-            { bullets = muzzle :: w#bullets, cooldown = Rules.fireCooldown() | w }
+            emit(SoundCmd.Shoot, { bullets = muzzle :: w#bullets, cooldown = Rules.fireCooldown() | w })
         }
 
     /// Bullets rise and are dropped when they leave the top of the field.
@@ -106,16 +114,31 @@ mod Game {
             case Some((lo, hi)) => {
                 let living = Vector.count(inv -> inv#alive, w#invaders);
                 let stepX = w#marchDir * Rules.marchSpeedFor(living, w#level);
+                // The bassline advances by however far the formation just moved, so its
+                // tempo tracks the speed-up without a separate timer.
+                let sounded = beat(Float32.abs(stepX), w);
                 let hitsWall = (lo + stepX) < half or (hi + stepX) > (Rules.fieldWidth() - half);
                 if (hitsWall)
-                    { marchDir = -w#marchDir,
+                    { marchDir = -sounded#marchDir,
                       invaders = Vector.map(inv -> { pos = { y = inv#pos#y + Rules.marchDrop() | inv#pos } | inv },
-                                            w#invaders) | w }
+                                            sounded#invaders) | sounded }
                 else
                     { invaders = Vector.map(inv -> { pos = { x = inv#pos#x + stepX | inv#pos } | inv },
-                                            w#invaders) | w }
+                                            sounded#invaders) | sounded }
             }
         }
+    }
+
+    ///
+    /// Advances the marching bassline by `distance`, sounding a note when one is due.
+    ///
+    def beat(distance: Float32, w: World): World = {
+        let total = w#marchedSince + distance;
+        if (total < Rules.marchNoteDistance()) { marchedSince = total | w }
+        else
+            emit(SoundCmd.MarchStep(w#marchNote),
+                 { marchedSince = total - Rules.marchNoteDistance(),
+                   marchNote = Int32.remainder(w#marchNote + 1, SoundCmd.marchNotes()) | w })
     }
 
     /// The lowest living invader in each column is the only one that can drop a bomb.
@@ -182,7 +205,10 @@ mod Game {
             }
         };
         let (bullets, invaders, score, blasts) = loop(w#bullets, w#invaders, Nil, w#score, w#blasts);
-        { bullets = bullets, invaders = invaders, score = score, blasts = blasts | w }
+        let killed = List.length(blasts) - List.length(w#blasts);
+        let noises = List.repeat(killed, SoundCmd.InvaderDies);
+        { bullets = bullets, invaders = invaders, score = score, blasts = blasts,
+          sounds = List.append(noises, w#sounds) | w }
     }
 
     ///
@@ -196,12 +222,17 @@ mod Game {
         let player = { x = w#playerX, y = Rules.playerY() };
         let hit = List.exists(b -> Collide.overlaps(b, Rules.bombSize(), player, Rules.playerSize()), w#bombs);
         if (not hit) w
+        else if (w#shield > 0)
+            // The shield takes it. The bombs on screen are still cleared, so a shielded hit
+            // buys breathing room as well as a life.
+            emit(SoundCmd.ShieldBlock, { bombs = Nil | w })
         else {
             let wreck = { pos = player, ticksLeft = Rules.playerBlastTicks(), kind = BlastKind.PlayerBlast };
-            { lives = w#lives - 1,
-              bombs = Nil,
-              blasts = wreck :: w#blasts,
-              pause = Rules.deathPauseTicks() | w }
+            emit(SoundCmd.PlayerDies,
+                 { lives = w#lives - 1,
+                   bombs = Nil,
+                   blasts = wreck :: w#blasts,
+                   pause = Rules.deathPauseTicks() | w })
         }
     }
 
@@ -224,9 +255,10 @@ mod Game {
                 let (fromLeft, next) = Rng.chance(2, w#rng);
                 let dir = if (fromLeft) 1.0f32 else -1.0f32;
                 let x = if (fromLeft) -mysteryMargin() else Rules.fieldWidth() + mysteryMargin();
-                { mystery = Some({ x = x, dir = dir }),
-                  mysteryTimer = Rules.mysteryInterval(),
-                  rng = next | w }
+                emit(SoundCmd.MysteryAppears,
+                     { mystery = Some({ x = x, dir = dir }),
+                       mysteryTimer = Rules.mysteryInterval(),
+                       rng = next | w })
             }
     }
 
@@ -245,14 +277,21 @@ mod Game {
             else {
                 let (points, next) = Rules.mysteryScoreFrom(w#rng);
                 let blast = { pos = pos, ticksLeft = Rules.invaderBlastTicks(), kind = BlastKind.InvaderBlast };
-                { mystery = None,
-                  bullets = List.filter(b -> not hits(b), w#bullets),
-                  score = w#score + points,
-                  blasts = blast :: w#blasts,
-                  rng = next | w }
+                // The bonus is not only points: it also raises the cannon's shield.
+                emit(SoundCmd.MysteryDies,
+                     { mystery = None,
+                       bullets = List.filter(b -> not hits(b), w#bullets),
+                       score = w#score + points,
+                       blasts = blast :: w#blasts,
+                       shield = Rules.shieldTicks(),
+                       rng = next | w })
             }
         }
     }
+
+    /// Counts the shield down. It runs on wall time, not on hits.
+    def ageShield(w: World): World =
+        { shield = Int32.max(0, w#shield - 1) | w }
 
     ///
     /// Ages every blast by a tick and drops the ones that have burnt out.
@@ -311,6 +350,8 @@ mod Game {
           blasts = Nil,
           mystery = None,
           mysteryTimer = Rules.mysteryInterval(),
+          marchNote = 0,
+          marchedSince = 0.0f32,
           playerX = Rules.fieldWidth() / 2.0f32 | w }
 
     ///
@@ -324,7 +365,8 @@ mod Game {
     ///
     pub def digest(w: World): String = {
         let header = "${w#phase}|t=${w#tick}|x=${w#playerX}|s=${w#score}|l=${w#lives}"
-            + "|d=${w#marchDir}|c=${w#cooldown}|h=${w#hiScore}|v=${w#level}|p=${w#pause}|r=${w#rng}";
+            + "|d=${w#marchDir}|c=${w#cooldown}|h=${w#hiScore}|v=${w#level}|p=${w#pause}"
+            + "|g=${w#shield}|r=${w#rng}";
         let shots = List.foldLeft((acc, b) -> acc + "|b(${b#x},${b#y})", "", w#bullets);
         let drops = List.foldLeft((acc, b) -> acc + "|m(${b#x},${b#y})", "", w#bombs);
         let formation = Vector.foldLeft((acc, inv) ->
@@ -337,7 +379,8 @@ mod Game {
             case None => "|u-${w#mysteryTimer}"
             case Some(m) => "|u(${m#x},${m#dir})"
         };
-        header + shots + drops + formation + shelters + debris + ufo
+        let heard = List.foldLeft((acc, c) -> acc + "|s${c}", "", w#sounds);
+        header + shots + drops + formation + shelters + debris + ufo + heard
     }
 
     // -- the step ---------------------------------------------------------------------
@@ -347,7 +390,10 @@ mod Game {
     ///
     /// Pure. Given the same world and the same input, always the same result.
     ///
-    pub def step(w: World, input: Snapshot): World = match w#phase {
+    pub def step(world: World, input: Snapshot): World = {
+        // Sounds describe the tick just taken, so each step starts from silence.
+        let w = { sounds = Nil | world };
+        match w#phase {
         case Phase.Playing =>
             // Everything freezes while the cannon burns, except the wreckage itself.
             if (w#pause > 0)
@@ -361,6 +407,9 @@ mod Game {
                 |> marchInvaders
                 |> moveMystery
                 |> invaderFire
+                // Ages before anything can grant a shield, so a shield lasts exactly its
+                // full duration rather than losing its first tick to the grant itself.
+                |> ageShield
                 |> resolveBunkers
                 |> resolveBullets
                 |> resolveMystery
@@ -380,6 +429,7 @@ mod Game {
             // way an arcade cabinet's does.
             if (Set.memberOf(Key.Enter, input#pressed)) { hiScore = w#hiScore | initial(w#seed) }
             else w
+        }
     }
 
 }

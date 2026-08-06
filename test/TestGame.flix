@@ -240,8 +240,12 @@ mod TestGame {
         let last = Rules.marchSpeedFor(1, 1);
         assertTrue(half > full);
         assertTrue(last > half);
-        assertTrueWithMsg(last > full * 4.0f32,
-            "the last invader should be dramatically faster: ${full} -> ${last}")
+        // Bounded on both sides. Too little and the endgame is flat; too much and level one
+        // becomes unwinnable, which is exactly what happened at 5x and had to be retuned.
+        assertTrueWithMsg(last > full * 2.0f32,
+            "the last invader should be clearly faster: ${full} -> ${last}");
+        assertTrueWithMsg(last < full * 4.0f32,
+            "the speed-up is steep enough to make the level unplayable: ${full} -> ${last}")
     }
 
     @Test
@@ -590,6 +594,185 @@ mod TestGame {
             case (Some(a), Some(b)) => assertEq(expected = a#x, b#x)
             case _ => Assert.fail("expected the ship to still be there")
         }
+    }
+
+    // -- sound -----------------------------------------------------------------------
+
+    /// Every sound emitted across `n` steps.
+    def heard(n: Int32, w: World, input: Snapshot): List[SoundCmd] = {
+        def loop(remaining, world, acc) =
+            if (remaining <= 0) acc
+            else {
+                let next = Game.step(world, input);
+                loop(remaining - 1, next, List.append(acc, next#sounds))
+            };
+        loop(n, w, Nil)
+    }
+
+    def countOf(cmd: SoundCmd, cmds: List[SoundCmd]): Int32 =
+        List.count(c -> c == cmd, cmds)
+
+    def marchNotes(cmds: List[SoundCmd]): Int32 =
+        List.count(c -> match c {
+            case SoundCmd.MarchStep(_) => true
+            case _ => false
+        }, cmds)
+
+    @Test
+    def testAFreshWorldIsSilent(): Unit \ Assert =
+        assertEq(expected = (Nil: List[SoundCmd]), start()#sounds)
+
+    @Test
+    def testFiringIsHeard(): Unit \ Assert =
+        assertEq(expected = 1, countOf(SoundCmd.Shoot, Game.step(start(), Input.holding(Key.Space :: Nil))#sounds))
+
+    @Test
+    def testKillingAnInvaderIsHeard(): Unit \ Assert =
+        assertEq(expected = 1,
+                 countOf(SoundCmd.InvaderDies, Game.step(bulletOnFirstInvader(start()), Input.empty())#sounds))
+
+    @Test
+    def testEveryKillIsHeardSeparately(): Unit \ Assert = {
+        // Two bullets landing on two invaders in one tick must make two noises, not one.
+        let base = start();
+        let a = Vector.get(0, base#invaders)#pos;
+        let b = Vector.get(1, base#invaders)#pos;
+        let w = Game.step({ bullets = a :: b :: Nil | base }, Input.empty());
+        assertEq(expected = 2, countOf(SoundCmd.InvaderDies, w#sounds))
+    }
+
+    @Test
+    def testBeingHitIsHeard(): Unit \ Assert =
+        assertEq(expected = 1, countOf(SoundCmd.PlayerDies, Game.step(aboutToBeHit(), Input.empty())#sounds))
+
+    @Test
+    def testTheMysteryShipIsHeardArriving(): Unit \ Assert =
+        assertEq(expected = 1,
+                 countOf(SoundCmd.MysteryAppears, heard(3, { mysteryTimer = 2 | start() }, Input.empty())))
+
+    @Test
+    def testTheMysteryShipIsHeardDying(): Unit \ Assert = {
+        let shot = { bullets = { x = 300.0f32, y = Rules.mysteryY() } :: Nil,
+                     mystery = Some({ x = 300.0f32, dir = 1.0f32 }) | start() };
+        assertEq(expected = 1, countOf(SoundCmd.MysteryDies, Game.step(shot, Input.empty())#sounds))
+    }
+
+    @Test
+    def testSoundsDescribeOnlyTheTickJustTaken(): Unit \ Assert = {
+        // Otherwise every shot would keep replaying for the rest of the game.
+        let fired = Game.step(start(), Input.holding(Key.Space :: Nil));
+        assertEq(expected = 1, countOf(SoundCmd.Shoot, fired#sounds));
+        assertEq(expected = 0, countOf(SoundCmd.Shoot, Game.step(fired, Input.empty())#sounds))
+    }
+
+    @Test
+    def testTheBasslinePlays(): Unit \ Assert =
+        assertTrue(marchNotes(heard(200, start(), Input.empty())) > 0)
+
+    @Test
+    def testTheBasslineCyclesThroughItsFourNotes(): Unit \ Assert = {
+        let notes = List.filterMap(c -> match c {
+            case SoundCmd.MarchStep(n) => Some(n)
+            case _ => None
+        }, heard(400, start(), Input.empty()));
+        // Every note of the phrase gets used, in order, wrapping round.
+        assertEq(expected = 4, Set.size(List.toSet(notes)));
+        assertEq(expected = Some(0), List.head(notes))
+    }
+
+    @Test
+    def testTheBasslineSpeedsUpWithTheInvaders(): Unit \ Assert = {
+        // The tempo is the same signal as the march speed, which is the whole point: the
+        // music tells you how close you are to losing.
+        let base = start();
+        let lastOne = { invaders = Vector.mapWithIndex((i, inv) ->
+                            if (i == 0) inv else { alive = false | inv }, base#invaders) | base };
+        let slow = marchNotes(heard(120, base, Input.empty()));
+        let fast = marchNotes(heard(120, lastOne, Input.empty()));
+        Assert.assertTrueWithMsg(fast > slow * 3,
+            "expected the bassline to race as the formation thins: ${slow} -> ${fast}")
+    }
+
+    @Test
+    def testAFrozenGameIsSilent(): Unit \ Assert = {
+        // Nothing should be heard while the cannon burns or between levels.
+        let burning = Game.step(aboutToBeHit(), Input.empty());
+        assertEq(expected = (Nil: List[SoundCmd]), Game.step(burning, Input.holding(Key.Space :: Nil))#sounds);
+        let cleared = Game.step(swept(), Input.empty());
+        assertEq(expected = (Nil: List[SoundCmd]), Game.step(cleared, Input.empty())#sounds)
+    }
+
+    @Test
+    def testALostGameIsSilent(): Unit \ Assert = {
+        let lost = { phase = Phase.Lost | start() };
+        assertEq(expected = (Nil: List[SoundCmd]), Game.step(lost, Input.holding(Key.Space :: Nil))#sounds)
+    }
+
+    // -- the shield ------------------------------------------------------------------
+
+    /// A world with the ship lined up under the cannon's bullet.
+    def aboutToBonus(): World =
+        { bullets = { x = 300.0f32, y = Rules.mysteryY() } :: Nil,
+          mystery = Some({ x = 300.0f32, dir = 1.0f32 }) | start() }
+
+    @Test
+    def testNoShieldAtTheStart(): Unit \ Assert =
+        assertEq(expected = 0, start()#shield)
+
+    @Test
+    def testShootingTheMysteryShipRaisesTheShield(): Unit \ Assert =
+        assertEq(expected = Rules.shieldTicks(), Game.step(aboutToBonus(), Input.empty())#shield)
+
+    @Test
+    def testTheShieldCountsDown(): Unit \ Assert = {
+        let shielded = Game.step(aboutToBonus(), Input.empty());
+        assertEq(expected = shielded#shield - 10, steps(10, shielded, Input.empty())#shield)
+    }
+
+    @Test
+    def testTheShieldExpires(): Unit \ Assert =
+        assertEq(expected = 0, steps(Rules.shieldTicks() + 5, Game.step(aboutToBonus(), Input.empty()),
+                                     Input.empty())#shield)
+
+    @Test
+    def testTheShieldAbsorbsABomb(): Unit \ Assert = {
+        let shielded = { shield = Rules.shieldTicks() | aboutToBeHit() };
+        let w = Game.step(shielded, Input.empty());
+        assertEq(expected = Rules.startingLives(), w#lives);
+        assertEq(expected = 0, List.length(w#bombs));
+        assertEq(expected = 1, countOf(SoundCmd.ShieldBlock, w#sounds))
+    }
+
+    @Test
+    def testAShieldedHitDoesNotWreckTheCannon(): Unit \ Assert = {
+        let w = Game.step({ shield = Rules.shieldTicks() | aboutToBeHit() }, Input.empty());
+        assertFalse(hasPlayerBlast(w));
+        assertEq(expected = 0, w#pause)
+    }
+
+    @Test
+    def testTheShieldIsTimedNotChargeBased(): Unit \ Assert = {
+        // Absorbing a hit must not consume the shield -- it runs on the clock.
+        let w = Game.step({ shield = 500 | aboutToBeHit() }, Input.empty());
+        assertTrue(w#shield > 400)
+    }
+
+    @Test
+    def testBombsHurtAgainOnceTheShieldIsGone(): Unit \ Assert = {
+        let w = Game.step({ shield = 0 | aboutToBeHit() }, Input.empty());
+        assertEq(expected = Rules.startingLives() - 1, w#lives)
+    }
+
+    @Test
+    def testTheShieldIsDrawn(): Unit \ Assert =
+        assertTrue(rectCount({ shield = Rules.shieldTicks() | start() }) > rectCount(start()))
+
+    @Test
+    def testTheShieldFlashesBeforeItFails(): Unit \ Assert = {
+        // The blink must actually change the frame, or the warning is invisible.
+        let on = { shield = Rules.shieldWarningTicks() - 1 | start() };
+        let off = { shield = Rules.shieldWarningTicks() - 9 | start() };
+        assertTrue(rectCount(on) != rectCount(off))
     }
 
 }
