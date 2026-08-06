@@ -1,0 +1,6 @@
+[package]
+name        = "flix-proc-invaders"
+description = "TODO"
+version     = "0.1.0"
+flix        = "0.75.1+fork.wstein.260802.2.104.g6ec07eccd.dirty"
+authors     = ["Werner Stein <werner.stein@gmail.com>"]
