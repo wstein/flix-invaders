@@ -39,7 +39,7 @@ jobs:
       # which would surface as a bare exit code with no stack trace.
       - name: Verify tests are headless
         run: |
-          if grep -rn 'Sketch\.run\|runOnPApplet' test/; then
+          if grep -rn 'Sketch\.start' test/; then
             echo "::error::test/ must not open a window; use Canvas.runCollecting instead."
             exit 1
           fi

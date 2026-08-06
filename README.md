@@ -10,9 +10,10 @@ system make creative coding clearer?*
 
 ## Status
 
-The integration spike is complete: Flix drives a Processing window directly, with **no Java
-in this repository**. See [docs/spike-result.md](docs/spike-result.md). The effect boundary,
-the teaching sketches, and the game itself are being built on top of it.
+The runtime is complete: Flix drives a Processing window directly, with **no Java in this
+repository**. Drawing goes through a `Canvas` effect, input through an `Input` effect, and
+the simulation runs on a fixed timestep. See
+[docs/spike-result.md](docs/spike-result.md). The game itself is being built on top.
 
 ## Quickstart
 
@@ -24,18 +25,17 @@ cd flix-proc-invaders
 
 bin/flix check     # type-check (fast feedback loop)
 bin/flix test      # run the test suite -- no window is ever opened
+bin/sketch static  # open a window
 ```
 
 `bin/flix` fetches the compiler version pinned in `flix.toml` into `.flix/` once, then
 reuses it, so local runs and CI behave identically.
 
-To see a window today:
+## Make your first change
 
-```sh
-bin/flix run --entrypoint Spike.main
-```
-
-Arrow keys move the box, space toggles its brightness, ESC or the close button quits.
+Open [src/Sketches/Still.flix](src/Sketches/Still.flix) and change a colour, or move the sun
+by editing the two numbers in its `Canvas.ellipse` call. Then `bin/sketch static` again.
+That round trip should take under a minute.
 
 ## Where the line is
 
