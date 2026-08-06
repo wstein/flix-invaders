@@ -25,6 +25,13 @@ pinned compiler into `.flix/`, so local runs match CI exactly.
 - `flix.toml` — package metadata, the Flix version, and dependencies
 - `build/`, `artifact/`, `lib/`, `.flix/` — generated; do not edit and do not commit
 
+## Orientation
+
+`docs/ARCHITECTURE.md` explains why each boundary sits where it does, with diagrams of the
+module graph, the frame loop, the threading model, and the determinism story. It also lists
+the alternatives that were tried and rejected, which is the fastest way to avoid re-proposing
+one.
+
 ## Project-specific gotchas
 
 These cost real debugging time. See `docs/spike-result.md` for the full record.
