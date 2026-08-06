@@ -15,7 +15,9 @@ def main(): Unit \ IO = {
           height = 480,
           seed = 2026i64,
           hz = 60,
-          maxFrames = limit },
+          maxFrames = limit,
+          // Relative to the working directory; bin/flix cds to the project root first.
+          fontPath = Some("assets/PressStart2P-Regular.ttf") },
         Game.initial,
         Game.step,
         View.render)

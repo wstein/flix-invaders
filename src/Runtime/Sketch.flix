@@ -5,13 +5,18 @@
 /// deliberately independent of the display's frame rate. `maxFrames` stops the sketch after
 /// a fixed number of frames, which is how the smoke test terminates on a CI runner.
 ///
+/// `fontPath` is an optional path to a TrueType file. If it is missing or unreadable the
+/// sketch simply keeps Processing's default font, so a broken path costs you looks, not a
+/// crash.
+///
 pub type alias Config = {
     title = String,
     width = Int32,
     height = Int32,
     seed = Int64,
     hz = Int32,
-    maxFrames = Option[Int32]
+    maxFrames = Option[Int32],
+    fontPath = Option[String]
 }
 
 ///
@@ -24,6 +29,10 @@ pub type alias Config = {
 mod Sketch {
 
     import processing.core.PApplet
+    import processing.core.PFont
+    import java.awt.Font
+    import java.io.FileInputStream
+    import java.lang.Exception
     import java.lang.System
     import java.lang.Thread
 
@@ -31,7 +40,8 @@ mod Sketch {
     /// A 640x480 sketch at 60 Hz with a fixed seed and no frame limit.
     ///
     pub def defaultConfig(): Config =
-        { title = "Flix sketch", width = 640, height = 480, seed = 42i64, hz = 60, maxFrames = None }
+        { title = "Flix sketch", width = 640, height = 480, seed = 42i64, hz = 60,
+          maxFrames = None, fontPath = None }
 
     ///
     /// Reads a frame limit from the `FLIX_SKETCH_MAX_FRAMES` environment variable.
@@ -47,6 +57,33 @@ mod Sketch {
             case _ => None
         }
     }
+
+    ///
+    /// The size a loaded font is first derived to.
+    ///
+    /// Anything works -- `Canvas.textSize` re-derives the native font on every size change --
+    /// but it must not be left at the size of 1 that `Font.createFont` returns, or `PFont`
+    /// builds a three-pixel rasteriser and the text is unreadable.
+    ///
+    def baseFontSize(): Float32 = 16.0f32
+
+    ///
+    /// Loads a TrueType font from a file path, or `None` if anything goes wrong.
+    ///
+    /// A file path rather than the classpath, deliberately: Flix loads code through class
+    /// loaders that parent to the *platform* loader and never consult the project's own
+    /// resources, so `getResourceAsStream` returns null here -- and would start working
+    /// under `flix build-jar`, which is worse than failing consistently.
+    ///
+    def loadFont(path: String): Option[PFont] \ IO =
+        try {
+            let stream = new FileInputStream(path);
+            let base = Font.createFont(Font.TRUETYPE_FONT, stream);
+            stream.close();
+            Some(new PFont(base.deriveFont(baseFontSize()), false))
+        } catch {
+            case _: Exception => None
+        }
 
     ///
     /// Splits a colour into the three float channels Processing wants.
@@ -106,6 +143,15 @@ mod Sketch {
             def setup(app: PApplet): Unit \ IO + rc = {
                 app.getSurface().setTitle(cfg#title);
                 app.frameRate(Int32.toFloat32(cfg#hz));
+                // Must be after `size()`, so `setup` and not `settings`: `textFont` goes
+                // through `g`, which does not exist until the surface is made.
+                match cfg#fontPath {
+                    case None => ()
+                    case Some(path) => match loadFont(path) {
+                        case None => println("could not load font ${path}; using the default")
+                        case Some(font) => app.textFont(font)
+                    }
+                };
                 app.textSize(14.0f32);
                 // Shapes are flat fills. Without this, Processing outlines every shape with
                 // its default 1px black stroke.

@@ -71,6 +71,11 @@ suite run headless, and what makes identical input replay to an identical world.
   part of the world, so a game that uses randomness is still a pure function of its inputs.
 - **Drawing is an effect with two interpretations.** `Canvas.runCollecting` records draw
   calls as a `List[DrawCmd]` with no window, so rendering is tested as data.
+- **Arcade font.** The HUD is set in [Press Start 2P](assets/), loaded from a file at
+  startup. No font is installed on macOS, Linux *and* Windows alike, so relying on a system
+  font would mean different metrics on each; vendoring one makes the layout identical
+  everywhere. A missing or unreadable file falls back to Processing's default rather than
+  crashing.
 - **Pixel art, no image files.** Sprites are written as rows of `#` and `.` in
   [Sprites.flix](src/Invaders/Sprites.flix) and drawn as rectangles. Each row is collapsed
   into horizontal runs first, which is what keeps 55 invaders and four bunkers inside a
@@ -86,9 +91,9 @@ suite run headless, and what makes identical input replay to an identical world.
 
 ## Non-goals
 
-Deliberately out of scope: audio, image and font assets, networking, multiple levels,
-persistence, a game engine, a browser playground, and a Processing Mode. The sprites are
-pixel art written as text in the source, not files.
+Deliberately out of scope: image assets, networking, persistence, a game engine, a browser
+playground, and a Processing Mode. The sprites are pixel art written as text in the source,
+not files -- the only binary asset is the arcade font.
 
 ## Remix it
 

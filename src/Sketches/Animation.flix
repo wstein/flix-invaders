@@ -239,7 +239,7 @@ mod Animation {
               height = fieldHeightPx(),
               seed = 2026i64,
               hz = 60,
-              maxFrames = limit },
+              maxFrames = limit, fontPath = None },
             initial,
             step,
             view)

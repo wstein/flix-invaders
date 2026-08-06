@@ -93,20 +93,53 @@ mod View {
         zeros(4 - String.length(digits)) + digits
     }
 
+    /// The HUD type size. Press Start 2P is a pixel font: whole multiples look best.
+    def hudSize(): Float32 = 12.0f32
+
+    def bannerSize(): Float32 = 24.0f32
+
+    ///
+    /// The width of a string, in pixels.
+    ///
+    /// Press Start 2P is monospaced with an advance equal to the em size, so this is exact
+    /// and lets the HUD be laid out by character count rather than by numbers tuned against
+    /// whatever font the platform happened to supply.
+    ///
+    def textWidth(s: String, size: Float32): Float32 =
+        Int32.toFloat32(String.length(s)) * size
+
+    /// The x that centres `s` in the field.
+    def centredX(s: String, size: Float32): Float32 =
+        (Rules.fieldWidth() - textWidth(s, size)) / 2.0f32
+
+    /// The x that right-aligns `s` with its right edge `margin` from the field edge.
+    def rightAlignedX(s: String, size: Float32, margin: Float32): Float32 =
+        Rules.fieldWidth() - textWidth(s, size) - margin
+
     def drawHud(w: World): Unit \ Canvas = {
-        Canvas.textSize(14.0f32);
+        Canvas.textSize(hudSize());
+        let margin = 24.0f32;
 
         Canvas.fill(Palette.invaderCyan());
-        Canvas.text("SCORE<1>", 34.0f32, 26.0f32);
+        Canvas.text("SCORE<1>", margin, 26.0f32);
         Canvas.fill(Palette.ink());
-        Canvas.text("HI-SCORE", 262.0f32, 26.0f32);
+        Canvas.text("HI-SCORE", centredX("HI-SCORE", hudSize()), 26.0f32);
         Canvas.fill(Palette.sun());
-        Canvas.text("SCORE<2>", 486.0f32, 26.0f32);
+        Canvas.text("SCORE<2>", rightAlignedX("SCORE<2>", hudSize(), margin), 26.0f32);
 
+        // Each value sits centred under its own label.
+        let under = (label, value) -> {
+            let labelWidth = textWidth(label, hudSize());
+            let valueWidth = textWidth(value, hudSize());
+            (labelWidth - valueWidth) / 2.0f32
+        };
         Canvas.fill(Palette.ink());
-        Canvas.text(scoreText(w#score), 52.0f32, 48.0f32);
-        Canvas.text(scoreText(w#hiScore), 280.0f32, 48.0f32);
-        Canvas.text(scoreText(0), 504.0f32, 48.0f32)
+        let own = scoreText(w#score);
+        let best = scoreText(w#hiScore);
+        let other = scoreText(0);
+        Canvas.text(own, margin + under("SCORE<1>", own), 48.0f32);
+        Canvas.text(best, centredX("HI-SCORE", hudSize()) + under("HI-SCORE", best), 48.0f32);
+        Canvas.text(other, rightAlignedX("SCORE<2>", hudSize(), margin) + under("SCORE<2>", other), 48.0f32)
     }
 
     ///
@@ -117,15 +150,15 @@ mod View {
         Canvas.rect(0.0f32, Rules.groundY(), Rules.fieldWidth(), 2.0f32);
 
         Canvas.fill(Palette.ink());
-        Canvas.textSize(14.0f32);
-        Canvas.text("${w#lives}", 20.0f32, Rules.fieldHeight() - 6.0f32);
+        Canvas.textSize(hudSize());
+        Canvas.text("${w#lives}", 24.0f32, Rules.fieldHeight() - 8.0f32);
 
         // One small cannon per life still in reserve, so the count is readable at a glance.
         Canvas.fill(Palette.cannonGreen());
         drawSpareLives(Sprites.cannon(), w#lives - 1, 0);
 
         Canvas.fill(Palette.ink());
-        Canvas.text("CREDIT 01", Rules.fieldWidth() - 108.0f32, Rules.fieldHeight() - 6.0f32)
+        Canvas.text("CREDIT 01", rightAlignedX("CREDIT 01", hudSize(), 24.0f32), Rules.fieldHeight() - 8.0f32)
     }
 
     def drawSpareLives(cannon: Sprite, remaining: Int32, index: Int32): Unit \ Canvas =
@@ -143,14 +176,13 @@ mod View {
     }
 
     def banner(message: String): Unit \ Canvas = {
+        let hint = "PRESS ENTER TO PLAY AGAIN";
         Canvas.fill(Palette.ink());
-        Canvas.textSize(30.0f32);
-        Canvas.text(message, Rules.fieldWidth() / 2.0f32 - 80.0f32, Rules.fieldHeight() / 2.0f32);
+        Canvas.textSize(bannerSize());
+        Canvas.text(message, centredX(message, bannerSize()), Rules.fieldHeight() / 2.0f32);
         Canvas.fill(Palette.invaderCyan());
-        Canvas.textSize(14.0f32);
-        Canvas.text("PRESS ENTER TO PLAY AGAIN",
-                    Rules.fieldWidth() / 2.0f32 - 96.0f32,
-                    Rules.fieldHeight() / 2.0f32 + 32.0f32)
+        Canvas.textSize(hudSize());
+        Canvas.text(hint, centredX(hint, hudSize()), Rules.fieldHeight() / 2.0f32 + 36.0f32)
     }
 
     ///
