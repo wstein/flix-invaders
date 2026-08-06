@@ -251,14 +251,19 @@ mod Game {
             else { mystery = Some({ x = x | m }) | w }
         }
         case None =>
-            if (w#mysteryTimer > 1) { mysteryTimer = w#mysteryTimer - 1 | w }
+            // Once the formation is nearly gone the saucer stops coming: the last few
+            // invaders move fast enough that a bonus overhead is a distraction, not a
+            // reward. The timer holds rather than counting down, so nothing is banked.
+            if (Vector.count(inv -> inv#alive, w#invaders) <= Rules.mysteryMinInvaders()) w
+            else if (w#mysteryTimer > 1) { mysteryTimer = w#mysteryTimer - 1 | w }
             else {
-                let (fromLeft, next) = Rng.chance(2, w#rng);
+                let (fromLeft, afterSide) = Rng.chance(2, w#rng);
+                let (jitter, next) = Rng.nextInt32Below(Rules.mysterySpread(), afterSide);
                 let dir = if (fromLeft) 1.0f32 else -1.0f32;
                 let x = if (fromLeft) -mysteryMargin() else Rules.fieldWidth() + mysteryMargin();
                 emit(SoundCmd.MysteryAppears,
                      { mystery = Some({ x = x, dir = dir }),
-                       mysteryTimer = Rules.mysteryInterval(),
+                       mysteryTimer = Rules.mysteryInterval() + jitter,
                        rng = next | w })
             }
     }

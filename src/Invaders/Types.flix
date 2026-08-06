@@ -241,16 +241,41 @@ mod Rules {
     pub def mysteryScaleX(): Float32 = 3.0f32
     pub def mysteryScaleY(): Float32 = 2.0f32
 
-    /// The 16x7 sprite at the scales above.
-    pub def mysterySize(): Vec2 = { x = 96.0f32, y = 14.0f32 }
+    ///
+    /// The saucer's hit box, derived from the sprite and the scales it is drawn at.
+    ///
+    /// Computed rather than written down: a hard-coded size silently stops matching the
+    /// moment a scale changes, which is exactly what happened -- the hit box stayed at the
+    /// old 96px while the sprite shrank to 48, so the saucer could be hit from well outside
+    /// itself.
+    ///
+    pub def mysterySize(): Vec2 =
+        { x = Int32.toFloat32(Sprites.mystery()#width) * mysteryScaleX(),
+          y = Int32.toFloat32(Sprites.mystery()#height) * mysteryScaleY() }
 
     /// High enough to be clear of the formation's starting row.
     pub def mysteryY(): Float32 = 70.0f32
 
     pub def mysterySpeed(): Float32 = 1.6f32
 
-    /// Ticks between appearances -- about twenty-five seconds, as in the original.
-    pub def mysteryInterval(): Int32 = 1500
+    ///
+    /// Ticks between appearances, plus up to `mysterySpread` more.
+    ///
+    /// Short enough that a saucer turns up two or three times in a level rather than once at
+    /// the very end, and jittered so it does not arrive on the same beat every time.
+    ///
+    pub def mysteryInterval(): Int32 = 700
+
+    pub def mysterySpread(): Int32 = 320
+
+    ///
+    /// The saucer stops coming once the formation is this thin.
+    ///
+    /// The original does the same. Without it the bonus turns up exactly when the last few
+    /// invaders are racing across the screen and there is no attention to spare for it --
+    /// which is the worst possible moment to dangle a reward.
+    ///
+    pub def mysteryMinInvaders(): Int32 = 8
 
     ///
     ///

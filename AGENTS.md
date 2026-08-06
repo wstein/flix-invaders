@@ -50,6 +50,12 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   the main thread is invisible there.
 - **`runSketch` returns immediately.** The enclosing `region` must be kept alive by hand, or
   the sketch will touch `Ref`s whose region has exited.
+- **Do not measure frame cost with a stopwatch.** Processing sleeps to hold the target
+  frame rate, so timing a run of N frames measures the rate limiter, not the work: any
+  sketch comfortably inside budget reports ~16.7ms per frame at 60Hz whether it uses 1ms or
+  15ms. To find the real cost, bracket the work inside `draw` with `System.nanoTime()` and
+  average over a hundred frames. Measured this way the whole game costs about 1.9ms per
+  frame, roughly a ninth of the budget.
 - **Use `System.nanoTime()` for frame timing.** The stdlib `Time.Clock` handler uses
   `System.currentTimeMillis()`, which is wall-clock and not monotonic.
 - **A machine with no sound card throws `IllegalArgumentException`, not

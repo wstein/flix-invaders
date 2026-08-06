@@ -518,8 +518,9 @@ mod TestGame {
         assertTrue(Option.isEmpty(Game.step(nearly, Input.empty())#mystery));
         let launched = steps(2, nearly, Input.empty());
         assertTrue(not Option.isEmpty(launched#mystery));
-        // The timer resets, so ships keep coming.
-        assertEq(expected = Rules.mysteryInterval(), launched#mysteryTimer)
+        // The timer resets, so ships keep coming -- to somewhere in the jittered band.
+        assertTrue(launched#mysteryTimer >= Rules.mysteryInterval());
+        assertTrue(launched#mysteryTimer < Rules.mysteryInterval() + Rules.mysterySpread())
     }
 
     @Test
@@ -855,6 +856,127 @@ mod TestGame {
         // Past a point the formation would cross the screen faster than a bullet reaches it.
         let full = Rules.totalInvaders();
         assertEq(expected = Rules.marchSpeedFor(full, 20), Rules.marchSpeedFor(full, 40))
+    }
+
+    // -- hit boxes against what is actually drawn ------------------------------------
+
+    ///
+    /// A hit box that does not match its sprite is invisible in play until it feels wrong.
+    /// The saucer drifted exactly this way: its scale was halved while the hard-coded box
+    /// stayed put, so it could be shot from well outside itself.
+    ///
+
+    def drawnWidth(sprite: Sprite, scaleX: Float32): Float32 =
+        Int32.toFloat32(sprite#width) * scaleX
+
+    def drawnHeight(sprite: Sprite, scaleY: Float32): Float32 =
+        Int32.toFloat32(sprite#height) * scaleY
+
+    @Test
+    def testTheSaucerHitBoxMatchesItsSprite(): Unit \ Assert = {
+        let sprite = Sprites.mystery();
+        assertEq(expected = drawnWidth(sprite, Rules.mysteryScaleX()), Rules.mysterySize()#x);
+        assertEq(expected = drawnHeight(sprite, Rules.mysteryScaleY()), Rules.mysterySize()#y)
+    }
+
+    @Test
+    def testTheCannonHitBoxMatchesItsSprite(): Unit \ Assert = {
+        let sprite = Sprites.cannon();
+        assertEq(expected = drawnWidth(sprite, Rules.cannonScale()), Rules.playerSize()#x);
+        assertEq(expected = drawnHeight(sprite, Rules.cannonScale()), Rules.playerSize()#y)
+    }
+
+    @Test
+    def testTheBombHitBoxMatchesItsSprite(): Unit \ Assert = {
+        let sprite = Sprites.bomb();
+        assertEq(expected = drawnWidth(sprite, Rules.spriteScale()), Rules.bombSize()#x);
+        assertEq(expected = drawnHeight(sprite, Rules.spriteScale()), Rules.bombSize()#y)
+    }
+
+    @Test
+    def testTheBulletHitBoxIsDeliberatelyGenerous(): Unit \ Assert = {
+        // The bullet is drawn one pixel wide. Matching that exactly would make hits feel
+        // unfair, so the box is wider on purpose -- but only a little, and never shorter.
+        let sprite = Sprites.bullet();
+        assertTrue(Rules.bulletSize()#x > drawnWidth(sprite, Rules.spriteScale()));
+        assertTrue(Rules.bulletSize()#x <= drawnWidth(sprite, Rules.spriteScale()) * 3.0f32);
+        assertEq(expected = drawnHeight(sprite, Rules.spriteScale()), Rules.bulletSize()#y)
+    }
+
+    @Test
+    def testEveryInvaderSharesOneHitBox(): Unit \ Assert = {
+        // Deliberately uniform: a squid is narrower than an octopus, but making it harder to
+        // hit as well as worth more would be punishing twice. The shared box is no smaller
+        // than the widest sprite so nothing is ever unhittable at its edges.
+        let widest = List.foldLeft((w, kind) ->
+            Float32.max(w, drawnWidth(Sprites.forKind(kind, 0), Rules.spriteScale())),
+            0.0f32,
+            InvaderKind.Squid :: InvaderKind.Crab :: InvaderKind.Octopus :: Nil);
+        assertEq(expected = widest, Rules.invaderSize()#x);
+        assertEq(expected = drawnHeight(Sprites.squidA(), Rules.spriteScale()), Rules.invaderSize()#y)
+    }
+
+    @Test
+    def testTheSaucerCanBeHitAcrossItsWholeWidthAndNoWider(): Unit \ Assert = {
+        // End to end through the real pipeline, at the sprite's edges and just outside them.
+        let centre = 320.0f32;
+        let half = Rules.mysterySize()#x / 2.0f32;
+        let shoot = offset -> {
+            let w = { bullets = { x = centre + offset, y = Rules.mysteryY() } :: Nil,
+                      mystery = Some({ x = centre, dir = 1.0f32 }) | start() };
+            Option.isEmpty(Game.step(w, Input.empty())#mystery)
+        };
+        assertTrueWithMsg(shoot(0.0f32), "a shot dead centre missed");
+        assertTrueWithMsg(shoot(half - 4.0f32), "a shot inside the right edge missed");
+        assertTrueWithMsg(shoot(-(half - 4.0f32)), "a shot inside the left edge missed");
+        assertTrueWithMsg(not shoot(half + 8.0f32), "a shot clear of the saucer still hit it");
+        assertTrueWithMsg(not shoot(-(half + 8.0f32)), "a shot clear of the saucer still hit it")
+    }
+
+    // -- when the saucer comes -------------------------------------------------------
+
+    /// A world with only `keep` invaders left alive.
+    def thinnedTo(keep: Int32): World = {
+        let base = start();
+        { invaders = Vector.mapWithIndex((i, inv) ->
+              if (i < keep) inv else { alive = false | inv }, base#invaders) | base }
+    }
+
+    @Test
+    def testTheSaucerStopsComingWhenTheFormationIsNearlyGone(): Unit \ Assert = {
+        // It used to appear right as the last few invaders were racing across, which is the
+        // worst moment to dangle a bonus.
+        let sparse = { mysteryTimer = 1 | thinnedTo(Rules.mysteryMinInvaders()) };
+        assertTrue(Option.isEmpty(Game.step(sparse, Input.empty())#mystery))
+    }
+
+    @Test
+    def testTheSaucerStillComesWhileTheFormationIsHealthy(): Unit \ Assert = {
+        let plenty = { mysteryTimer = 1 | thinnedTo(Rules.mysteryMinInvaders() + 1) };
+        assertTrue(not Option.isEmpty(Game.step(plenty, Input.empty())#mystery))
+    }
+
+    @Test
+    def testASuppressedSaucerDoesNotBankItsTimer(): Unit \ Assert = {
+        // Holding the timer rather than counting it down means nothing is stored up.
+        let sparse = { mysteryTimer = 40 | thinnedTo(2) };
+        assertEq(expected = 40, steps(20, sparse, Input.empty())#mysteryTimer)
+    }
+
+    @Test
+    def testSaucersArriveSeveralTimesInALevel(): Unit \ Assert = {
+        // Once per level made the bonus almost theoretical.
+        let appearances = countOf(SoundCmd.MysteryAppears, heard(3000, start(), Input.empty()));
+        assertTrueWithMsg(appearances >= 2,
+            "only ${appearances} saucer(s) in a level's worth of ticks")
+    }
+
+    @Test
+    def testSaucersAreNotPerfectlyRegular(): Unit \ Assert = {
+        // The gap is jittered, so two consecutive intervals should differ.
+        let first = Game.step({ mysteryTimer = 1 | start() }, Input.empty());
+        let second = Game.step({ mysteryTimer = 1, rng = Rng.fromSeed(88i64) | start() }, Input.empty());
+        assertTrue(first#mysteryTimer != second#mysteryTimer)
     }
 
 }
