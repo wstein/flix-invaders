@@ -10,8 +10,12 @@ Record the result in the table at the bottom.
 ## Steps
 
 ```sh
-bin/flix run
+bin/sketch static
+bin/sketch animation
+bin/sketch invaders
 ```
+
+Steps 4 to 9 apply to `invaders`; the rest apply to all three.
 
 | # | Check | Expected |
 |---|-------|----------|
@@ -49,8 +53,11 @@ bin/flix run; echo "exit=$?"
 
 | Date | Platform | OS version | JDK | Result | Notes |
 |------|----------|------------|-----|--------|-------|
-| 2026-08-06 | macOS (Apple Silicon) | darwin 25.5.0 | 21.0.12 | spike passes steps 1–3, 6, 7, 10–12 | Arrows and space verified by hand; steps 4, 5, 8, 9 need the game |
+| 2026-08-06 | macOS (Apple Silicon) | darwin 25.5.0 | 21.0.12 | steps 1–3, 6, 7, 10–12 pass | Arrows and space verified by hand on the spike |
 | | Windows | | | not yet run | |
 | | Linux | | | not yet run | |
+
+The `smoke` CI workflow covers launch, draw, and clean exit automatically on all three
+platforms (Linux under Xvfb). The keyboard rows still need a human.
 
 Until all three rows pass, the project must not be described as portable.
