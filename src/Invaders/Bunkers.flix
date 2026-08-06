@@ -127,10 +127,11 @@ mod Bunkers {
         def scan(i, best) =
             if (i >= Vector.length(bunker#cells)) best
             else if (Vector.get(i, bunker#cells)
-                     and Collide.overlaps(pos, size, cellCentre(bunker, i), cellSize()))
+                     and Collide.overlaps(aPos = pos, aSize = size,
+                                          bPos = cellCentre(bunker, i), bSize = cellSize()))
                 scan(i + 1, nearer(best, i))
             else scan(i + 1, best);
-        if (not Collide.overlaps(pos, size, centre, footprint)) None
+        if (not Collide.overlaps(aPos = pos, aSize = size, bPos = centre, bSize = footprint)) None
         else match scan(0, None) {
             case None => None
             case Some((index, _)) => Some(index)

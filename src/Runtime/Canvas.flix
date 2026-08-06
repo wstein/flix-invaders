@@ -3,7 +3,7 @@
 ///
 /// Sketch and game code calls these operations directly, so drawing code reads the way it
 /// would in Processing. What makes that safe is that the effect has two interpretations:
-/// `Canvas.runCollecting` turns the calls into data with no window, and the runtime's
+/// `Canvas.runWithCollector` turns the calls into data with no window, and the runtime's
 /// handler paints them onto a real sketch. Rendering is therefore testable without a
 /// display.
 ///
@@ -51,17 +51,23 @@ mod Canvas {
         }, cmds)
 
     ///
-    /// Runs `f`, recording every drawing operation instead of performing it.
+    /// Interprets `Canvas` by recording every drawing operation instead of performing it.
     ///
     /// Pure: the accumulator lives in a region that is fully discharged here, so this needs
     /// no `IO` and opens no window. This is what the rendering tests use.
     ///
-    pub def runCollecting(dims: (Int32, Int32), f: Unit -> a \ ef): (a, List[DrawCmd]) \ ef - Canvas =
+    /// The `handle`/`runWith` pair follows the stdlib's companion-module convention -- see
+    /// `Logger.flix`, which offers seven interpretations of one effect this way. Adding an
+    /// eighth interpretation of `Canvas` means adding a function here, not editing the
+    /// runtime.
+    ///
+    pub def handleWithCollector(dims: (Int32, Int32), f: a -> b \ ef
+    ): a -> (b, List[DrawCmd]) \ ef - Canvas = input ->
         region rc {
             let acc: Ref[List[DrawCmd], rc] = Ref.fresh(rc, Nil);
             let emit = cmd -> Ref.put(cmd :: Ref.get(acc), acc);
             let result = run {
-                f()
+                f(input)
             } with handler Canvas {
                 def clear(c, k)              = { emit(DrawCmd.Clear(c)); k() }
                 def fill(c, k)               = { emit(DrawCmd.Fill(c)); k() }
@@ -75,9 +81,36 @@ mod Canvas {
         }
 
     ///
+    /// Runs `f`, returning its result together with the draw commands it produced.
+    ///
+    pub def runWithCollector(dims: (Int32, Int32), f: Unit -> a \ ef
+    ): (a, List[DrawCmd]) \ ef - Canvas =
+        handleWithCollector(dims, f)()
+
+    ///
+    /// Interprets `Canvas` by discarding every drawing operation.
+    ///
+    /// Deliberately *not* installed as a `@DefaultHandler`: with a default in place, a test
+    /// that forgot to choose an interpretation would compile and silently assert on a frame
+    /// that was never drawn. Leaving `Canvas` without one keeps that a type error.
+    ///
+    pub def runWithNoOp(dims: (Int32, Int32), f: Unit -> a \ ef): a \ ef - Canvas =
+        run {
+            f()
+        } with handler Canvas {
+            def clear(_c, k) = k()
+            def fill(_c, k) = k()
+            def rect(_x, _y, _w, _h, k) = k()
+            def ellipse(_x, _y, _w, _h, k) = k()
+            def text(_s, _x, _y, k) = k()
+            def textSize(_px, k) = k()
+            def dimensions(k) = k(dims)
+        }
+
+    ///
     /// Runs `f` and returns only the draw commands it produced.
     ///
     pub def commands(dims: (Int32, Int32), f: Unit -> Unit \ ef): List[DrawCmd] \ ef - Canvas =
-        snd(runCollecting(dims, f))
+        snd(runWithCollector(dims, f))
 
 }

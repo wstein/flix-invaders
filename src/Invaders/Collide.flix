@@ -16,11 +16,14 @@ mod Collide {
     /// strict, so a bullet grazing an invader's boundary passes by. Picking one convention
     /// and testing it matters more than which one it is.
     ///
-    pub def overlaps(aPos: Vec2, aSize: Vec2, bPos: Vec2, bSize: Vec2): Bool = {
-        let dx = Float32.abs(aPos#x - bPos#x);
-        let dy = Float32.abs(aPos#y - bPos#y);
-        let halfWidths = (aSize#x + bSize#x) / 2.0f32;
-        let halfHeights = (aSize#y + bSize#y) / 2.0f32;
+    /// All four arguments are named. They are structurally identical `Vec2`s, so a
+    /// transposed pair would compile, type-check, and silently change collision.
+    pub def overlaps(aPos: {aPos = Vec2}, aSize: {aSize = Vec2},
+                     bPos: {bPos = Vec2}, bSize: {bSize = Vec2}): Bool = {
+        let dx = Float32.abs(aPos#aPos#x - bPos#bPos#x);
+        let dy = Float32.abs(aPos#aPos#y - bPos#bPos#y);
+        let halfWidths = (aSize#aSize#x + bSize#bSize#x) / 2.0f32;
+        let halfHeights = (aSize#aSize#y + bSize#bSize#y) / 2.0f32;
         dx < halfWidths and dy < halfHeights
     }
 

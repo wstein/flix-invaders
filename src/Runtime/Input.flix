@@ -78,12 +78,18 @@ mod Input {
     ///
     /// Builds a snapshot by comparing the keys held now against the keys held last step.
     ///
-    pub def diff(previous: Set[Key], current: Set[Key], mouseX: Int32, mouseY: Int32): Snapshot =
-        { held = current,
-          pressed = Set.difference(current, previous),
-          released = Set.difference(previous, current),
-          mouseX = mouseX,
-          mouseY = mouseY }
+    /// The two key sets are named -- transposing them inverts every edge, turning presses
+    /// into releases -- and so are the two mouse coordinates.
+    pub def diff(previous: {previous = Set[Key]}, current: {current = Set[Key]},
+                 mouseX: {mouseX = Int32}, mouseY: {mouseY = Int32}): Snapshot = {
+        let before = previous#previous;
+        let now = current#current;
+        { held = now,
+          pressed = Set.difference(now, before),
+          released = Set.difference(before, now),
+          mouseX = mouseX#mouseX,
+          mouseY = mouseY#mouseY }
+    }
 
     ///
     /// A snapshot with `keys` held, and all of them treated as newly pressed.
@@ -91,16 +97,26 @@ mod Input {
     /// Convenience for tests and scripted replays.
     ///
     pub def holding(keys: List[Key]): Snapshot =
-        diff(Set.empty(), List.toSet(keys), 0, 0)
+        diff(previous = Set.empty(), current = List.toSet(keys), mouseX = 0, mouseY = 0)
+
+    ///
+    /// Interprets `Input` by answering every `poll` with the same snapshot.
+    ///
+    /// Like `Canvas`, this deliberately has no `@DefaultHandler`: a default of "no keys
+    /// held" would let a test that forgot to supply input pass while asserting on a world
+    /// nobody played.
+    ///
+    pub def handleWith(s: Snapshot, f: a -> b \ ef): a -> b \ ef - Input = input ->
+        run {
+            f(input)
+        } with handler Input {
+            def poll(k) = k(s)
+        }
 
     ///
     /// Runs `f`, answering every `Input.poll` with the same snapshot.
     ///
     pub def runWith(s: Snapshot, f: Unit -> a \ ef): a \ ef - Input =
-        run {
-            f()
-        } with handler Input {
-            def poll(k) = k(s)
-        }
+        handleWith(s, f)()
 
 }

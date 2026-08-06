@@ -1,6 +1,7 @@
 mod TestCanvas {
 
     use Assert.assertEq
+    use Assert.assertTrue
 
     ///
     /// These tests are the point of the `Canvas` effect: rendering is checked as data, with
@@ -28,7 +29,7 @@ mod TestCanvas {
 
     @Test
     def testDimensionsReportsTheConfiguredSize(): Unit \ Assert = {
-        let (dims, cmds) = Canvas.runCollecting((320, 240), () -> Canvas.dimensions());
+        let (dims, cmds) = Canvas.runWithCollector((320, 240), () -> Canvas.dimensions());
         assertEq(expected = (320, 240), dims);
         // Querying the canvas must not be recorded as a drawing operation.
         assertEq(expected = (Nil: List[DrawCmd]), cmds)
@@ -36,7 +37,7 @@ mod TestCanvas {
 
     @Test
     def testRunCollectingReturnsTheResult(): Unit \ Assert = {
-        let (value, _) = Canvas.runCollecting((10, 10), () -> {
+        let (value, _) = Canvas.runWithCollector((10, 10), () -> {
             Canvas.rect(0.0f32, 0.0f32, 1.0f32, 1.0f32);
             42
         });
@@ -78,6 +79,38 @@ mod TestCanvas {
         assertEq(expected = 0, Color.redOf(low));
         assertEq(expected = 0, Color.greenOf(low));
         assertEq(expected = 0, Color.blueOf(low))
+    }
+
+    // -- the interpretations -----------------------------------------------------------
+
+    @Test
+    def testRunWithNoOpDiscardsDrawingButKeepsTheResult(): Unit \ Assert = {
+        // A third interpretation of `Canvas`, added without touching the runtime -- which is
+        // the point of keeping the handlers in the companion module.
+        let value = Canvas.runWithNoOp((640, 480), () -> {
+            Canvas.clear(Color.black());
+            Canvas.rect(0.0f32, 0.0f32, 10.0f32, 10.0f32);
+            7
+        });
+        assertEq(expected = 7, value)
+    }
+
+    @Test
+    def testRunWithNoOpStillAnswersDimensions(): Unit \ Assert =
+        // Discarding the drawing must not mean discarding the queries too, or a sketch that
+        // lays itself out from `dimensions` would silently collapse.
+        assertEq(expected = (320, 240), Canvas.runWithNoOp((320, 240), () -> Canvas.dimensions()))
+
+    @Test
+    def testHandleWithCollectorTakesAnArgument(): Unit \ Assert = {
+        // The `handle` form transforms a function rather than running a thunk, so the same
+        // interpretation can be applied to many inputs.
+        let render = Canvas.handleWithCollector((640, 480), n ->
+            Canvas.rect(0.0f32, 0.0f32, Int32.toFloat32(n), Int32.toFloat32(n)));
+        let (_, one) = render(1);
+        let (_, two) = render(2);
+        assertEq(expected = 1, List.length(one));
+        assertTrue(one != two)
     }
 
 }

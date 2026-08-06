@@ -71,7 +71,7 @@ mod Color {
 ///
 /// A single drawing instruction.
 ///
-/// `Canvas.runCollecting` interprets the `Canvas` effect into a list of these, so rendering
+/// `Canvas.runWithCollector` interprets the `Canvas` effect into a list of these, so rendering
 /// can be tested as data.
 ///
 pub enum DrawCmd with Eq, ToString {

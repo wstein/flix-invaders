@@ -340,7 +340,7 @@ mod TestGame {
         // Restart is on the rising edge, not on `held`. A held Enter would otherwise reset
         // the game on every single tick.
         let lost = { phase = Phase.Lost | start() };
-        let heldEnter = Input.diff(Set#{Key.Enter}, Set#{Key.Enter}, 0, 0);
+        let heldEnter = Input.diff(previous = Set#{Key.Enter}, current = Set#{Key.Enter}, mouseX = 0, mouseY = 0);
         assertEq(expected = Phase.Lost, Game.step(lost, heldEnter)#phase)
     }
 
@@ -867,10 +867,10 @@ mod TestGame {
     ///
 
     def drawnWidth(sprite: Sprite, scaleX: Float32): Float32 =
-        Int32.toFloat32(sprite#width) * scaleX
+        Int32.toFloat32(Sprite.width(sprite)) * scaleX
 
     def drawnHeight(sprite: Sprite, scaleY: Float32): Float32 =
-        Int32.toFloat32(sprite#height) * scaleY
+        Int32.toFloat32(Sprite.height(sprite)) * scaleY
 
     @Test
     def testTheSaucerHitBoxMatchesItsSprite(): Unit \ Assert = {

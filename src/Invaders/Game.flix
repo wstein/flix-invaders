@@ -177,7 +177,8 @@ mod Game {
             if (i >= Vector.length(invaders)) None
             else {
                 let inv = Vector.get(i, invaders);
-                if (inv#alive and Collide.overlaps(bullet, Rules.bulletSize(), inv#pos, Rules.invaderSize()))
+                if (inv#alive and Collide.overlaps(aPos = bullet, aSize = Rules.bulletSize(),
+                                                   bPos = inv#pos, bSize = Rules.invaderSize()))
                     Some(i)
                 else loop(i + 1)
             };
@@ -221,7 +222,8 @@ mod Game {
     ///
     def resolveBombs(w: World): World = {
         let player = { x = w#playerX, y = Rules.playerY() };
-        let hit = List.exists(b -> Collide.overlaps(b, Rules.bombSize(), player, Rules.playerSize()), w#bombs);
+        let hit = List.exists(b -> Collide.overlaps(aPos = b, aSize = Rules.bombSize(),
+                                                    bPos = player, bSize = Rules.playerSize()), w#bombs);
         if (not hit) w
         else if (w#shield > 0)
             // The shield takes it. The bombs on screen are still cleared, so a shielded hit
@@ -278,7 +280,8 @@ mod Game {
         case None => w
         case Some(m) => {
             let pos = { x = m#x, y = Rules.mysteryY() };
-            let hits = b -> Collide.overlaps(b, Rules.bulletSize(), pos, Rules.mysterySize());
+            let hits = b -> Collide.overlaps(aPos = b, aSize = Rules.bulletSize(),
+                                             bPos = pos, bSize = Rules.mysterySize());
             if (not List.exists(hits, w#bullets)) w
             else {
                 let (points, next) = Rules.mysteryScoreFrom(w#rng);

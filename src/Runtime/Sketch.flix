@@ -179,7 +179,8 @@ mod Sketch {
 
                 // Captured once and frozen, so every step this frame sees the same input.
                 let current = Ref.get(heldNow);
-                let snapshot = Input.diff(Ref.get(heldPrev), current, app.mouseX, app.mouseY);
+                let snapshot = Input.diff(previous = Ref.get(heldPrev), current = current,
+                                          mouseX = app.mouseX, mouseY = app.mouseY);
                 Ref.put(current, heldPrev);
 
                 advance(step, sounds, world, pending, accNs, stepNs, snapshot, maxCatchUpSteps());
@@ -188,20 +189,10 @@ mod Sketch {
                 Audio.playAll(voices, Ref.get(pending));
                 Ref.put(Nil, pending);
 
-                // The handler is installed here, inside the callback, on purpose: handlers
-                // are stack-scoped and `draw` runs on Processing's Animation Thread, so a
-                // handler installed around `runSketch` on the main thread would be invisible.
-                run {
-                    view(Ref.get(world))
-                } with handler Canvas {
-                    def clear(c, k) = { let (r, g, b) = channels(c); app.background(r, g, b); k() }
-                    def fill(c, k) = { let (r, g, b) = channels(c); app.fill(r, g, b); k() }
-                    def rect(x, y, w, h, k) = { app.rect(x, y, w, h); k() }
-                    def ellipse(x, y, w, h, k) = { app.ellipse(x, y, w, h); k() }
-                    def text(s, x, y, k) = { app.text(s, x, y); k() }
-                    def textSize(px, k) = { app.textSize(px); k() }
-                    def dimensions(k) = k((app.width, app.height))
-                };
+                // Installed here, inside the callback, on purpose: handlers are stack-scoped
+                // and `draw` runs on Processing's Animation Thread, so a handler installed
+                // around `runSketch` on the main thread would be invisible.
+                runWithSurface(app, () -> view(Ref.get(world)));
 
                 Ref.put(Ref.get(frames) + 1, frames);
                 match cfg#maxFrames {
@@ -239,6 +230,25 @@ mod Sketch {
         park(done);
         Audio.close(voices)
     }
+
+    ///
+    /// Interprets `Canvas` by painting onto a live sketch.
+    ///
+    /// The counterpart to `Canvas.runWithCollector`, and the only interpretation that needs
+    /// a window -- which is why it lives here rather than in `Canvas`.
+    ///
+    def runWithSurface(app: PApplet, f: Unit -> a \ ef): a \ (ef - Canvas) + IO =
+        run {
+            f()
+        } with handler Canvas {
+            def clear(c, k) = { let (r, g, b) = channels(c); app.background(r, g, b); k() }
+            def fill(c, k) = { let (r, g, b) = channels(c); app.fill(r, g, b); k() }
+            def rect(x, y, w, h, k) = { app.rect(x, y, w, h); k() }
+            def ellipse(x, y, w, h, k) = { app.ellipse(x, y, w, h); k() }
+            def text(s, x, y, k) = { app.text(s, x, y); k() }
+            def textSize(px, k) = { app.textSize(px); k() }
+            def dimensions(k) = k((app.width, app.height))
+        }
 
     ///
     /// Advances the world by whole logical steps while the accumulator allows it.

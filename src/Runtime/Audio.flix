@@ -43,13 +43,23 @@ mod Audio {
         case _ => 1
     }
 
+    ///
     /// The fractional part of a non-negative number.
-    def frac(x: Float32): Float32 =
-        x - Int32.toFloat32(Option.getWithDefault(0, Float32.tryToInt32(x)))
+    ///
+    /// Only ever called with an accumulated phase, which stays well inside Int32 for every
+    /// frequency and duration this module generates.
+    ///
+    def frac(x: Float32): Float32 = match Float32.tryToInt32(x) {
+        case Some(whole) => x - Int32.toFloat32(whole)
+        case None => unreachable!()
+    }
 
-    def toSample(level: Float32): Int8 =
-        Int32.clampToInt8(min = -127i8, max = 127i8,
-                          Option.getWithDefault(0, Float32.tryToInt32(level)))
+    /// Clips a sample into signed 8-bit range. `level` is always bounded by the amplitude
+    /// the callers pass, so the conversion cannot fail.
+    def toSample(level: Float32): Int8 = match Float32.tryToInt32(level) {
+        case Some(whole) => Int32.clampToInt8(min = -127i8, max = 127i8, whole)
+        case None => unreachable!()
+    }
 
     ///
     /// A square wave sweeping from `startHz` to `endHz`, fading out over its length.
@@ -57,14 +67,17 @@ mod Audio {
     /// The phase is the integral of a linearly swept frequency, which is what keeps the
     /// pitch glide smooth instead of stepping.
     ///
-    def sweep(rc: Region[r], startHz: Float32, endHz: Float32, millis: Int32, volume: Float32
+    def sweep(rc: Region[r], startHz: {startHz = Float32}, endHz: {endHz = Float32},
+              millis: Int32, volume: Float32
     ): Array[Int8, r] \ r = {
+        let f0 = startHz#startHz;
+        let f1 = endHz#endHz;
         let count = Int32.max(1, (millis * sampleRate()) / 1000);
         let seconds = Int32.toFloat32(millis) / 1000.0f32;
         Array.init(rc, i -> {
             let t = Int32.toFloat32(i) / Int32.toFloat32(sampleRate());
             let progress = Int32.toFloat32(i) / Int32.toFloat32(count);
-            let phase = startHz * t + (endHz - startHz) * t * t / (2.0f32 * seconds);
+            let phase = f0 * t + (f1 - f0) * t * t / (2.0f32 * seconds);
             let square = if (frac(phase) < 0.5f32) 1.0f32 else -1.0f32;
             toSample(square * 110.0f32 * volume * (1.0f32 - progress))
         }, count)
@@ -97,16 +110,16 @@ mod Audio {
     /// The waveform for one sound.
     ///
     def samplesFor(rc: Region[r], cmd: SoundCmd): Array[Int8, r] \ r = match cmd {
-        case SoundCmd.Shoot => sweep(rc, 820.0f32, 1500.0f32, 90, 0.55f32)
+        case SoundCmd.Shoot => sweep(rc, startHz = 820.0f32, endHz = 1500.0f32, 90, 0.55f32)
         case SoundCmd.InvaderDies => burst(rc, 190, 0.7f32)
         case SoundCmd.PlayerDies => burst(rc, 620, 1.0f32)
-        case SoundCmd.MysteryAppears => sweep(rc, 620.0f32, 900.0f32, 220, 0.4f32)
-        case SoundCmd.MysteryDies => sweep(rc, 900.0f32, 180.0f32, 380, 0.6f32)
-        case SoundCmd.ShieldBlock => sweep(rc, 300.0f32, 1100.0f32, 130, 0.5f32)
-        case SoundCmd.ExtraLife => sweep(rc, 500.0f32, 1600.0f32, 420, 0.6f32)
+        case SoundCmd.MysteryAppears => sweep(rc, startHz = 620.0f32, endHz = 900.0f32, 220, 0.4f32)
+        case SoundCmd.MysteryDies => sweep(rc, startHz = 900.0f32, endHz = 180.0f32, 380, 0.6f32)
+        case SoundCmd.ShieldBlock => sweep(rc, startHz = 300.0f32, endHz = 1100.0f32, 130, 0.5f32)
+        case SoundCmd.ExtraLife => sweep(rc, startHz = 500.0f32, endHz = 1600.0f32, 420, 0.6f32)
         case SoundCmd.MarchStep(note) => {
             let hz = marchHz(note);
-            sweep(rc, hz, hz * 0.92f32, 110, 0.85f32)
+            sweep(rc, startHz = hz, endHz = hz * 0.92f32, 110, 0.85f32)
         }
     }
 

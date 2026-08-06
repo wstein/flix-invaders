@@ -65,8 +65,13 @@ mod Rng {
         else {
             let (value, next) = nextNonNegative(r);
             let scaled = Int64.remainder(value, Int32.toInt64(bound));
-            // `scaled` is already in 0 ..< bound, so it always fits; the default is unreachable.
-            (Option.getWithDefault(0, Int64.tryToInt32(scaled)), next)
+            // `scaled` is already in 0 ..< bound, so it always fits in an Int32. Crash rather
+            // than substitute a zero: a silent zero here would look like a working generator
+            // that had quietly stopped being random.
+            match Int64.tryToInt32(scaled) {
+                case Some(fits) => (fits, next)
+                case None => unreachable!()
+            }
         }
 
     ///

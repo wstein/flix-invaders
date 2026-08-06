@@ -250,8 +250,8 @@ mod Rules {
     /// itself.
     ///
     pub def mysterySize(): Vec2 =
-        { x = Int32.toFloat32(Sprites.mystery()#width) * mysteryScaleX(),
-          y = Int32.toFloat32(Sprites.mystery()#height) * mysteryScaleY() }
+        { x = Int32.toFloat32(Sprite.width(Sprites.mystery())) * mysteryScaleX(),
+          y = Int32.toFloat32(Sprite.height(Sprites.mystery())) * mysteryScaleY() }
 
     /// High enough to be clear of the formation's starting row.
     pub def mysteryY(): Float32 = 70.0f32

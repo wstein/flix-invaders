@@ -1,7 +1,7 @@
 ///
 /// Drawing a world.
 ///
-/// Uses only the `Canvas` effect, so `Canvas.runCollecting` can record a frame as data and
+/// Uses only the `Canvas` effect, so `Canvas.runWithCollector` can record a frame as data and
 /// the rendering tests need no display. Nothing here changes the world -- given the same
 /// world, `render` always produces the same commands, which is why a replayed game renders
 /// identically.
@@ -92,7 +92,7 @@ mod View {
         case Some(m) => {
             Canvas.fill(Palette.invaderMagenta());
             Sprite.drawScaled(Sprites.mystery(), { x = m#x, y = Rules.mysteryY() },
-                              Rules.mysteryScaleX(), Rules.mysteryScaleY())
+                              scaleX = Rules.mysteryScaleX(), scaleY = Rules.mysteryScaleY())
         }
     }
 

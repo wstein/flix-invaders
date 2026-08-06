@@ -21,7 +21,7 @@ mod TestInput {
 
     @Test
     def testPressedIsTheRisingEdge(): Unit \ Assert = {
-        let s = Input.diff(Set.empty(), Set#{Key.Left}, 0, 0);
+        let s = Input.diff(previous = Set.empty(), current = Set#{Key.Left}, mouseX = 0, mouseY = 0);
         assertTrue(Set.memberOf(Key.Left, s#pressed));
         assertTrue(Set.memberOf(Key.Left, s#held));
         assertTrue(Set.isEmpty(s#released))
@@ -29,7 +29,7 @@ mod TestInput {
 
     @Test
     def testReleasedIsTheFallingEdge(): Unit \ Assert = {
-        let s = Input.diff(Set#{Key.Left}, Set.empty(), 0, 0);
+        let s = Input.diff(previous = Set#{Key.Left}, current = Set.empty(), mouseX = 0, mouseY = 0);
         assertTrue(Set.memberOf(Key.Left, s#released));
         assertTrue(Set.isEmpty(s#held));
         assertTrue(Set.isEmpty(s#pressed))
@@ -38,7 +38,7 @@ mod TestInput {
     @Test
     def testKeyHeldAcrossStepsIsNotPressedAgain(): Unit \ Assert = {
         // This is what stops "hold to fire" from firing once per frame.
-        let s = Input.diff(Set#{Key.Space}, Set#{Key.Space}, 0, 0);
+        let s = Input.diff(previous = Set#{Key.Space}, current = Set#{Key.Space}, mouseX = 0, mouseY = 0);
         assertTrue(Set.memberOf(Key.Space, s#held));
         assertFalse(Set.memberOf(Key.Space, s#pressed));
         assertTrue(Set.isEmpty(s#released))
@@ -46,7 +46,8 @@ mod TestInput {
 
     @Test
     def testEdgesAreIndependentPerKey(): Unit \ Assert = {
-        let s = Input.diff(Set#{Key.Left, Key.Space}, Set#{Key.Space, Key.Right}, 0, 0);
+        let s = Input.diff(previous = Set#{Key.Left, Key.Space},
+                           current = Set#{Key.Space, Key.Right}, mouseX = 0, mouseY = 0);
         assertEq(expected = Set#{Key.Right}, s#pressed);
         assertEq(expected = Set#{Key.Left}, s#released);
         assertEq(expected = Set#{Key.Space, Key.Right}, s#held)
@@ -54,7 +55,7 @@ mod TestInput {
 
     @Test
     def testMousePositionIsCarried(): Unit \ Assert = {
-        let s = Input.diff(Set.empty(), Set.empty(), 12, 34);
+        let s = Input.diff(previous = Set.empty(), current = Set.empty(), mouseX = 12, mouseY = 34);
         assertEq(expected = 12, s#mouseX);
         assertEq(expected = 34, s#mouseY)
     }

@@ -10,12 +10,12 @@
 /// computed once, by `Sprite.of`, and stored: parsing the text on every frame for every
 /// invader was enough to halve the frame rate.
 ///
-pub type alias Sprite = {
+pub enum Sprite({
     width = Int32,
     height = Int32,
     rows = Vector[String],
     runs = List[(Int32, Int32, Int32)]
-}
+})
 
 mod Sprite {
 
@@ -26,10 +26,26 @@ mod Sprite {
     /// Builds a sprite from rows of text. The width is the longest row.
     ///
     pub def of(rows: Vector[String]): Sprite =
-        { width = Vector.foldLeft((widest, row) -> Int32.max(widest, String.length(row)), 0, rows),
-          height = Vector.length(rows),
-          rows = rows,
-          runs = parse(rows) }
+        Sprite.Sprite(
+            { width = Vector.foldLeft((widest, row) -> Int32.max(widest, String.length(row)), 0, rows),
+              height = Vector.length(rows),
+              rows = rows,
+              runs = parse(rows) })
+
+    /// The sprite's width in cells -- the longest row.
+    pub def width(sprite: Sprite): Int32 = match sprite {
+        case Sprite.Sprite(r) => r#width
+    }
+
+    /// The sprite's height in cells.
+    pub def height(sprite: Sprite): Int32 = match sprite {
+        case Sprite.Sprite(r) => r#height
+    }
+
+    /// The rows of text the sprite was built from.
+    pub def rows(sprite: Sprite): Vector[String] = match sprite {
+        case Sprite.Sprite(r) => r#rows
+    }
 
     /// Closes off a run that was in progress, if any.
     def close(y: Int32, x: Int32, start: Option[Int32], acc: List[(Int32, Int32, Int32)]): List[(Int32, Int32, Int32)] =
@@ -65,7 +81,9 @@ mod Sprite {
     ///
     /// Every lit run in the sprite, as `(row, startColumn, length)`, top row first.
     ///
-    pub def runs(sprite: Sprite): List[(Int32, Int32, Int32)] = sprite#runs
+    pub def runs(sprite: Sprite): List[(Int32, Int32, Int32)] = match sprite {
+        case Sprite.Sprite(r) => r#runs
+    }
 
     ///
     /// The number of lit pixels. Handy for tests; not used when drawing.
@@ -82,16 +100,21 @@ mod Sprite {
     /// Separate axes so a shape can be made wide without also becoming tall -- which is what
     /// a flying saucer wants and a square pixel does not give you.
     ///
-    pub def drawScaled(sprite: Sprite, centre: Vec2, scaleX: Float32, scaleY: Float32
+    /// The two scales are named: they are both `Float32`, and swapping them silently
+    /// transposes the sprite.
+    pub def drawScaled(sprite: Sprite, centre: Vec2,
+                       scaleX: {scaleX = Float32}, scaleY: {scaleY = Float32}
     ): Unit \ Canvas = {
-        let left = centre#x - Int32.toFloat32(sprite#width) * scaleX / 2.0f32;
-        let top = centre#y - Int32.toFloat32(sprite#height) * scaleY / 2.0f32;
+        let sx = scaleX#scaleX;
+        let sy = scaleY#scaleY;
+        let left = centre#x - Int32.toFloat32(width(sprite)) * sx / 2.0f32;
+        let top = centre#y - Int32.toFloat32(height(sprite)) * sy / 2.0f32;
         List.forEach(segment -> {
             let (y, x, length) = segment;
-            Canvas.rect(left + Int32.toFloat32(x) * scaleX,
-                        top + Int32.toFloat32(y) * scaleY,
-                        Int32.toFloat32(length) * scaleX,
-                        scaleY)
+            Canvas.rect(left + Int32.toFloat32(x) * sx,
+                        top + Int32.toFloat32(y) * sy,
+                        Int32.toFloat32(length) * sx,
+                        sy)
         }, runs(sprite))
     }
 
@@ -99,7 +122,7 @@ mod Sprite {
     /// Draws a sprite centred on `centre`, with each sprite pixel `scale` screen pixels wide.
     ///
     pub def draw(sprite: Sprite, centre: Vec2, scale: Float32): Unit \ Canvas =
-        drawScaled(sprite, centre, scale, scale)
+        drawScaled(sprite, centre, scaleX = scale, scaleY = scale)
 
 }
 

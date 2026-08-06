@@ -13,13 +13,13 @@ mod TestSprites {
 
     @Test
     def testDimensionsComeFromTheRows(): Unit \ Assert = {
-        assertEq(expected = 3, tiny()#width);
-        assertEq(expected = 3, tiny()#height)
+        assertEq(expected = 3, Sprite.width(tiny()));
+        assertEq(expected = 3, Sprite.height(tiny()))
     }
 
     @Test
     def testWidthIsTheLongestRow(): Unit \ Assert =
-        assertEq(expected = 5, Sprite.of(Vector#{"#", "##...", "###"})#width)
+        assertEq(expected = 5, Sprite.width(Sprite.of(Vector#{"#", "##...", "###"})))
 
     @Test
     def testRunsAreCollapsedHorizontally(): Unit \ Assert = {
@@ -77,9 +77,9 @@ mod TestSprites {
         // A ragged row would silently shift part of a sprite left.
         List.forEach(sprite ->
             Vector.forEach(row ->
-                assertTrueWithMsg(String.length(row) == sprite#width,
-                    "ragged sprite row: '${row}' is ${String.length(row)}, expected ${sprite#width}"),
-                sprite#rows),
+                assertTrueWithMsg(String.length(row) == Sprite.width(sprite),
+                    "ragged sprite row: '${row}' is ${String.length(row)}, expected ${Sprite.width(sprite)}"),
+                Sprite.rows(sprite)),
             everySprite())
 
     @Test
@@ -157,7 +157,7 @@ mod TestSprites {
     @Test
     def testTheInvadersAreWiderThanTheyAreTall(): Unit \ Assert =
         // Sanity check on the artwork: these are 8 rows tall, as in the original.
-        List.forEach(sprite -> assertEq(expected = 8, sprite#height),
+        List.forEach(sprite -> assertEq(expected = 8, Sprite.height(sprite)),
             Sprites.squidA() :: Sprites.crabA() :: Sprites.octopusA() :: Sprites.cannon() :: Nil)
 
 }

@@ -38,6 +38,11 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   `mod Foo { ... }`; you get `Undefined type`, which looks like a classpath problem and is not.
 - **Never name a receiver `_this`.** The leading underscore makes it a *hidden* variable
   (`E6956`) that the body cannot use. This project names it `app`.
+- **Wrapping a record in a single-case enum does NOT give you `Eq`/`ToString`.**
+  `pub enum W({a = Int32}) with Eq` fails: records have no `Eq` instance for the derivation
+  to build on. You must hand-write `instance Eq[W]`. This is worth knowing because the
+  refactor looks free and has apparent stdlib backing (`Net/HttpRequest.flix:29`), and it
+  is not -- it was proposed, tested, and rejected on that basis.
 - **Reserved words that bite as ordinary names:** `run`, `spawn`, `from`, and `Static`. The
   errors point at the *next* token, so they read as unrelated syntax errors.
 - **`size`, `pixelDensity`, `fullScreen`, `smooth` are legal only inside `settings()`.**
