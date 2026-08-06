@@ -48,6 +48,17 @@ mod Sketch {
         }
     }
 
+    ///
+    /// Splits a colour into the three float channels Processing wants.
+    ///
+    /// Deliberately not a packed `0xRRGGBB` integer: Processing reads a bare int as ARGB,
+    /// so a value with no alpha byte is fully transparent and nothing is drawn.
+    ///
+    def channels(c: Color): (Float32, Float32, Float32) =
+        (Int32.toFloat32(Color.redOf(c)),
+         Int32.toFloat32(Color.greenOf(c)),
+         Int32.toFloat32(Color.blueOf(c)))
+
     /// Never advance more than this many logical steps in one frame.
     ///
     /// Without a clamp, a stall -- dragging the window, waking from sleep -- would leave a
@@ -68,7 +79,7 @@ mod Sketch {
     ///
     pub def start(cfg: Config,
                   init: (Int64 -> s),
-                  step: (s -> Snapshot -> s),
+                  step: ((s, Snapshot) -> s),
                   view: (s -> Unit \ Canvas)
     ): Unit \ IO = region rc {
 
@@ -96,6 +107,9 @@ mod Sketch {
                 app.getSurface().setTitle(cfg#title);
                 app.frameRate(Int32.toFloat32(cfg#hz));
                 app.textSize(14.0f32);
+                // Shapes are flat fills. Without this, Processing outlines every shape with
+                // its default 1px black stroke.
+                app.noStroke();
                 Ref.put(System.nanoTime(), prevNs)
             }
 
@@ -121,8 +135,8 @@ mod Sketch {
                 run {
                     view(Ref.get(world))
                 } with handler Canvas {
-                    def clear(c, k) = { app.background(Color.toInt32(c)); k() }
-                    def fill(c, k) = { app.fill(Color.toInt32(c)); k() }
+                    def clear(c, k) = { let (r, g, b) = channels(c); app.background(r, g, b); k() }
+                    def fill(c, k) = { let (r, g, b) = channels(c); app.fill(r, g, b); k() }
                     def rect(x, y, w, h, k) = { app.rect(x, y, w, h); k() }
                     def ellipse(x, y, w, h, k) = { app.ellipse(x, y, w, h); k() }
                     def text(s, x, y, k) = { app.text(s, x, y); k() }
@@ -173,7 +187,7 @@ mod Sketch {
     /// amount of simulated time, so the result depends only on the inputs -- never on how
     /// long the frame took.
     ///
-    def advance(step: (s -> Snapshot -> s),
+    def advance(step: ((s, Snapshot) -> s),
                 world: Ref[s, r],
                 accNs: Ref[Int64, r],
                 stepNs: Int64,

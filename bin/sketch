@@ -10,8 +10,8 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 name=${1:-}
 
 case "$name" in
-  static)    entry=Sketches.Still.main ;;
-  animation) entry=Sketches.Animation.main ;;
+  static)    entry=Still.main ;;
+  animation) entry=Animation.main ;;
   invaders)  entry=main ;;
   *)
     echo "usage: bin/sketch {static|animation|invaders}" >&2

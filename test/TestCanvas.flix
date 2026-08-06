@@ -60,18 +60,24 @@ mod TestCanvas {
     }
 
     @Test
-    def testColorPacksToRrggbb(): Unit \ Assert = {
-        assertEq(expected = 0, Color.toInt32(Color.black()));
-        assertEq(expected = 16777215, Color.toInt32(Color.white()));
-        assertEq(expected = 16711680, Color.toInt32(Color.Rgb(255, 0, 0)));
-        assertEq(expected = 65280, Color.toInt32(Color.Rgb(0, 255, 0)));
-        assertEq(expected = 255, Color.toInt32(Color.Rgb(0, 0, 255)))
+    def testColorChannelAccessors(): Unit \ Assert = {
+        let c = Color.Rgb(10, 20, 30);
+        assertEq(expected = 10, Color.redOf(c));
+        assertEq(expected = 20, Color.greenOf(c));
+        assertEq(expected = 30, Color.blueOf(c))
     }
 
     @Test
     def testColorChannelsAreClamped(): Unit \ Assert = {
-        assertEq(expected = Color.toInt32(Color.white()), Color.toInt32(Color.Rgb(999, 300, 256)));
-        assertEq(expected = Color.toInt32(Color.black()), Color.toInt32(Color.Rgb(-1, -50, -999)))
+        let high = Color.Rgb(999, 300, 256);
+        assertEq(expected = 255, Color.redOf(high));
+        assertEq(expected = 255, Color.greenOf(high));
+        assertEq(expected = 255, Color.blueOf(high));
+
+        let low = Color.Rgb(-1, -50, -999);
+        assertEq(expected = 0, Color.redOf(low));
+        assertEq(expected = 0, Color.greenOf(low));
+        assertEq(expected = 0, Color.blueOf(low))
     }
 
 }

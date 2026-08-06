@@ -10,13 +10,14 @@
 /// Try this: change `sun` to a different colour, or move it by editing the two numbers in
 /// `Canvas.ellipse`. Re-run and see the difference.
 ///
-mod Sketches.Still {
+mod Still {
 
-    def sky(): Color = Color.Rgb(28, 32, 64)
-    def sun(): Color = Color.Rgb(240, 158, 74)
-    def ground(): Color = Color.Rgb(18, 20, 34)
-    def window(): Color = Color.Rgb(240, 214, 132)
-    def ink(): Color = Color.Rgb(150, 158, 190)
+    // All from the shared palette, so `test/TestContrast.flix` covers them.
+    def sky(): Color = Palette.background()
+    def sun(): Color = Palette.sun()
+    def ground(): Color = Palette.silhouette()
+    def window(): Color = Palette.sun()
+    def ink(): Color = Palette.dim()
 
     ///
     /// Draws one building: a dark block with a couple of lit windows.
@@ -60,7 +61,7 @@ mod Sketches.Still {
         Sketch.start(
             {title = "Static", width = 640, height = 480, seed = 0i64, hz = 60, maxFrames = limit},
             _seed -> (),
-            world -> _snapshot -> world,
+            (world, _snapshot) -> world,
             _world -> scene())
     }
 
