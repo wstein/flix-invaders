@@ -200,6 +200,19 @@ mod Sprites {
     })
 
     ///
+    /// The mystery ship that crosses the top of the screen.
+    ///
+    pub def mystery(): Sprite = Sprite.of(Vector#{
+        ".....######.....",
+        "...##########...",
+        "..############..",
+        ".##.##.##.##.##.",
+        "################",
+        "..###..##..###..",
+        "...##......##..."
+    })
+
+    ///
     /// The starburst an invader leaves behind.
     ///
     pub def invaderBlast(): Sprite = Sprite.of(Vector#{

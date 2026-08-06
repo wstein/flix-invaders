@@ -45,7 +45,9 @@ mod Game {
           hiScore = 0,
           level = 1,
           pause = 0,
-          blasts = Nil }
+          blasts = Nil,
+          mystery = None,
+          mysteryTimer = Rules.mysteryInterval() }
 
     def clampTo(lo: Float32, hi: Float32, v: Float32): Float32 =
         if (v < lo) lo else if (v > hi) hi else v
@@ -203,6 +205,55 @@ mod Game {
         }
     }
 
+    /// Half the mystery ship's width -- how far off-screen it spawns and despawns.
+    def mysteryMargin(): Float32 = Rules.mysterySize()#x / 2.0f32 + 2.0f32
+
+    ///
+    /// Flies the mystery ship across, or counts down to the next one.
+    ///
+    def moveMystery(w: World): World = match w#mystery {
+        case Some(m) => {
+            let x = m#x + m#dir * Rules.mysterySpeed();
+            if (x < -mysteryMargin() or x > Rules.fieldWidth() + mysteryMargin())
+                { mystery = None | w }
+            else { mystery = Some({ x = x | m }) | w }
+        }
+        case None =>
+            if (w#mysteryTimer > 1) { mysteryTimer = w#mysteryTimer - 1 | w }
+            else {
+                let (fromLeft, next) = Rng.chance(2, w#rng);
+                let dir = if (fromLeft) 1.0f32 else -1.0f32;
+                let x = if (fromLeft) -mysteryMargin() else Rules.fieldWidth() + mysteryMargin();
+                { mystery = Some({ x = x, dir = dir }),
+                  mysteryTimer = Rules.mysteryInterval(),
+                  rng = next | w }
+            }
+    }
+
+    ///
+    /// Bullets meet the mystery ship.
+    ///
+    /// Runs after the invaders have been resolved: the ship flies above the formation, so a
+    /// bullet has already had its chance at everything below it.
+    ///
+    def resolveMystery(w: World): World = match w#mystery {
+        case None => w
+        case Some(m) => {
+            let pos = { x = m#x, y = Rules.mysteryY() };
+            let hits = b -> Collide.overlaps(b, Rules.bulletSize(), pos, Rules.mysterySize());
+            if (not List.exists(hits, w#bullets)) w
+            else {
+                let (points, next) = Rules.mysteryScoreFrom(w#rng);
+                let blast = { pos = pos, ticksLeft = Rules.invaderBlastTicks(), kind = BlastKind.InvaderBlast };
+                { mystery = None,
+                  bullets = List.filter(b -> not hits(b), w#bullets),
+                  score = w#score + points,
+                  blasts = blast :: w#blasts,
+                  rng = next | w }
+            }
+        }
+    }
+
     ///
     /// Ages every blast by a tick and drops the ones that have burnt out.
     ///
@@ -258,6 +309,8 @@ mod Game {
           marchDir = 1.0f32,
           cooldown = 0,
           blasts = Nil,
+          mystery = None,
+          mysteryTimer = Rules.mysteryInterval(),
           playerX = Rules.fieldWidth() / 2.0f32 | w }
 
     ///
@@ -280,7 +333,11 @@ mod Game {
             acc + "|k${Bunkers.remaining(bunker)}", "", w#bunkers);
         let debris = List.foldLeft((acc, b) ->
             acc + "|e(${b#kind},${b#pos#x},${b#pos#y},${b#ticksLeft})", "", w#blasts);
-        header + shots + drops + formation + shelters + debris
+        let ufo = match w#mystery {
+            case None => "|u-${w#mysteryTimer}"
+            case Some(m) => "|u(${m#x},${m#dir})"
+        };
+        header + shots + drops + formation + shelters + debris + ufo
     }
 
     // -- the step ---------------------------------------------------------------------
@@ -302,9 +359,11 @@ mod Game {
                 |> moveBullets
                 |> moveBombs
                 |> marchInvaders
+                |> moveMystery
                 |> invaderFire
                 |> resolveBunkers
                 |> resolveBullets
+                |> resolveMystery
                 |> resolveBombs
                 |> ageBlasts
                 |> trackHiScore

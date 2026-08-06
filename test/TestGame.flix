@@ -496,4 +496,100 @@ mod TestGame {
         assertEq(expected = 0, blastCount(next))
     }
 
+    // -- the mystery ship ------------------------------------------------------------
+
+    /// A world with the ship on screen at `x`, travelling right.
+    def withMystery(x: Float32): World =
+        { mystery = Some({ x = x, dir = 1.0f32 }) | start() }
+
+    @Test
+    def testNoMysteryShipAtTheStart(): Unit \ Assert = {
+        assertTrue(Option.isEmpty(start()#mystery));
+        assertEq(expected = Rules.mysteryInterval(), start()#mysteryTimer)
+    }
+
+    @Test
+    def testTheTimerCountsDownAndThenLaunchesTheShip(): Unit \ Assert = {
+        let nearly = { mysteryTimer = 2 | start() };
+        assertTrue(Option.isEmpty(Game.step(nearly, Input.empty())#mystery));
+        let launched = steps(2, nearly, Input.empty());
+        assertTrue(not Option.isEmpty(launched#mystery));
+        // The timer resets, so ships keep coming.
+        assertEq(expected = Rules.mysteryInterval(), launched#mysteryTimer)
+    }
+
+    @Test
+    def testTheShipCrossesTheScreen(): Unit \ Assert = {
+        let w = Game.step(withMystery(100.0f32), Input.empty());
+        match w#mystery {
+            case Some(m) => assertEq(expected = 100.0f32 + Rules.mysterySpeed(), m#x)
+            case None => Assert.fail("the ship vanished mid-screen")
+        }
+    }
+
+    @Test
+    def testTheShipLeavesAtTheFarSide(): Unit \ Assert = {
+        let leaving = withMystery(Rules.fieldWidth() + Rules.mysterySize()#x);
+        assertTrue(Option.isEmpty(Game.step(leaving, Input.empty())#mystery))
+    }
+
+    @Test
+    def testAShipThatEscapesScoresNothing(): Unit \ Assert = {
+        let leaving = withMystery(Rules.fieldWidth() + Rules.mysterySize()#x);
+        assertEq(expected = 0, Game.step(leaving, Input.empty())#score)
+    }
+
+    @Test
+    def testShootingTheShipScoresAndDestroysIt(): Unit \ Assert = {
+        let base = withMystery(300.0f32);
+        let shot = { bullets = { x = 300.0f32, y = Rules.mysteryY() } :: Nil | base };
+        let w = Game.step(shot, Input.empty());
+        assertTrue(Option.isEmpty(w#mystery));
+        assertTrue(w#score > 0);
+        assertEq(expected = 0, List.length(w#bullets));
+        assertTrue(List.exists(b -> b#kind == BlastKind.InvaderBlast, w#blasts))
+    }
+
+    @Test
+    def testTheShipIsWorthOneOfItsTableValues(): Unit \ Assert = {
+        let base = withMystery(300.0f32);
+        let shot = { bullets = { x = 300.0f32, y = Rules.mysteryY() } :: Nil | base };
+        let scored = Game.step(shot, Input.empty())#score;
+        Assert.assertTrueWithMsg(Vector.exists(v -> v == scored, Rules.mysteryScores()),
+            "scored ${scored}, which is not in the table")
+    }
+
+    @Test
+    def testAMissedShotLeavesTheShipAlone(): Unit \ Assert = {
+        let base = withMystery(300.0f32);
+        let wide = { bullets = { x = 100.0f32, y = Rules.mysteryY() } :: Nil | base };
+        assertTrue(not Option.isEmpty(Game.step(wide, Input.empty())#mystery))
+    }
+
+    @Test
+    def testTheShipFliesAboveTheFormation(): Unit \ Assert =
+        // A bullet must pass every invader before it can reach the bonus.
+        assertTrue(Rules.mysteryY() + Rules.mysterySize()#y / 2.0f32 < Rules.formationTop())
+
+    @Test
+    def testTheShipIsDrawnWhenPresent(): Unit \ Assert =
+        assertTrue(rectCount(withMystery(300.0f32)) > rectCount(start()))
+
+    @Test
+    def testANewLevelClearsTheShip(): Unit \ Assert = {
+        let messy = { mystery = Some({ x = 300.0f32, dir = 1.0f32 }) | swept() };
+        let next = steps(Rules.levelPauseTicks() + 2, Game.step(messy, Input.empty()), Input.empty());
+        assertTrue(Option.isEmpty(next#mystery))
+    }
+
+    @Test
+    def testTheShipDoesNotMoveWhileTheCannonBurns(): Unit \ Assert = {
+        let hit = Game.step({ mystery = Some({ x = 300.0f32, dir = 1.0f32 }) | aboutToBeHit() }, Input.empty());
+        let during = Game.step(hit, Input.empty());
+        match (hit#mystery, during#mystery) {
+            case (Some(a), Some(b)) => assertEq(expected = a#x, b#x)
+            case _ => Assert.fail("expected the ship to still be there")
+        }
+    }
+
 }

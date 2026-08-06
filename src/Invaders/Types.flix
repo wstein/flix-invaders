@@ -22,6 +22,11 @@ pub enum InvaderKind with Eq, ToString {
 ///
 pub type alias Bunker = { origin = Vec2, cells = Vector[Bool] }
 
+///
+/// The mystery ship, while one is on screen. `dir` is -1.0 or 1.0.
+///
+pub type alias Mystery = { x = Float32, dir = Float32 }
+
 /// What blew up. The two look different and last for different lengths of time.
 pub enum BlastKind with Eq, ToString {
     case InvaderBlast
@@ -80,7 +85,9 @@ pub type alias World = {
     hiScore = Int32,
     level = Int32,
     pause = Int32,
-    blasts = List[Blast]
+    blasts = List[Blast],
+    mystery = Option[Mystery],
+    mysteryTimer = Int32
 }
 
 ///
@@ -207,6 +214,32 @@ mod Rules {
 
     /// How long the game pauses between clearing a formation and the next one appearing.
     pub def levelPauseTicks(): Int32 = 90
+
+    // -- the mystery ship -------------------------------------------------------------
+
+    pub def mysterySize(): Vec2 = { x = 32.0f32, y = 14.0f32 }
+
+    /// High enough to be clear of the formation's starting row.
+    pub def mysteryY(): Float32 = 70.0f32
+
+    pub def mysterySpeed(): Float32 = 1.6f32
+
+    /// Ticks between appearances -- about twenty-five seconds, as in the original.
+    pub def mysteryInterval(): Int32 = 1500
+
+    ///
+    /// What the mystery ship is worth.
+    ///
+    /// The original's value depended on how many shots you had fired, which players
+    /// eventually reverse-engineered into a way to score 300 every time. Here it is simply
+    /// drawn from the table, which keeps it a genuine bonus rather than a memorised trick.
+    ///
+    pub def mysteryScores(): Vector[Int32] = Vector#{50, 100, 150, 300}
+
+    pub def mysteryScoreFrom(rng: Rng): (Int32, Rng) = {
+        let (pick, next) = Rng.nextInt32Below(Vector.length(mysteryScores()), rng);
+        (Vector.get(pick, mysteryScores()), next)
+    }
 
     /// How long an invader's starburst stays on screen.
     pub def invaderBlastTicks(): Int32 = 18

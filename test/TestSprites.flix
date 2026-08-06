@@ -63,7 +63,8 @@ mod TestSprites {
             :: Sprites.crabA() :: Sprites.crabB()
             :: Sprites.octopusA() :: Sprites.octopusB()
             :: Sprites.cannon() :: Sprites.bullet() :: Sprites.bomb()
-            :: Sprites.invaderBlast() :: Sprites.playerBlastA() :: Sprites.playerBlastB() :: Nil
+            :: Sprites.invaderBlast() :: Sprites.playerBlastA() :: Sprites.playerBlastB()
+            :: Sprites.mystery() :: Nil
 
     @Test
     def testEverySpriteHasArtworkInIt(): Unit \ Assert =

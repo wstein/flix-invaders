@@ -87,6 +87,14 @@ mod View {
             Sprite.draw(Sprites.cannon(), { x = w#playerX, y = Rules.playerY() }, Rules.cannonScale())
         }
 
+    def drawMystery(w: World): Unit \ Canvas = match w#mystery {
+        case None => ()
+        case Some(m) => {
+            Canvas.fill(Palette.invaderMagenta());
+            Sprite.draw(Sprites.mystery(), { x = m#x, y = Rules.mysteryY() }, Rules.spriteScale())
+        }
+    }
+
     def drawBlasts(w: World): Unit \ Canvas =
         List.forEach(b -> {
             Canvas.fill(match b#kind {
@@ -215,6 +223,7 @@ mod View {
     ///
     pub def render(w: World): Unit \ Canvas = {
         Canvas.clear(Palette.background());
+        drawMystery(w);
         drawInvaders(w);
         drawBunkers(w);
         drawShots(w);
