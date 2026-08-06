@@ -1,0 +1,37 @@
+#!/bin/sh
+# Run the Flix compiler version pinned in flix.toml.
+#
+# Downloads the jar once into .flix/ (gitignored) and reuses it thereafter, so local
+# and CI invocations are identical and nobody has to install Flix by hand.
+#
+#   bin/flix check
+#   bin/flix test
+#   bin/flix run
+set -eu
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cache="$root/.flix"
+
+# Build metadata after '+' is not part of a release tag; strip it.
+version=$(grep -E '^"?flix"?[[:space:]]*=' "$root/flix.toml" \
+  | head -n1 \
+  | sed -E 's/.*"([^"]+)"[[:space:]]*$/\1/')
+version="${version%%+*}"
+
+jar="$cache/flix-$version.jar"
+
+if [ ! -f "$jar" ]; then
+  echo "Downloading Flix $version ..." >&2
+  mkdir -p "$cache"
+  url="https://github.com/flix/flix/releases/download/v$version/flix.jar"
+  if ! curl -fsSL --retry 3 -o "$jar.tmp" "$url"; then
+    rm -f "$jar.tmp"
+    echo "error: could not download $url" >&2
+    echo "       check that 'flix' in flix.toml names a published release." >&2
+    exit 1
+  fi
+  mv "$jar.tmp" "$jar"
+fi
+
+cd "$root"
+exec java -jar "$jar" "$@"

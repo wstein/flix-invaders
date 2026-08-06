@@ -18,21 +18,36 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Read Flix version from flix.toml
-        id: flix
-        run: |
-          version=$(grep -E '^"?flix"?[[:space:]]*=' flix.toml \
-            | head -n1 \
-            | sed -E 's/.*"([^"]+)"[[:space:]]*$/\1/')
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Download Flix
-        run: |
-          curl -fsSL -o flix.jar \
-            "https://github.com/flix/flix/releases/download/v${{ steps.flix.outputs.version }}/flix.jar"
+      # bin/flix downloads the pinned compiler into .flix/, and dependency
+      # resolution populates lib/. Both are keyed on flix.toml.
+      - name: Cache toolchain and dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .flix
+            lib
+          key: flix-${{ runner.os }}-${{ hashFiles('flix.toml') }}
 
       - name: Check
-        run: java -jar flix.jar check
+        run: bin/flix check
 
       - name: Test
-        run: java -jar flix.jar test
+        run: bin/flix test
+
+      # The test suite must stay headless: no @Test may open a window. Runners have no
+      # display, and Processing's ShimAWT calls System.exit(1) on HeadlessException,
+      # which would surface as a bare exit code with no stack trace.
+      - name: Verify tests are headless
+        run: |
+          if grep -rn 'Sketch\.run\|runOnPApplet' test/; then
+            echo "::error::test/ must not open a window; use Canvas.runCollecting instead."
+            exit 1
+          fi
+
+      - name: Verify formatting
+        run: |
+          bin/flix format
+          if ! git diff --exit-code -- src test; then
+            echo "::error::Run 'bin/flix format' and commit the result."
+            exit 1
+          fi

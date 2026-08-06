@@ -1,6 +1,21 @@
 [package]
 name        = "flix-proc-invaders"
-description = "TODO"
+description = "A Flix creative-coding pilot using Processing Core."
 version     = "0.1.0"
-flix        = "0.75.1+fork.wstein.260802.2.104.g6ec07eccd.dirty"
+flix        = "0.75.1"
+license     = "MIT"
 authors     = ["Werner Stein <werner.stein@gmail.com>"]
+
+# Processing Core, pinned to one jar from Maven Central.
+#
+# Deliberately a jar-dependency rather than an mvn-dependency: core's POM declares
+# runtime-scope jogamp umbrella artifacts (~10 jars of all-platform natives) plus a
+# compile-scope kotlin-stdlib, and Flix 0.75.1 supports neither exclusions nor extra
+# repositories. The JAVA2D renderer we use needs none of that -- processing.core/awt/
+# data/event contain no com.jogamp imports, and renderers are loaded reflectively by
+# class name, so JOGL is never class-loaded. Fetching the single jar sidesteps the
+# whole transitive mess and keeps core a separate, replaceable artifact (LGPL-2.1).
+#
+# core-4.5.6.jar  1040800 bytes  sha1 e51ed348c657dd24acfe77106563b472d0db04a8
+[jar-dependencies]
+"processing-core.jar" = "url:https://repo1.maven.org/maven2/org/processing/core/4.5.6/core-4.5.6.jar"
