@@ -19,7 +19,7 @@ git clone https://github.com/wstein/flix-proc-invaders
 cd flix-proc-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 211 tests -- no window and no audio device is ever opened
+bin/flix test      # 221 tests -- no window and no audio device is ever opened
 bin/flix run       # play Space Invaders
 ```
 
@@ -28,8 +28,9 @@ it, so local runs and CI behave identically.
 
 **Controls:** left and right arrows move, space fires, enter restarts after the game ends,
 escape quits. Shelter behind the bunkers — they stop bombs, but they wear away. Shoot the
-mystery ship for points *and* a temporary shield. Clearing the formation starts a harder
-level; there is no winning, only surviving longer.
+mystery ship for points *and* a temporary shield. Every 1000 points buys an extra life.
+Clearing the formation starts a harder level and each one compounds on the last; there is no
+winning, only surviving longer.
 
 ## Start with the sketches, not the game
 

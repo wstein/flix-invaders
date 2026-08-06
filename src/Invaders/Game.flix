@@ -49,6 +49,7 @@ mod Game {
           mystery = None,
           mysteryTimer = Rules.mysteryInterval(),
           shield = 0,
+          nextBonusAt = Rules.bonusLifeScore(),
           sounds = Nil,
           marchNote = 0,
           marchedSince = 0.0f32 }
@@ -289,6 +290,24 @@ mod Game {
         }
     }
 
+    ///
+    /// Awards an extra life each time the score passes the next threshold.
+    ///
+    /// Loops rather than awarding once, because a single tick could cross two thresholds --
+    /// shooting the mystery ship for 300 while already near the line, say -- and skipping
+    /// one would be a silent loss.
+    ///
+    def awardBonusLife(w: World): World =
+        if (w#score < w#nextBonusAt) w
+        else {
+            let raised = { nextBonusAt = w#nextBonusAt + Rules.bonusLifeScore() | w };
+            if (w#lives >= Rules.maxLives())
+                // The threshold still advances, so a capped player does not get a fresh
+                // award on every subsequent point.
+                awardBonusLife(raised)
+            else awardBonusLife(emit(SoundCmd.ExtraLife, { lives = raised#lives + 1 | raised }))
+        }
+
     /// Counts the shield down. It runs on wall time, not on hits.
     def ageShield(w: World): World =
         { shield = Int32.max(0, w#shield - 1) | w }
@@ -366,7 +385,7 @@ mod Game {
     pub def digest(w: World): String = {
         let header = "${w#phase}|t=${w#tick}|x=${w#playerX}|s=${w#score}|l=${w#lives}"
             + "|d=${w#marchDir}|c=${w#cooldown}|h=${w#hiScore}|v=${w#level}|p=${w#pause}"
-            + "|g=${w#shield}|r=${w#rng}";
+            + "|g=${w#shield}|n=${w#nextBonusAt}|r=${w#rng}";
         let shots = List.foldLeft((acc, b) -> acc + "|b(${b#x},${b#y})", "", w#bullets);
         let drops = List.foldLeft((acc, b) -> acc + "|m(${b#x},${b#y})", "", w#bombs);
         let formation = Vector.foldLeft((acc, inv) ->
@@ -414,6 +433,7 @@ mod Game {
                 |> resolveBullets
                 |> resolveMystery
                 |> resolveBombs
+                |> awardBonusLife
                 |> ageBlasts
                 |> trackHiScore
                 |> checkEnd

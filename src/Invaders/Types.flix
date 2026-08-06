@@ -68,6 +68,7 @@ pub enum Phase with Eq, ToString {
 /// - `level` counts from 1 and drives the difficulty curve.
 /// - `pause` is ticks remaining in a non-playing phase, used for the between-levels beat.
 /// - `shield` is ticks of invulnerability remaining, earned by shooting the mystery ship.
+/// - `nextBonusAt` is the score at which the next extra life is awarded.
 /// - `sounds` holds only what happened during the tick just taken; it is cleared each step.
 /// - `marchNote` and `marchedSince` drive the bassline: notes are spaced by *distance*
 ///   marched, not by time, so the tempo tracks the formation's speed for free.
@@ -93,6 +94,7 @@ pub type alias World = {
     mystery = Option[Mystery],
     mysteryTimer = Int32,
     shield = Int32,
+    nextBonusAt = Int32,
     sounds = List[SoundCmd],
     marchNote = Int32,
     marchedSince = Float32
@@ -197,8 +199,17 @@ mod Rules {
     ///
     def thinningSpeedUp(): Float32 = 2.0f32
 
+    ///
     /// How much faster each level starts than the one before.
-    def levelSpeedUp(): Float32 = 0.18f32
+    ///
+    /// Compounding rather than linear, so the difficulty keeps biting in an endless game --
+    /// a flat increment stops mattering once the level number is large. Capped, because
+    /// past a certain speed the formation crosses the screen faster than a bullet can reach
+    /// it and no amount of skill helps.
+    ///
+    def levelGrowth(): Float32 = 1.22f32
+
+    def maxLevelSpeedFactor(): Float32 = 4.0f32
 
     ///
     /// The march speed for a given number of survivors on a given level.
@@ -207,7 +218,8 @@ mod Rules {
         let total = Int32.toFloat32(totalInvaders());
         let cleared = (total - Int32.toFloat32(Int32.max(0, living))) / total;
         let thinning = 1.0f32 + thinningSpeedUp() * cleared;
-        let byLevel = 1.0f32 + levelSpeedUp() * Int32.toFloat32(Int32.max(0, level - 1));
+        let steps = Int32.toFloat32(Int32.max(0, level - 1));
+        let byLevel = Float32.min(maxLevelSpeedFactor(), Float32.pow(base = levelGrowth(), steps));
         baseMarchSpeed() * byLevel * thinning
     }
 
@@ -239,6 +251,18 @@ mod Rules {
 
     /// Ticks between appearances -- about twenty-five seconds, as in the original.
     pub def mysteryInterval(): Int32 = 1500
+
+    ///
+    ///
+    /// Score needed for an extra life.
+    ///
+    /// The original awarded one bonus ship at a threshold set by a dip switch. This game
+    /// never ends, so a single award would stop mattering by the third level; instead the
+    /// bonus repeats at every multiple, capped so lives cannot be farmed indefinitely.
+    ///
+    pub def bonusLifeScore(): Int32 = 1000
+
+    pub def maxLives(): Int32 = 6
 
     ///
     /// How long the shield earned from the mystery ship lasts.

@@ -103,6 +103,7 @@ mod Audio {
         case SoundCmd.MysteryAppears => sweep(rc, 620.0f32, 900.0f32, 220, 0.4f32)
         case SoundCmd.MysteryDies => sweep(rc, 900.0f32, 180.0f32, 380, 0.6f32)
         case SoundCmd.ShieldBlock => sweep(rc, 300.0f32, 1100.0f32, 130, 0.5f32)
+        case SoundCmd.ExtraLife => sweep(rc, 500.0f32, 1600.0f32, 420, 0.6f32)
         case SoundCmd.MarchStep(note) => {
             let hz = marchHz(note);
             sweep(rc, hz, hz * 0.92f32, 110, 0.85f32)

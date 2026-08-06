@@ -775,4 +775,86 @@ mod TestGame {
         assertTrue(rectCount(on) != rectCount(off))
     }
 
+    // -- bonus lives -----------------------------------------------------------------
+
+    @Test
+    def testTheFirstBonusIsDueAtTheThreshold(): Unit \ Assert =
+        assertEq(expected = Rules.bonusLifeScore(), start()#nextBonusAt)
+
+    @Test
+    def testCrossingTheThresholdGrantsALife(): Unit \ Assert = {
+        let w = Game.step({ score = Rules.bonusLifeScore(), lives = 1 | start() }, Input.empty());
+        assertEq(expected = 2, w#lives);
+        assertEq(expected = Rules.bonusLifeScore() * 2, w#nextBonusAt);
+        assertEq(expected = 1, countOf(SoundCmd.ExtraLife, w#sounds))
+    }
+
+    @Test
+    def testShortOfTheThresholdGrantsNothing(): Unit \ Assert = {
+        let w = Game.step({ score = Rules.bonusLifeScore() - 1, lives = 1 | start() }, Input.empty());
+        assertEq(expected = 1, w#lives);
+        assertEq(expected = 0, countOf(SoundCmd.ExtraLife, w#sounds))
+    }
+
+    @Test
+    def testALifeIsNotGrantedTwiceForTheSameThreshold(): Unit \ Assert = {
+        let once = Game.step({ score = Rules.bonusLifeScore(), lives = 1 | start() }, Input.empty());
+        assertEq(expected = once#lives, steps(30, once, Input.empty())#lives)
+    }
+
+    @Test
+    def testTwoThresholdsCrossedAtOnceGrantTwoLives(): Unit \ Assert = {
+        // Shooting the mystery ship for 300 while already near the line can vault a whole
+        // threshold; skipping one would be a silent loss.
+        let w = Game.step({ score = Rules.bonusLifeScore() * 2 + 5, lives = 1 | start() }, Input.empty());
+        assertEq(expected = 3, w#lives);
+        assertEq(expected = 2, countOf(SoundCmd.ExtraLife, w#sounds));
+        assertEq(expected = Rules.bonusLifeScore() * 3, w#nextBonusAt)
+    }
+
+    @Test
+    def testLivesAreCapped(): Unit \ Assert = {
+        let w = Game.step({ score = Rules.bonusLifeScore() * 3, lives = Rules.maxLives() | start() },
+                          Input.empty());
+        assertEq(expected = Rules.maxLives(), w#lives)
+    }
+
+    @Test
+    def testACappedPlayerDoesNotBankAwards(): Unit \ Assert = {
+        // The threshold must keep advancing while capped, or losing a life later would
+        // immediately hand back a burst of free ones.
+        let capped = Game.step({ score = Rules.bonusLifeScore() * 3, lives = Rules.maxLives() | start() },
+                               Input.empty());
+        assertTrue(capped#nextBonusAt > Rules.bonusLifeScore() * 3);
+        let wounded = Game.step({ lives = 1 | capped }, Input.empty());
+        assertEq(expected = 1, wounded#lives)
+    }
+
+    @Test
+    def testARestartResetsTheBonusThreshold(): Unit \ Assert = {
+        let lost = { phase = Phase.Lost, score = 5000 | start() };
+        assertEq(expected = Rules.bonusLifeScore(),
+                 Game.step(lost, Input.holding(Key.Enter :: Nil))#nextBonusAt)
+    }
+
+    // -- the level curve -------------------------------------------------------------
+
+    @Test
+    def testTheLevelCurveCompounds(): Unit \ Assert = {
+        // Each level must add more than the last, or the ramp stops mattering once the
+        // level number is large.
+        let full = Rules.totalInvaders();
+        let firstStep = Rules.marchSpeedFor(full, 2) - Rules.marchSpeedFor(full, 1);
+        let laterStep = Rules.marchSpeedFor(full, 5) - Rules.marchSpeedFor(full, 4);
+        assertTrueWithMsg(laterStep > firstStep,
+            "the curve is not compounding: ${firstStep} then ${laterStep}")
+    }
+
+    @Test
+    def testTheLevelCurveIsCapped(): Unit \ Assert = {
+        // Past a point the formation would cross the screen faster than a bullet reaches it.
+        let full = Rules.totalInvaders();
+        assertEq(expected = Rules.marchSpeedFor(full, 20), Rules.marchSpeedFor(full, 40))
+    }
+
 }

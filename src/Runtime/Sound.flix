@@ -18,6 +18,7 @@ pub enum SoundCmd with Eq, Order, ToString {
     case MysteryAppears
     case MysteryDies
     case ShieldBlock
+    case ExtraLife
     case MarchStep(Int32)
 }
 
@@ -38,6 +39,7 @@ mod SoundCmd {
         SoundCmd.MysteryAppears ::
         SoundCmd.MysteryDies ::
         SoundCmd.ShieldBlock ::
+        SoundCmd.ExtraLife ::
         List.map(n -> SoundCmd.MarchStep(n), List.range(0, marchNotes()))
 
 }
