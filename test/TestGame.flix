@@ -399,4 +399,101 @@ mod TestGame {
         Assert.assertTrue(hasHint)
     }
 
+    // -- explosions ------------------------------------------------------------------
+
+    def blastCount(w: World): Int32 = List.length(w#blasts)
+
+    def hasPlayerBlast(w: World): Bool =
+        List.exists(b -> b#kind == BlastKind.PlayerBlast, w#blasts)
+
+    /// A world with a bomb sitting exactly on the cannon.
+    def aboutToBeHit(): World = {
+        let base = start();
+        { bombs = { x = base#playerX, y = Rules.playerY() } :: Nil | base }
+    }
+
+    @Test
+    def testKillingAnInvaderLeavesAStarburst(): Unit \ Assert = {
+        let w = Game.step(bulletOnFirstInvader(start()), Input.empty());
+        assertEq(expected = 1, blastCount(w));
+        // The formation marches before collisions resolve, so the blast belongs at the
+        // invader's position at the moment it died, not where it was a tick earlier.
+        let died = Vector.get(0, w#invaders)#pos;
+        match List.head(w#blasts) {
+            case Some(b) => {
+                assertEq(expected = BlastKind.InvaderBlast, b#kind);
+                assertEq(expected = died#x, b#pos#x);
+                assertEq(expected = died#y, b#pos#y)
+            }
+            case None => Assert.fail("expected a blast")
+        }
+    }
+
+    @Test
+    def testAStarburstBurnsOut(): Unit \ Assert = {
+        let w = Game.step(bulletOnFirstInvader(start()), Input.empty());
+        assertEq(expected = 1, blastCount(w));
+        assertEq(expected = 0, blastCount(steps(Rules.invaderBlastTicks() + 2, w, Input.empty())))
+    }
+
+    @Test
+    def testBeingHitLeavesWreckageAndFreezesTheGame(): Unit \ Assert = {
+        let w = Game.step(aboutToBeHit(), Input.empty());
+        assertTrue(hasPlayerBlast(w));
+        assertTrue(w#pause > 0);
+        assertEq(expected = Rules.startingLives() - 1, w#lives)
+    }
+
+    @Test
+    def testNothingMovesWhileTheCannonBurns(): Unit \ Assert = {
+        // The freeze has to stop the formation too, not just the player -- otherwise the
+        // invaders march on while you cannot shoot back.
+        let hit = Game.step(aboutToBeHit(), Input.empty());
+        let during = Game.step(hit, Input.holding(Key.Right :: Nil));
+        assertEq(expected = hit#playerX, during#playerX);
+        assertEq(expected = Vector.get(0, hit#invaders)#pos#x, Vector.get(0, during#invaders)#pos#x)
+    }
+
+    @Test
+    def testPlayResumesAfterTheFreeze(): Unit \ Assert = {
+        let hit = Game.step(aboutToBeHit(), Input.empty());
+        let after = steps(Rules.deathPauseTicks() + 2, hit, Input.empty());
+        assertEq(expected = Phase.Playing, after#phase);
+        assertEq(expected = 0, after#pause);
+        // Moving works again.
+        assertTrue(Game.step(after, Input.holding(Key.Right :: Nil))#playerX > after#playerX)
+    }
+
+    @Test
+    def testTheWreckageOutlivesTheFreeze(): Unit \ Assert =
+        // Deliberate: the cannon is back before the debris has quite faded.
+        assertTrue(Rules.playerBlastTicks() > Rules.deathPauseTicks())
+
+    @Test
+    def testTheCannonIsNotDrawnWhileItIsWreckage(): Unit \ Assert = {
+        // Drawing the intact cannon underneath its own wreckage would look wrong. With the
+        // wreck present the frame should gain the wreck's rectangles and lose the cannon's.
+        let hit = Game.step(aboutToBeHit(), Input.empty());
+        let intact = { blasts = Nil | hit };
+        let wreck = List.foldLeft((total, b) ->
+            total + List.length(Sprite.runs(Sprites.forBlast(b#kind, b#ticksLeft))), 0, hit#blasts);
+        let cannon = List.length(Sprite.runs(Sprites.cannon()));
+        assertEq(expected = rectCount(intact) + wreck - cannon, rectCount(hit))
+    }
+
+    @Test
+    def testBlastsAreDrawn(): Unit \ Assert = {
+        let w = Game.step(bulletOnFirstInvader(start()), Input.empty());
+        assertTrue(rectCount(w) > rectCount({ blasts = Nil | w }))
+    }
+
+    @Test
+    def testANewLevelClearsTheDebris(): Unit \ Assert = {
+        let messy = { blasts = { pos = { x = 10.0f32, y = 10.0f32 },
+                                 ticksLeft = 999,
+                                 kind = BlastKind.InvaderBlast } :: Nil | swept() };
+        let next = steps(Rules.levelPauseTicks() + 2, Game.step(messy, Input.empty()), Input.empty());
+        assertEq(expected = 0, blastCount(next))
+    }
+
 }

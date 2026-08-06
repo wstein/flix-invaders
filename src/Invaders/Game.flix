@@ -44,7 +44,8 @@ mod Game {
           seed = seed,
           hiScore = 0,
           level = 1,
-          pause = 0 }
+          pause = 0,
+          blasts = Nil }
 
     def clampTo(lo: Float32, hi: Float32, v: Float32): Float32 =
         if (v < lo) lo else if (v > hi) hi else v
@@ -163,29 +164,52 @@ mod Game {
     /// A bullet is spent on the first invader it hits, so one shot can never clear two.
     ///
     def resolveBullets(w: World): World = {
-        def loop(remaining, invaders, kept, score) = match remaining {
-            case Nil => (List.reverse(kept), invaders, score)
+        def loop(remaining, invaders, kept, score, blasts) = match remaining {
+            case Nil => (List.reverse(kept), invaders, score, blasts)
             case bullet :: rest => match hitIndex(bullet, invaders) {
-                case None => loop(rest, invaders, bullet :: kept, score)
+                case None => loop(rest, invaders, bullet :: kept, score, blasts)
                 case Some(i) => {
                     let hit = Vector.get(i, invaders);
                     let struck = { alive = false | hit };
+                    let blast = { pos = hit#pos,
+                                  ticksLeft = Rules.invaderBlastTicks(),
+                                  kind = BlastKind.InvaderBlast };
                     loop(rest, Vector.update(i, struck, invaders), kept,
-                         score + Rules.pointsFor(hit#kind))
+                         score + Rules.pointsFor(hit#kind), blast :: blasts)
                 }
             }
         };
-        let (bullets, invaders, score) = loop(w#bullets, w#invaders, Nil, w#score);
-        { bullets = bullets, invaders = invaders, score = score | w }
+        let (bullets, invaders, score, blasts) = loop(w#bullets, w#invaders, Nil, w#score, w#blasts);
+        { bullets = bullets, invaders = invaders, score = score, blasts = blasts | w }
     }
 
-    /// Bombs meet the player. A hit costs one life and clears the bombs on screen.
+    ///
+    /// Bombs meet the player.
+    ///
+    /// A hit costs one life, clears the bombs on screen, leaves wreckage, and freezes the
+    /// game for a beat -- being blown up should be something you watch, not something you
+    /// only notice from the life counter.
+    ///
     def resolveBombs(w: World): World = {
         let player = { x = w#playerX, y = Rules.playerY() };
         let hit = List.exists(b -> Collide.overlaps(b, Rules.bombSize(), player, Rules.playerSize()), w#bombs);
         if (not hit) w
-        else { lives = w#lives - 1, bombs = Nil | w }
+        else {
+            let wreck = { pos = player, ticksLeft = Rules.playerBlastTicks(), kind = BlastKind.PlayerBlast };
+            { lives = w#lives - 1,
+              bombs = Nil,
+              blasts = wreck :: w#blasts,
+              pause = Rules.deathPauseTicks() | w }
+        }
     }
+
+    ///
+    /// Ages every blast by a tick and drops the ones that have burnt out.
+    ///
+    def ageBlasts(w: World): World =
+        { blasts = w#blasts
+            |> List.map(b -> { ticksLeft = b#ticksLeft - 1 | b })
+            |> List.filter(b -> b#ticksLeft > 0) | w }
 
     /// Whether any living invader has reached the player's line.
     def invasionComplete(invaders: Vector[Invader]): Bool =
@@ -233,6 +257,7 @@ mod Game {
           bombs = Nil,
           marchDir = 1.0f32,
           cooldown = 0,
+          blasts = Nil,
           playerX = Rules.fieldWidth() / 2.0f32 | w }
 
     ///
@@ -253,7 +278,9 @@ mod Game {
             acc + (if (inv#alive) "|i(${inv#pos#x},${inv#pos#y})" else "|."), "", w#invaders);
         let shelters = Vector.foldLeft((acc, bunker) ->
             acc + "|k${Bunkers.remaining(bunker)}", "", w#bunkers);
-        header + shots + drops + formation + shelters
+        let debris = List.foldLeft((acc, b) ->
+            acc + "|e(${b#kind},${b#pos#x},${b#pos#y},${b#ticksLeft})", "", w#blasts);
+        header + shots + drops + formation + shelters + debris
     }
 
     // -- the step ---------------------------------------------------------------------
@@ -265,6 +292,10 @@ mod Game {
     ///
     pub def step(w: World, input: Snapshot): World = match w#phase {
         case Phase.Playing =>
+            // Everything freezes while the cannon burns, except the wreckage itself.
+            if (w#pause > 0)
+                w |> ageBlasts |> (n -> { pause = n#pause - 1, tick = n#tick + 1 | n })
+            else
             w
                 |> movePlayer(input)
                 |> fire(input)
@@ -275,6 +306,7 @@ mod Game {
                 |> resolveBunkers
                 |> resolveBullets
                 |> resolveBombs
+                |> ageBlasts
                 |> trackHiScore
                 |> checkEnd
                 |> (next -> { tick = next#tick + 1 | next })

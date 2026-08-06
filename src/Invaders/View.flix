@@ -77,10 +77,28 @@ mod View {
             w#bunkers)
     }
 
-    def drawPlayer(w: World): Unit \ Canvas = {
-        Canvas.fill(Palette.cannonGreen());
-        Sprite.draw(Sprites.cannon(), { x = w#playerX, y = Rules.playerY() }, Rules.cannonScale())
-    }
+    ///
+    /// The cannon, unless it is currently a pile of wreckage.
+    ///
+    def drawPlayer(w: World): Unit \ Canvas =
+        if (List.exists(b -> b#kind == BlastKind.PlayerBlast, w#blasts)) ()
+        else {
+            Canvas.fill(Palette.cannonGreen());
+            Sprite.draw(Sprites.cannon(), { x = w#playerX, y = Rules.playerY() }, Rules.cannonScale())
+        }
+
+    def drawBlasts(w: World): Unit \ Canvas =
+        List.forEach(b -> {
+            Canvas.fill(match b#kind {
+                case BlastKind.InvaderBlast => Palette.ink()
+                case BlastKind.PlayerBlast => Palette.coral()
+            });
+            let scale = match b#kind {
+                case BlastKind.InvaderBlast => Rules.spriteScale()
+                case BlastKind.PlayerBlast => Rules.cannonScale()
+            };
+            Sprite.draw(Sprites.forBlast(b#kind, b#ticksLeft), b#pos, scale)
+        }, w#blasts)
 
     // -- the cabinet furniture --------------------------------------------------------
 
@@ -201,6 +219,7 @@ mod View {
         drawBunkers(w);
         drawShots(w);
         drawPlayer(w);
+        drawBlasts(w);
         drawHud(w);
         drawCabinet(w);
         drawEndMessage(w)

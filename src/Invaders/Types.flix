@@ -22,6 +22,17 @@ pub enum InvaderKind with Eq, ToString {
 ///
 pub type alias Bunker = { origin = Vec2, cells = Vector[Bool] }
 
+/// What blew up. The two look different and last for different lengths of time.
+pub enum BlastKind with Eq, ToString {
+    case InvaderBlast
+    case PlayerBlast
+}
+
+///
+/// A short-lived explosion. `ticksLeft` counts down to zero, at which point it is dropped.
+///
+pub type alias Blast = { pos = Vec2, ticksLeft = Int32, kind = BlastKind }
+
 /// One invader in the formation. Dead ones keep their slot so the grid never reshuffles.
 pub type alias Invader = { pos = Vec2, alive = Bool, kind = InvaderKind, row = Int32 }
 
@@ -68,7 +79,8 @@ pub type alias World = {
     seed = Int64,
     hiScore = Int32,
     level = Int32,
-    pause = Int32
+    pause = Int32,
+    blasts = List[Blast]
 }
 
 ///
@@ -195,6 +207,20 @@ mod Rules {
 
     /// How long the game pauses between clearing a formation and the next one appearing.
     pub def levelPauseTicks(): Int32 = 90
+
+    /// How long an invader's starburst stays on screen.
+    pub def invaderBlastTicks(): Int32 = 18
+
+    /// How long the cannon's wreckage stays on screen.
+    pub def playerBlastTicks(): Int32 = 66
+
+    ///
+    /// How long everything freezes when the player is hit.
+    ///
+    /// A beat shorter than the wreckage lasts, so the cannon is back before the debris has
+    /// quite faded and the restart does not feel abrupt.
+    ///
+    pub def deathPauseTicks(): Int32 = 54
 
     /// How far the formation drops each time it reaches a wall.
     pub def marchDrop(): Float32 = 24.0f32

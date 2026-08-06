@@ -200,6 +200,54 @@ mod Sprites {
     })
 
     ///
+    /// The starburst an invader leaves behind.
+    ///
+    pub def invaderBlast(): Sprite = Sprite.of(Vector#{
+        "....#...#....",
+        "#...#...#...#",
+        ".#.#.....#.#.",
+        "..#..###..#..",
+        "###..###..###",
+        "..#..###..#..",
+        ".#.#.....#.#.",
+        "#...#...#...#"
+    })
+
+    ///
+    /// The cannon coming apart, in two frames so the debris flickers.
+    ///
+    pub def playerBlastA(): Sprite = Sprite.of(Vector#{
+        "..#.#...#.#..",
+        "#...#.#.#...#",
+        ".#.#..#..#.#.",
+        "#..####.##..#",
+        ".###########.",
+        "#############",
+        ".#.#######.#.",
+        "#.#.#####.#.#"
+    })
+
+    pub def playerBlastB(): Sprite = Sprite.of(Vector#{
+        "#.#...#...#.#",
+        "..#.#...#.#..",
+        "#..#..#..#..#",
+        ".#.##.#.##.#.",
+        "#.#########.#",
+        ".###########.",
+        "#.#.#####.#.#",
+        ".#.#.###.#.#."
+    })
+
+    ///
+    /// The frame for a blast, given how many ticks of it are left.
+    ///
+    pub def forBlast(kind: BlastKind, ticksLeft: Int32): Sprite = match kind {
+        case BlastKind.InvaderBlast => invaderBlast()
+        case BlastKind.PlayerBlast =>
+            if (Int32.remainder(ticksLeft / 6, 2) == 0) playerBlastA() else playerBlastB()
+    }
+
+    ///
     /// The frame for an invader of `kind`, alternating on `frame`.
     ///
     pub def forKind(kind: InvaderKind, frame: Int32): Sprite = {

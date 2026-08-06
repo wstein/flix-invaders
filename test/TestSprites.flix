@@ -62,7 +62,8 @@ mod TestSprites {
         Sprites.squidA() :: Sprites.squidB()
             :: Sprites.crabA() :: Sprites.crabB()
             :: Sprites.octopusA() :: Sprites.octopusB()
-            :: Sprites.cannon() :: Sprites.bullet() :: Sprites.bomb() :: Nil
+            :: Sprites.cannon() :: Sprites.bullet() :: Sprites.bomb()
+            :: Sprites.invaderBlast() :: Sprites.playerBlastA() :: Sprites.playerBlastB() :: Nil
 
     @Test
     def testEverySpriteHasArtworkInIt(): Unit \ Assert =
@@ -79,6 +80,22 @@ mod TestSprites {
                     "ragged sprite row: '${row}' is ${String.length(row)}, expected ${sprite#width}"),
                 sprite#rows),
             everySprite())
+
+    @Test
+    def testThePlayerBlastFramesDiffer(): Unit \ Assert =
+        assertNeq(unexpected = Sprite.runs(Sprites.playerBlastA()),
+                  Sprite.runs(Sprites.playerBlastB()))
+
+    @Test
+    def testForBlastAlternatesOnlyForThePlayer(): Unit \ Assert = {
+        // The starburst is a single frame; the wreckage flickers between two.
+        assertEq(expected = Sprite.runs(Sprites.invaderBlast()),
+                 Sprite.runs(Sprites.forBlast(BlastKind.InvaderBlast, 0)));
+        assertEq(expected = Sprite.runs(Sprites.invaderBlast()),
+                 Sprite.runs(Sprites.forBlast(BlastKind.InvaderBlast, 7)));
+        assertNeq(unexpected = Sprite.runs(Sprites.forBlast(BlastKind.PlayerBlast, 0)),
+                  Sprite.runs(Sprites.forBlast(BlastKind.PlayerBlast, 6)))
+    }
 
     @Test
     def testTheInvaderFramesDiffer(): Unit \ Assert = {
