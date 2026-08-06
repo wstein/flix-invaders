@@ -8,8 +8,8 @@
 ///
 mod Palette {
 
-    /// The background every sketch clears to.
-    pub def background(): Color = Color.Rgb(18, 20, 34)
+    /// The background every sketch clears to. Near-black, like an arcade cabinet.
+    pub def background(): Color = Color.Rgb(8, 8, 14)
 
     /// Primary text.
     pub def ink(): Color = Color.Rgb(232, 236, 245)
@@ -21,6 +21,15 @@ mod Palette {
     pub def silhouette(): Color = Color.Rgb(98, 104, 136)
 
     pub def sun(): Color = Color.Rgb(245, 205, 110)
+
+    // Arcade colours. The original was black and white; cabinets faked colour with a strip
+    // of coloured cellophane over the screen, which is why the rows are banded.
+    pub def invaderGreen(): Color = Color.Rgb(92, 240, 116)
+    pub def invaderCyan(): Color = Color.Rgb(96, 226, 240)
+    pub def invaderMagenta(): Color = Color.Rgb(236, 118, 224)
+    pub def cannonGreen(): Color = Color.Rgb(92, 240, 116)
+    pub def ground(): Color = Color.Rgb(60, 200, 90)
+    pub def shot(): Color = Color.Rgb(240, 240, 240)
     pub def coral(): Color = Color.Rgb(240, 122, 112)
     pub def mint(): Color = Color.Rgb(126, 217, 168)
     pub def azure(): Color = Color.Rgb(130, 182, 246)
@@ -34,6 +43,8 @@ mod Palette {
     /// Colours used for shapes on `background`. Must reach a 3.0 contrast ratio.
     ///
     pub def shapeColors(): List[Color] =
-        silhouette() :: sun() :: coral() :: mint() :: azure() :: Nil
+        silhouette() :: sun() :: coral() :: mint() :: azure()
+            :: invaderGreen() :: invaderCyan() :: invaderMagenta()
+            :: cannonGreen() :: ground() :: shot() :: Nil
 
 }

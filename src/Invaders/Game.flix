@@ -20,7 +20,9 @@ mod Game {
             let row = index / Rules.columns();
             { pos = { x = Rules.formationLeft() + Int32.toFloat32(column) * Rules.columnSpacing(),
                       y = Rules.formationTop() + Int32.toFloat32(row) * Rules.rowSpacing() },
-              alive = true }
+              alive = true,
+              kind = Rules.kindForRow(row),
+              row = row }
         })
 
     ///
@@ -33,12 +35,14 @@ mod Game {
           bullets = Nil,
           bombs = Nil,
           invaders = formation(),
+          bunkers = Bunkers.initial(),
           marchDir = 1.0f32,
           cooldown = 0,
           score = 0,
           lives = Rules.startingLives(),
           rng = Rng.fromSeed(seed),
-          seed = seed }
+          seed = seed,
+          hiScore = 0 }
 
     def clampTo(lo: Float32, hi: Float32, v: Float32): Float32 =
         if (v < lo) lo else if (v > hi) hi else v
@@ -161,8 +165,10 @@ mod Game {
             case bullet :: rest => match hitIndex(bullet, invaders) {
                 case None => loop(rest, invaders, bullet :: kept, score)
                 case Some(i) => {
-                    let struck = { alive = false | Vector.get(i, invaders) };
-                    loop(rest, Vector.update(i, struck, invaders), kept, score + Rules.pointsPerInvader())
+                    let hit = Vector.get(i, invaders);
+                    let struck = { alive = false | hit };
+                    loop(rest, Vector.update(i, struck, invaders), kept,
+                         score + Rules.pointsFor(hit#kind))
                 }
             }
         };
@@ -182,6 +188,23 @@ mod Game {
     def invasionComplete(invaders: Vector[Invader]): Bool =
         Vector.exists(inv -> inv#alive and inv#pos#y >= Rules.invasionLine(), invaders)
 
+    ///
+    /// Shots meet the bunkers, before anything else can be hit.
+    ///
+    /// Order matters: this runs after the shots have moved but before they are checked
+    /// against invaders and the player, so a bunker genuinely stops a shot rather than
+    /// merely being drawn in its way.
+    ///
+    def resolveBunkers(w: World): World = {
+        let (afterBullets, bullets) = Bunkers.absorbAll(w#bunkers, w#bullets, Rules.bulletSize());
+        let (afterBombs, bombs) = Bunkers.absorbAll(afterBullets, w#bombs, Rules.bombSize());
+        { bunkers = Bunkers.erode(afterBombs, w#invaders), bullets = bullets, bombs = bombs | w }
+    }
+
+    /// The hi-score is the best score seen so far.
+    def trackHiScore(w: World): World =
+        if (w#score > w#hiScore) { hiScore = w#score | w } else w
+
     /// Decides whether the game is over, and how.
     def checkEnd(w: World): World =
         if (not Vector.exists(inv -> inv#alive, w#invaders)) { phase = Phase.Won | w }
@@ -199,12 +222,14 @@ mod Game {
     ///
     pub def digest(w: World): String = {
         let header = "${w#phase}|t=${w#tick}|x=${w#playerX}|s=${w#score}|l=${w#lives}"
-            + "|d=${w#marchDir}|c=${w#cooldown}|r=${w#rng}";
+            + "|d=${w#marchDir}|c=${w#cooldown}|h=${w#hiScore}|r=${w#rng}";
         let shots = List.foldLeft((acc, b) -> acc + "|b(${b#x},${b#y})", "", w#bullets);
         let drops = List.foldLeft((acc, b) -> acc + "|m(${b#x},${b#y})", "", w#bombs);
         let formation = Vector.foldLeft((acc, inv) ->
             acc + (if (inv#alive) "|i(${inv#pos#x},${inv#pos#y})" else "|."), "", w#invaders);
-        header + shots + drops + formation
+        let shelters = Vector.foldLeft((acc, bunker) ->
+            acc + "|k${Bunkers.remaining(bunker)}", "", w#bunkers);
+        header + shots + drops + formation + shelters
     }
 
     // -- the step ---------------------------------------------------------------------
@@ -223,15 +248,19 @@ mod Game {
                 |> moveBombs
                 |> marchInvaders
                 |> invaderFire
+                |> resolveBunkers
                 |> resolveBullets
                 |> resolveBombs
+                |> trackHiScore
                 |> checkEnd
                 |> (next -> { tick = next#tick + 1 | next })
 
         case _ =>
             // Enter starts a new game. Nothing else happens once it is over, so a finished
             // world is stable no matter how many steps run.
-            if (Set.memberOf(Key.Enter, input#pressed)) initial(w#seed) else w
+            // The hi-score outlives the game, the way an arcade cabinet's does.
+            if (Set.memberOf(Key.Enter, input#pressed)) { hiScore = w#hiScore | initial(w#seed) }
+            else w
     }
 
 }

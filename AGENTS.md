@@ -37,6 +37,8 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   `mod Foo { ... }`; you get `Undefined type`, which looks like a classpath problem and is not.
 - **Never name a receiver `_this`.** The leading underscore makes it a *hidden* variable
   (`E6956`) that the body cannot use. This project names it `app`.
+- **Reserved words that bite as ordinary names:** `run`, `spawn`, `from`, and `Static`. The
+  errors point at the *next* token, so they read as unrelated syntax errors.
 - **`size`, `pixelDensity`, `fullScreen`, `smooth` are legal only inside `settings()`.**
   Anywhere else they throw `IllegalStateException`.
 - **`exitActual` is Processing's only `System.exit(0)`**, and `flix run` does not fork a JVM.

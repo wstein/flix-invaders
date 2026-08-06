@@ -139,7 +139,7 @@ mod TestGame {
     def testABulletKillsAnInvaderAndScores(): Unit \ Assert = {
         let w = Game.step(bulletOnFirstInvader(start()), Input.empty());
         assertEq(expected = Rules.totalInvaders() - 1, livingCount(w));
-        assertEq(expected = Rules.pointsPerInvader(), w#score);
+        assertEq(expected = Rules.pointsFor(Vector.get(0, start()#invaders)#kind), w#score);
         assertEq(expected = 0, List.length(w#bullets))
     }
 
@@ -149,10 +149,10 @@ mod TestGame {
         // but is exactly the case a careless fold would get wrong.
         let base = start();
         let a = Vector.get(0, base#invaders);
-        let stacked = Vector.update(1, { pos = a#pos, alive = true }, base#invaders);
+        let stacked = Vector.update(1, { pos = a#pos | Vector.get(1, base#invaders) }, base#invaders);
         let w = Game.step({ bullets = a#pos :: Nil, invaders = stacked | base }, Input.empty());
         assertEq(expected = Rules.totalInvaders() - 1, Vector.count(inv -> inv#alive, w#invaders));
-        assertEq(expected = Rules.pointsPerInvader(), w#score)
+        assertEq(expected = Rules.pointsFor(Vector.get(0, start()#invaders)#kind), w#score)
     }
 
     @Test
@@ -245,26 +245,44 @@ mod TestGame {
 
     // -- rendering --------------------------------------------------------------------
 
-    @Test
-    def testRenderDrawsOneRectPerLivingInvaderPlusThePlayer(): Unit \ Assert = {
-        let cmds = Canvas.commands((640, 480), () -> View.render(start()));
-        let rects = List.count(cmd -> match cmd {
+    def rectCount(w: World): Int32 =
+        List.count(cmd -> match cmd {
             case DrawCmd.Rect(_, _, _, _) => true
             case _ => false
-        }, cmds);
-        assertEq(expected = Rules.totalInvaders() + 1, rects)
-    }
+        }, Canvas.commands((640, 480), () -> View.render(w)))
 
     @Test
     def testDeadInvadersAreNotDrawn(): Unit \ Assert = {
+        // Killing one invader must remove exactly that sprite's rectangles -- no more, no
+        // fewer. Sprites are drawn as horizontal runs of lit pixels, so the count is the
+        // number of runs in its current frame.
         let base = start();
-        let killed = Vector.update(0, { alive = false | Vector.get(0, base#invaders) }, base#invaders);
-        let cmds = Canvas.commands((640, 480), () -> View.render({ invaders = killed | base }));
-        let rects = List.count(cmd -> match cmd {
-            case DrawCmd.Rect(_, _, _, _) => true
-            case _ => false
-        }, cmds);
-        assertEq(expected = Rules.totalInvaders(), rects)
+        let target = Vector.get(0, base#invaders);
+        let killed = Vector.update(0, { alive = false | target }, base#invaders);
+        let expectedDrop = List.length(Sprite.runs(Sprites.forKind(target#kind, 0)));
+        assertEq(expected = rectCount(base) - expectedDrop, rectCount({ invaders = killed | base }))
+    }
+
+    @Test
+    def testEveryLivingInvaderIsDrawn(): Unit \ Assert = {
+        // Clearing the whole formation must remove every invader rectangle, which pins that
+        // each one is drawn exactly once.
+        let base = start();
+        let cleared = Vector.map(inv -> { alive = false | inv }, base#invaders);
+        let formationRects = Vector.foldLeft((total, inv) ->
+            total + List.length(Sprite.runs(Sprites.forKind(inv#kind, 0))), 0, base#invaders);
+        assertEq(expected = rectCount(base) - formationRects,
+                 rectCount({ invaders = cleared | base }))
+    }
+
+    @Test
+    def testTheInvadersAnimate(): Unit \ Assert = {
+        // The two frames of a sprite differ, so the drawn commands must differ once the
+        // animation has flipped. A frozen frame counter would make these identical.
+        let base = start();
+        let early = Canvas.commands((640, 480), () -> View.render({ tick = 0 | base }));
+        let later = Canvas.commands((640, 480), () -> View.render({ tick = 30 | base }));
+        assertTrue(early != later)
     }
 
     @Test
@@ -278,7 +296,7 @@ mod TestGame {
     def testTheEndScreenSaysHowToRestart(): Unit \ Assert = {
         let cmds = Canvas.commands((640, 480), () -> View.render({ phase = Phase.Lost | start() }));
         let hasHint = List.exists(cmd -> match cmd {
-            case DrawCmd.Text(s, _, _) => String.contains(substr = "enter", s)
+            case DrawCmd.Text(s, _, _) => String.contains(substr = "ENTER", s)
             case _ => false
         }, cmds);
         Assert.assertTrue(hasHint)

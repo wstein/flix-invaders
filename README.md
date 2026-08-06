@@ -19,7 +19,7 @@ git clone https://github.com/wstein/flix-proc-invaders
 cd flix-proc-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 109 tests -- no window is ever opened
+bin/flix test      # 150 tests -- no window is ever opened
 bin/flix run       # play Space Invaders
 ```
 
@@ -27,7 +27,7 @@ bin/flix run       # play Space Invaders
 it, so local runs and CI behave identically.
 
 **Controls:** left and right arrows move, space fires, enter restarts after the game ends,
-escape quits.
+escape quits. Shelter behind the bunkers — they stop bombs, but they wear away.
 
 ## Start with the sketches, not the game
 
@@ -71,6 +71,13 @@ suite run headless, and what makes identical input replay to an identical world.
   part of the world, so a game that uses randomness is still a pure function of its inputs.
 - **Drawing is an effect with two interpretations.** `Canvas.runCollecting` records draw
   calls as a `List[DrawCmd]` with no window, so rendering is tested as data.
+- **Pixel art, no image files.** Sprites are written as rows of `#` and `.` in
+  [Sprites.flix](src/Invaders/Sprites.flix) and drawn as rectangles. Each row is collapsed
+  into horizontal runs first, which is what keeps 55 invaders and four bunkers inside a
+  60 Hz frame budget.
+- **The bunkers are real.** Each is a grid of blocks; a hit destroys the blocks around the
+  one it struck, and the shot stops there. [TestBunkers.flix](test/TestBunkers.flix) checks
+  they actually protect the player rather than merely being drawn in the way.
 - **Colours are checked, not eyeballed.** [TestContrast.flix](test/TestContrast.flix)
   asserts WCAG 2.1 contrast ratios for the whole [palette](src/Runtime/Palette.flix) — 4.5:1
   for text, 3:1 for shapes. A less legible colour fails the build.
@@ -79,8 +86,9 @@ suite run headless, and what makes identical input replay to an identical world.
 
 ## Non-goals
 
-Deliberately out of scope: audio, sprites, image assets, networking, multiple levels,
-persistence, a game engine, a browser playground, and a Processing Mode.
+Deliberately out of scope: audio, image and font assets, networking, multiple levels,
+persistence, a game engine, a browser playground, and a Processing Mode. The sprites are
+pixel art written as text in the source, not files.
 
 ## Remix it
 
