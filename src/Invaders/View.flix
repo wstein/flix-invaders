@@ -158,6 +158,8 @@ mod View {
         drawSpareLives(Sprites.cannon(), w#lives - 1, 0);
 
         Canvas.fill(Palette.ink());
+        let level = "LEVEL ${w#level}";
+        Canvas.text(level, centredX(level, hudSize()), Rules.fieldHeight() - 8.0f32);
         Canvas.text("CREDIT 01", rightAlignedX("CREDIT 01", hudSize(), 24.0f32), Rules.fieldHeight() - 8.0f32)
     }
 
@@ -171,7 +173,12 @@ mod View {
 
     def drawEndMessage(w: World): Unit \ Canvas = match w#phase {
         case Phase.Playing => ()
-        case Phase.Won => banner("YOU WIN")
+        case Phase.Cleared => {
+            let message = "LEVEL ${w#level + 1}";
+            Canvas.fill(Palette.invaderCyan());
+            Canvas.textSize(bannerSize());
+            Canvas.text(message, centredX(message, bannerSize()), Rules.fieldHeight() / 2.0f32)
+        }
         case Phase.Lost => banner("GAME OVER")
     }
 

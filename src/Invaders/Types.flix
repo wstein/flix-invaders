@@ -25,10 +25,16 @@ pub type alias Bunker = { origin = Vec2, cells = Vector[Bool] }
 /// One invader in the formation. Dead ones keep their slot so the grid never reshuffles.
 pub type alias Invader = { pos = Vec2, alive = Bool, kind = InvaderKind, row = Int32 }
 
-/// How the game ends, or that it has not.
+///
+/// What the game is currently doing.
+///
+/// There is no winning. Clearing the formation puts the game in `Cleared` for a moment and
+/// then starts a harder level, exactly as the arcade original does -- the only ending is
+/// losing.
+///
 pub enum Phase with Eq, ToString {
     case Playing
-    case Won
+    case Cleared
     case Lost
 }
 
@@ -43,6 +49,8 @@ pub enum Phase with Eq, ToString {
 /// - `rng` is threaded through every step rather than drawn from a global source.
 /// - `seed` is kept so that restarting rebuilds exactly the same starting position.
 /// - `hiScore` survives a restart, the way an arcade cabinet's does.
+/// - `level` counts from 1 and drives the difficulty curve.
+/// - `pause` is ticks remaining in a non-playing phase, used for the between-levels beat.
 ///
 pub type alias World = {
     phase = Phase,
@@ -58,7 +66,9 @@ pub type alias World = {
     lives = Int32,
     rng = Rng,
     seed = Int64,
-    hiScore = Int32
+    hiScore = Int32,
+    level = Int32,
+    pause = Int32
 }
 
 ///
@@ -148,7 +158,43 @@ mod Rules {
     ///
     pub def blastRadius(): Float32 = 6.0f32
 
-    pub def marchSpeed(): Float32 = 0.8f32
+    /// The formation's speed on level 1 with every invader still alive.
+    pub def baseMarchSpeed(): Float32 = 0.8f32
+
+    ///
+    /// How much faster the last invader moves than a full formation.
+    ///
+    /// The original achieved this by accident -- the hardware redrew one invader per frame,
+    /// so fewer invaders meant a faster sweep. Here it is deliberate, but the feel is the
+    /// same: the closing moments of a level are frantic.
+    ///
+    def thinningSpeedUp(): Float32 = 5.0f32
+
+    /// How much faster each level starts than the one before.
+    def levelSpeedUp(): Float32 = 0.18f32
+
+    ///
+    /// The march speed for a given number of survivors on a given level.
+    ///
+    pub def marchSpeedFor(living: Int32, level: Int32): Float32 = {
+        let total = Int32.toFloat32(totalInvaders());
+        let cleared = (total - Int32.toFloat32(Int32.max(0, living))) / total;
+        let thinning = 1.0f32 + thinningSpeedUp() * cleared;
+        let byLevel = 1.0f32 + levelSpeedUp() * Int32.toFloat32(Int32.max(0, level - 1));
+        baseMarchSpeed() * byLevel * thinning
+    }
+
+    ///
+    /// Bombs get more frequent with each level. This is a one-in-N chance, so smaller is
+    /// more dangerous; it is floored so a high level cannot turn into a solid wall of bombs.
+    ///
+    pub def bombChanceFor(level: Int32): Int32 =
+        Int32.max(minBombChance(), bombChance() - (level - 1) * 5)
+
+    def minBombChance(): Int32 = 15
+
+    /// How long the game pauses between clearing a formation and the next one appearing.
+    pub def levelPauseTicks(): Int32 = 90
 
     /// How far the formation drops each time it reaches a wall.
     pub def marchDrop(): Float32 = 24.0f32

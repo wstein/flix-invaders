@@ -181,11 +181,108 @@ mod TestGame {
 
     // -- ending and restarting --------------------------------------------------------
 
-    @Test
-    def testClearingEveryInvaderWins(): Unit \ Assert = {
+    /// A world with the whole formation shot away.
+    def swept(): World = {
         let base = start();
-        let cleared = Vector.map(inv -> { alive = false | inv }, base#invaders);
-        assertEq(expected = Phase.Won, Game.step({ invaders = cleared | base }, Input.empty())#phase)
+        { invaders = Vector.map(inv -> { alive = false | inv }, base#invaders) | base }
+    }
+
+    @Test
+    def testClearingEveryInvaderEndsTheLevel(): Unit \ Assert = {
+        let w = Game.step(swept(), Input.empty());
+        assertEq(expected = Phase.Cleared, w#phase);
+        assertTrue(w#pause > 0)
+    }
+
+    @Test
+    def testTheNextLevelStartsAfterThePause(): Unit \ Assert = {
+        let cleared = Game.step(swept(), Input.empty());
+        let next = steps(Rules.levelPauseTicks() + 1, cleared, Input.empty());
+        assertEq(expected = Phase.Playing, next#phase);
+        assertEq(expected = 2, next#level);
+        assertEq(expected = Rules.totalInvaders(), livingCount(next))
+    }
+
+    @Test
+    def testTheNextLevelKeepsScoreAndLives(): Unit \ Assert = {
+        let scored = { score = 250, lives = 2 | swept() };
+        let next = steps(Rules.levelPauseTicks() + 2, Game.step(scored, Input.empty()), Input.empty());
+        assertEq(expected = 250, next#score);
+        assertEq(expected = 2, next#lives)
+    }
+
+    @Test
+    def testTheNextLevelRebuildsTheBunkers(): Unit \ Assert = {
+        // Without this a cleared level would leave you with whatever cover survived, and
+        // the game would get brutal within two levels.
+        let worn = { bunkers = Vector.map(b -> Bunkers.damage(b, Bunkers.cellCentre(b, 40), 40.0f32),
+                                          swept()#bunkers) | swept() };
+        assertTrue(Bunkers.totalRemaining(worn#bunkers) < Bunkers.totalRemaining(start()#bunkers));
+        let next = steps(Rules.levelPauseTicks() + 2, Game.step(worn, Input.empty()), Input.empty());
+        assertEq(expected = Bunkers.totalRemaining(start()#bunkers), Bunkers.totalRemaining(next#bunkers))
+    }
+
+    @Test
+    def testAClearedLevelDoesNotSimulate(): Unit \ Assert = {
+        // Nothing should move during the between-levels beat except the countdown.
+        let cleared = Game.step(swept(), Input.empty());
+        let midway = steps(10, cleared, Input.holding(Key.Right :: Nil));
+        assertEq(expected = cleared#playerX, midway#playerX);
+        assertEq(expected = cleared#pause - 10, midway#pause)
+    }
+
+    // -- difficulty ------------------------------------------------------------------
+
+    @Test
+    def testTheFormationSpeedsUpAsItThins(): Unit \ Assert = {
+        let full = Rules.marchSpeedFor(Rules.totalInvaders(), 1);
+        let half = Rules.marchSpeedFor(Rules.totalInvaders() / 2, 1);
+        let last = Rules.marchSpeedFor(1, 1);
+        assertTrue(half > full);
+        assertTrue(last > half);
+        assertTrueWithMsg(last > full * 4.0f32,
+            "the last invader should be dramatically faster: ${full} -> ${last}")
+    }
+
+    @Test
+    def testAFullFormationMovesAtTheBaseSpeed(): Unit \ Assert =
+        assertEq(expected = Rules.baseMarchSpeed(), Rules.marchSpeedFor(Rules.totalInvaders(), 1))
+
+    @Test
+    def testEachLevelStartsFasterThanTheLast(): Unit \ Assert = {
+        let full = Rules.totalInvaders();
+        assertTrue(Rules.marchSpeedFor(full, 2) > Rules.marchSpeedFor(full, 1));
+        assertTrue(Rules.marchSpeedFor(full, 5) > Rules.marchSpeedFor(full, 2))
+    }
+
+    @Test
+    def testSpeedIsSafeAtTheEdges(): Unit \ Assert = {
+        // Guard the arithmetic rather than the gameplay: no negative or zero speeds.
+        assertTrue(Rules.marchSpeedFor(0, 1) > 0.0f32);
+        assertTrue(Rules.marchSpeedFor(-5, 1) > 0.0f32);
+        assertTrue(Rules.marchSpeedFor(Rules.totalInvaders(), 0) > 0.0f32)
+    }
+
+    @Test
+    def testBombsGetMoreFrequentWithLevel(): Unit \ Assert = {
+        // A one-in-N chance, so a smaller number is more dangerous.
+        assertTrue(Rules.bombChanceFor(3) < Rules.bombChanceFor(1));
+        assertEq(expected = Rules.bombChance(), Rules.bombChanceFor(1))
+    }
+
+    @Test
+    def testTheBombRateIsFloored(): Unit \ Assert = {
+        // However far the levels run, bombs must not become a solid wall.
+        assertTrue(Rules.bombChanceFor(100) > 1);
+        assertEq(expected = Rules.bombChanceFor(100), Rules.bombChanceFor(50))
+    }
+
+    @Test
+    def testAHigherLevelActuallyMarchesFaster(): Unit \ Assert = {
+        // End to end through `step`, not just the rules table.
+        let base = start();
+        let move = w -> Vector.get(0, Game.step(w, Input.empty())#invaders)#pos#x - Vector.get(0, w#invaders)#pos#x;
+        assertTrue(move({ level = 4 | base }) > move(base))
     }
 
     @Test
@@ -204,23 +301,23 @@ mod TestGame {
     }
 
     @Test
-    def testAFinishedGameIsStable(): Unit \ Assert = {
-        // Stepping a won or lost world with no input must change nothing at all, including
-        // the tick -- otherwise the end screen would keep simulating underneath.
-        let won = { phase = Phase.Won | start() };
-        assertEq(expected = won#tick, steps(50, won, Input.empty())#tick);
+    def testALostGameIsStable(): Unit \ Assert = {
+        // Stepping a lost world with no input must change nothing at all, including the
+        // tick -- otherwise the end screen would keep simulating underneath.
         let lost = { phase = Phase.Lost | start() };
-        assertEq(expected = lost#tick, steps(50, lost, Input.empty())#tick)
+        assertEq(expected = lost#tick, steps(50, lost, Input.empty())#tick);
+        assertEq(expected = lost#score, steps(50, lost, Input.empty())#score)
     }
 
     @Test
     def testEnterRestartsFromTheEndScreen(): Unit \ Assert = {
-        let lost = { phase = Phase.Lost, score = 500, lives = 0 | steps(120, start(), Input.empty()) };
+        let lost = { phase = Phase.Lost, score = 500, lives = 0, level = 4 | steps(120, start(), Input.empty()) };
         let restarted = Game.step(lost, Input.holding(Key.Enter :: Nil));
         assertEq(expected = Phase.Playing, restarted#phase);
         assertEq(expected = 0, restarted#score);
         assertEq(expected = Rules.startingLives(), restarted#lives);
         assertEq(expected = 0, restarted#tick);
+        assertEq(expected = 1, restarted#level);
         assertEq(expected = Rules.totalInvaders(), livingCount(restarted))
     }
 

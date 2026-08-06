@@ -42,7 +42,9 @@ mod Game {
           lives = Rules.startingLives(),
           rng = Rng.fromSeed(seed),
           seed = seed,
-          hiScore = 0 }
+          hiScore = 0,
+          level = 1,
+          pause = 0 }
 
     def clampTo(lo: Float32, hi: Float32, v: Float32): Float32 =
         if (v < lo) lo else if (v > hi) hi else v
@@ -99,7 +101,8 @@ mod Game {
         match liveBounds(w#invaders) {
             case None => w
             case Some((lo, hi)) => {
-                let stepX = w#marchDir * Rules.marchSpeed();
+                let living = Vector.count(inv -> inv#alive, w#invaders);
+                let stepX = w#marchDir * Rules.marchSpeedFor(living, w#level);
                 let hitsWall = (lo + stepX) < half or (hi + stepX) > (Rules.fieldWidth() - half);
                 if (hitsWall)
                     { marchDir = -w#marchDir,
@@ -122,7 +125,7 @@ mod Game {
 
     /// Occasionally, one of them drops a bomb.
     def invaderFire(w: World): World = {
-        let (drops, afterChance) = Rng.chance(Rules.bombChance(), w#rng);
+        let (drops, afterChance) = Rng.chance(Rules.bombChanceFor(w#level), w#rng);
         if (not drops) { rng = afterChance | w }
         else {
             let candidates = bombers(w#invaders);
@@ -205,11 +208,32 @@ mod Game {
     def trackHiScore(w: World): World =
         if (w#score > w#hiScore) { hiScore = w#score | w } else w
 
-    /// Decides whether the game is over, and how.
+    ///
+    /// Decides whether the formation is cleared, or the game is lost.
+    ///
+    /// Clearing is not winning: it starts a pause, after which a harder level begins.
+    ///
     def checkEnd(w: World): World =
-        if (not Vector.exists(inv -> inv#alive, w#invaders)) { phase = Phase.Won | w }
+        if (not Vector.exists(inv -> inv#alive, w#invaders))
+            { phase = Phase.Cleared, pause = Rules.levelPauseTicks(), bullets = Nil, bombs = Nil | w }
         else if (w#lives <= 0 or invasionComplete(w#invaders)) { phase = Phase.Lost | w }
         else w
+
+    ///
+    /// The next level: a fresh formation and fresh bunkers, marching faster and dropping
+    /// more bombs. Score, lives and the generator carry over.
+    ///
+    def nextLevel(w: World): World =
+        { phase = Phase.Playing,
+          level = w#level + 1,
+          pause = 0,
+          invaders = formation(),
+          bunkers = Bunkers.initial(),
+          bullets = Nil,
+          bombs = Nil,
+          marchDir = 1.0f32,
+          cooldown = 0,
+          playerX = Rules.fieldWidth() / 2.0f32 | w }
 
     ///
     /// An exact, comparable rendering of a world.
@@ -222,7 +246,7 @@ mod Game {
     ///
     pub def digest(w: World): String = {
         let header = "${w#phase}|t=${w#tick}|x=${w#playerX}|s=${w#score}|l=${w#lives}"
-            + "|d=${w#marchDir}|c=${w#cooldown}|h=${w#hiScore}|r=${w#rng}";
+            + "|d=${w#marchDir}|c=${w#cooldown}|h=${w#hiScore}|v=${w#level}|p=${w#pause}|r=${w#rng}";
         let shots = List.foldLeft((acc, b) -> acc + "|b(${b#x},${b#y})", "", w#bullets);
         let drops = List.foldLeft((acc, b) -> acc + "|m(${b#x},${b#y})", "", w#bombs);
         let formation = Vector.foldLeft((acc, inv) ->
@@ -255,10 +279,14 @@ mod Game {
                 |> checkEnd
                 |> (next -> { tick = next#tick + 1 | next })
 
-        case _ =>
-            // Enter starts a new game. Nothing else happens once it is over, so a finished
-            // world is stable no matter how many steps run.
-            // The hi-score outlives the game, the way an arcade cabinet's does.
+        case Phase.Cleared =>
+            // A beat to see the field cleared, then the next level.
+            if (w#pause > 1) { pause = w#pause - 1 | w } else nextLevel(w)
+
+        case Phase.Lost =>
+            // Enter starts a new game. Nothing else happens once it is over, so a lost world
+            // is stable no matter how many steps run. The hi-score outlives the game, the
+            // way an arcade cabinet's does.
             if (Set.memberOf(Key.Enter, input#pressed)) { hiScore = w#hiScore | initial(w#seed) }
             else w
     }
