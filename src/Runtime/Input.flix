@@ -12,12 +12,14 @@ pub enum Key with Eq, Order, ToString {
     case Space
     case Enter
     case Escape
+    case Backspace
     case Other(Int32)
 }
 
 mod Key {
 
     // Processing reports java.awt.event.KeyEvent.VK_* values in PApplet.keyCode.
+    def vkBackspace(): Int32 = 8
     def vkEnter(): Int32 = 10
     def vkEscape(): Int32 = 27
     def vkSpace(): Int32 = 32
@@ -32,6 +34,21 @@ mod Key {
     /// Processing reports `keyCode`, and for the number row those values are ASCII digits,
     /// so this is a subtraction rather than a table.
     ///
+    ///
+    /// The letter a key stands for, if it is one of A-Z.
+    ///
+    /// Processing reports `keyCode`, and for letters those values are ASCII uppercase, so
+    /// this is a conversion rather than a table. It is also why initials are uppercase only:
+    /// `keyCode` carries no shift state.
+    ///
+    def alphabet(): String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+    pub def letter(k: Key): Option[Char] = match k {
+        case Key.Other(code) if code >= 65 and code <= 90 =>
+            Some(String.charAt(code - 65, alphabet()))
+        case _ => None
+    }
+
     pub def digit(k: Key): Option[Int32] = match k {
         case Key.Other(code) if code >= 48 and code <= 57 => Some(code - 48)
         case _ => None
@@ -41,7 +58,8 @@ mod Key {
     /// Translates a Processing key code.
     ///
     pub def fromCode(code: Int32): Key =
-        if (code == vkLeft()) Key.Left
+        if (code == vkBackspace()) Key.Backspace
+        else if (code == vkLeft()) Key.Left
         else if (code == vkRight()) Key.Right
         else if (code == vkUp()) Key.Up
         else if (code == vkDown()) Key.Down

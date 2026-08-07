@@ -100,4 +100,59 @@ mod TestDemo {
         // `aim` only reads; nothing about choosing an input should be audible.
         assertEq(expected = (Nil: List[SoundCmd]), Sound.played(() -> { let _ = Demo.aim(midGame()); () }))
 
+    // -- self-preservation and greed ------------------------------------------------------
+
+    @Test
+    def testTheBotGetsOutFromUnderABomb(): Unit \ Assert = {
+        // Staying alive beats lining up a shot.
+        let w = midGame();
+        let overhead = { bombs = { x = w#playerX, y = Rules.playerY() - 60.0f32 } :: Nil | w };
+        let moves = Demo.aim(overhead)#held;
+        assertTrueWithMsg(Set.memberOf(Key.Left, moves) or Set.memberOf(Key.Right, moves),
+            "the bot stood still under a falling bomb")
+    }
+
+    @Test
+    def testTheBotIgnoresBombsThatWillMiss(): Unit \ Assert = {
+        // A bomb far off to the side is not a reason to abandon a shot.
+        let w = midGame();
+        let wide = { bombs = { x = w#playerX + 300.0f32, y = Rules.playerY() - 60.0f32 } :: Nil | w };
+        assertEq(expected = Demo.aim(w)#held, Demo.aim(wide)#held)
+    }
+
+    @Test
+    def testTheBotDodgesTowardsTheOpenSide(): Unit \ Assert = {
+        // Fleeing into a wall would be worse than not fleeing.
+        let w = midGame();
+        let cornered = { playerX = Rules.playerSize()#x / 2.0f32 | w };
+        let bomb = { bombs = { x = cornered#playerX, y = Rules.playerY() - 40.0f32 } :: Nil | cornered };
+        assertTrue(Set.memberOf(Key.Right, Demo.aim(bomb)#held))
+    }
+
+    @Test
+    def testTheBotChasesTheSaucer(): Unit \ Assert = {
+        // Worth up to 300 and a shield -- what a human would go for.
+        let w = midGame();
+        let far = Rules.fieldWidth() - 40.0f32;
+        let ufo = { mystery = Some({ x = far, dir = 1.0f32 }), bombs = Nil | { playerX = 60.0f32 | w } };
+        assertTrueWithMsg(Set.memberOf(Key.Right, Demo.aim(ufo)#held),
+            "the bot ignored a saucer on the far side")
+    }
+
+    @Test
+    def testTheBotReturnsToTheFormationWhenTheSaucerLeaves(): Unit \ Assert = {
+        // Put the two candidate targets on opposite sides so the choice is legible in the
+        // direction it moves: saucer far left, the surviving invader far right.
+        let base = { bombs = Nil, playerX = 320.0f32 | midGame() };
+        let oneRight = Vector.mapWithIndex((i, inv) ->
+            if (i == 0) { pos = { x = 600.0f32, y = 300.0f32 }, alive = true | inv }
+            else { alive = false | inv }, base#invaders);
+        let w = { invaders = oneRight | base };
+        let withUfo = { mystery = Some({ x = 40.0f32, dir = -1.0f32 }) | w };
+        assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(withUfo)#held),
+            "the bot did not go for the saucer on its left");
+        assertTrueWithMsg(Set.memberOf(Key.Right, Demo.aim({ mystery = None | w })#held),
+            "the bot did not return to the invader on its right")
+    }
+
 }

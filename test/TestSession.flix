@@ -122,10 +122,11 @@ mod TestSession {
     }
 
     @Test
-    def testEnterOnGameOverReturnsToAttract(): Unit \ Assert = {
+    def testAFinishedGameLeavesThePlayField(): Unit \ Assert = {
+        // However it ends, the cabinet stops simulating and moves on to the score screens.
         let playing = tick(start(), digit(1));
         let lost = { worlds = Vector#{{ phase = Phase.Lost | Session.active(playing) }} | playing };
-        assertEq(expected = Screen.Attract, tick(lost, Input.holding(Key.Enter :: Nil))#screen)
+        assertNeq(unexpected = Screen.Playing, tick(lost, Input.empty())#screen)
     }
 
     // -- what is on screen ---------------------------------------------------------------
@@ -227,11 +228,20 @@ mod TestSession {
     }
 
     @Test
-    def testTheGameOverScreenWaitsForEnter(): Unit \ Assert = {
+    def testAScorelessGameGoesStraightToTheTable(): Unit \ Assert = {
+        // Nothing was earned, so there is nothing to sign for.
         let s = twoPlayer();
         let over = { worlds = Vector.map(w -> { phase = Phase.Lost | w }, s#worlds) | s };
-        assertEq(expected = Screen.Playing, ticks(50, over, Input.empty())#screen);
-        assertEq(expected = Screen.Attract, tick(over, Input.holding(Key.Enter :: Nil))#screen)
+        assertEq(expected = Screen.Table, tick(over, Input.empty())#screen)
+    }
+
+    @Test
+    def testTheTableReturnsToAttract(): Unit \ Assert = {
+        let s = twoPlayer();
+        let over = { worlds = Vector.map(w -> { phase = Phase.Lost | w }, s#worlds) | s };
+        let showing = tick(over, Input.empty());
+        assertEq(expected = Screen.Table, ticks(50, showing, Input.empty())#screen);
+        assertEq(expected = Screen.Attract, tick(showing, Input.holding(Key.Enter :: Nil))#screen)
     }
 
     // -- the two-player HUD ---------------------------------------------------------------
@@ -270,6 +280,98 @@ mod TestSession {
             case DrawCmd.Text(t, _, _) => String.contains(substr = "P1", t)
             case _ => false
         }, cmds))
+    }
+
+    // -- initials and the table ----------------------------------------------------------
+
+    def letters(word: String): Snapshot =
+        Input.holding(String.toList(word) |> List.map(c -> Key.Other(Char.toBmpCodePoint(c))))
+
+    /// A finished two-player game where player one earned a place.
+    def qualified(): Session = {
+        let s = twoPlayer();
+        let scored = Vector.update(0, { phase = Phase.Lost, score = 2500 | Vector.get(0, s#worlds) },
+                                   Vector.update(1, { phase = Phase.Lost | Vector.get(1, s#worlds) }, s#worlds));
+        tick({ worlds = scored | s }, Input.empty())
+    }
+
+    @Test
+    def testAQualifyingScoreAsksForInitials(): Unit \ Assert = {
+        let asking = qualified();
+        assertEq(expected = Screen.Entering, asking#screen);
+        assertEq(expected = 1, List.length(asking#pending))
+    }
+
+    @Test
+    def testTypingBuildsTheName(): Unit \ Assert = {
+        let typed = tick(tick(tick(qualified(), letters("W")), letters("L")), letters("S"));
+        assertEq(expected = "WLS", typed#typing)
+    }
+
+    @Test
+    def testTheNameStopsAtThreeLetters(): Unit \ Assert = {
+        let full = ticks(6, qualified(), letters("A"));
+        assertEq(expected = Scores.nameLength(), String.length(full#typing))
+    }
+
+    @Test
+    def testBackspaceCorrectsAMistake(): Unit \ Assert = {
+        let typed = tick(tick(qualified(), letters("W")), letters("X"));
+        assertEq(expected = "WX", typed#typing);
+        assertEq(expected = "W", tick(typed, Input.holding(Key.Backspace :: Nil))#typing)
+    }
+
+    @Test
+    def testEnterOnAnEmptyNameIsIgnored(): Unit \ Assert = {
+        // Otherwise the table gains a blank row for anyone who leans on the key.
+        let asking = qualified();
+        assertEq(expected = Screen.Entering, tick(asking, Input.holding(Key.Enter :: Nil))#screen)
+    }
+
+    @Test
+    def testCommittingRecordsTheScore(): Unit \ Assert = {
+        let typed = tick(tick(tick(qualified(), letters("W")), letters("L")), letters("S"));
+        let done = tick(typed, Input.holding(Key.Enter :: Nil));
+        assertEq(expected = Screen.Table, done#screen);
+        assertEq(expected = 1, List.length(done#scores));
+        assertEq(expected = Some("WLS"), List.head(List.map(e -> e#name, done#scores)));
+        assertEq(expected = 2500, Scores.best(done#scores))
+    }
+
+    @Test
+    def testBothPlayersAreAskedInTurn(): Unit \ Assert = {
+        // Two qualifying scores means two names, one after the other.
+        let s = twoPlayer();
+        let both = Vector.update(0, { phase = Phase.Lost, score = 900 | Vector.get(0, s#worlds) },
+                   Vector.update(1, { phase = Phase.Lost, score = 800 | Vector.get(1, s#worlds) }, s#worlds));
+        let asking = tick({ worlds = both | s }, Input.empty());
+        assertEq(expected = 2, List.length(asking#pending));
+        let first = tick(tick(asking, letters("A")), Input.holding(Key.Enter :: Nil));
+        assertEq(expected = Screen.Entering, first#screen);
+        assertEq(expected = 1, List.length(first#pending));
+        let second = tick(tick(first, letters("B")), Input.holding(Key.Enter :: Nil));
+        assertEq(expected = Screen.Table, second#screen);
+        assertEq(expected = 2, List.length(second#scores))
+    }
+
+    @Test
+    def testAKnownHighScoreShowsDuringPlay(): Unit \ Assert = {
+        // The HI-SCORE slot should show the table's best, not zero, from the first tick.
+        let withTable = Session.withScores(2026i64, { name = "ZZZ", score = 5000, level = 3 } :: Nil);
+        assertEq(expected = 5000, Session.active(tick(withTable, digit(1)))#hiScore)
+    }
+
+    @Test
+    def testTheTableScreenListsTheNames(): Unit \ Assert = {
+        let withTable = Session.withScores(2026i64, { name = "ABC", score = 4321, level = 2 } :: Nil);
+        let showing = { screen = Screen.Table | withTable };
+        let cmds = Canvas.commands((640, 480), () -> Screens.render(showing));
+        let says = needle -> List.exists(cmd -> match cmd {
+            case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
+            case _ => false
+        }, cmds);
+        assertTrue(says("ABC"));
+        assertTrue(says("4321"))
     }
 
 }

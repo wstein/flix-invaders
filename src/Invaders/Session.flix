@@ -8,6 +8,8 @@
 pub enum Screen with Eq, ToString {
     case Attract
     case Playing
+    case Entering
+    case Table
 }
 
 ///
@@ -19,6 +21,9 @@ pub type alias Session = {
     players = Int32,
     current = Int32,
     worlds = Vector[World],
+    scores = List[Entry],
+    pending = List[Entry],
+    typing = String,
     demo = World,
     demoRng = Rng,
     seed = Int64
@@ -36,11 +41,20 @@ mod Session {
     /// The seed the attract game runs from, offset so it never mirrors a real game.
     def demoSeed(seed: Int64): Int64 = seed + 977i64
 
-    pub def initial(seed: Int64): Session =
+    pub def initial(seed: Int64): Session = withScores(seed, Scores.empty())
+
+    ///
+    /// A cabinet that already knows some high scores -- what `main` builds after reading them
+    /// from disk.
+    ///
+    pub def withScores(seed: Int64, scores: List[Entry]): Session =
         { screen = Screen.Attract,
           players = 1,
           current = 0,
           worlds = Vector#{Game.initial(seed)},
+          scores = scores,
+          pending = Nil,
+          typing = "",
           demo = Game.initial(demoSeed(seed)),
           demoRng = Rng.fromSeed(demoSeed(seed)),
           seed = seed }
@@ -81,16 +95,21 @@ mod Session {
 
     /// The world the player is looking at -- the demo on the attract screen.
     pub def onScreen(s: Session): World = match s#screen {
-        case Screen.Attract => s#demo
         case Screen.Playing => active(s)
+        case _ => s#demo
     }
 
     /// Starts a fresh game for `players` players.
-    def begin(players: Int32, s: Session): Session =
+    def begin(players: Int32, s: Session): Session = {
+        let best = Scores.best(s#scores);
         { screen = Screen.Playing,
           players = players,
           current = 0,
-          worlds = Vector.range(0, players) |> Vector.map(i -> Game.initial(s#seed + Int32.toInt64(i))) | s }
+          pending = Nil,
+          typing = "",
+          worlds = Vector.range(0, players)
+              |> Vector.map(i -> { hiScore = best | Game.initial(s#seed + Int32.toInt64(i)) }) | s }
+    }
 
     ///
     /// Advances the attract screen.
@@ -129,9 +148,20 @@ mod Session {
     /// never see a lost world, because the game would already have replaced it. Leaving the
     /// cabinet in charge of what happens after a game keeps the decision in one place.
     ///
+    ///
+    /// What happens once every player has finished: collect anyone who earned a place, and
+    /// either ask for their initials or go straight to the table.
+    ///
+    def finish(s: Session): Session = {
+        let earned = Vector.toList(s#worlds)
+            |> List.filter(w -> Scores.qualifies(w#score, s#scores))
+            |> List.map(w -> { name = "", score = w#score, level = w#level });
+        if (List.isEmpty(earned)) { screen = Screen.Table, pending = Nil | s }
+        else { screen = Screen.Entering, pending = earned, typing = "" | s }
+    }
+
     def playing(input: Snapshot, s: Session): Session \ Sound = {
-        if (allDone(s))
-            if (Set.memberOf(Key.Enter, input#pressed)) { screen = Screen.Attract | s } else s
+        if (allDone(s)) finish(s)
         else {
             let before = active(s);
             let stepped = Game.step(before, input);
@@ -153,11 +183,46 @@ mod Session {
     }
 
     ///
+    /// Typing a name for the next score that earned a place.
+    ///
+    /// Letters append, backspace removes, Enter commits. Enter is ignored on an empty name,
+    /// so the table never gains a blank row.
+    ///
+    def entering(input: Snapshot, s: Session): Session = {
+        let typed = Set.foldLeft((acc, k) -> match Key.letter(k) {
+            case Some(c) if String.length(acc) < Scores.nameLength() => acc + "${c}"
+            case _ => acc
+        }, s#typing, input#pressed);
+        let afterDelete =
+            if (Set.memberOf(Key.Backspace, input#pressed) and String.length(typed) > 0)
+                String.dropRight(1, typed)
+            else typed;
+        if (not (Set.memberOf(Key.Enter, input#pressed) and String.length(afterDelete) > 0))
+            { typing = afterDelete | s }
+        else match s#pending {
+            case Nil => { screen = Screen.Table, typing = "" | s }
+            case entry :: rest => {
+                let recorded = Scores.insert({ name = afterDelete | entry }, s#scores);
+                if (List.isEmpty(rest)) { screen = Screen.Table, scores = recorded, pending = Nil, typing = "" | s }
+                else { scores = recorded, pending = rest, typing = "" | s }
+            }
+        }
+    }
+
+    /// The table waits for a key, then goes back to attracting.
+    def table(input: Snapshot, s: Session): Session =
+        if (Set.memberOf(Key.Enter, input#pressed) or Set.memberOf(Key.Space, input#pressed))
+            { screen = Screen.Attract | s }
+        else s
+
+    ///
     /// One tick of the cabinet.
     ///
     pub def step(s: Session, input: Snapshot): Session \ Sound = match s#screen {
         case Screen.Attract => attract(input, s)
         case Screen.Playing => playing(input, s)
+        case Screen.Entering => entering(input, s)
+        case Screen.Table => table(input, s)
     }
 
 }

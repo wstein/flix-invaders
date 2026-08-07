@@ -1,43 +1,130 @@
 ///
+/// One line of an overlay: what it says, how big, and in what colour.
+///
+pub type alias Caption = { text = String, size = Float32, colour = Color }
+
+///
 /// Drawing the cabinet, as opposed to drawing the game.
 ///
 /// `View.render` knows how to draw one game and nothing else. This module decides *which*
-/// game is on screen and what to overlay on top of it -- the title, the credits, the
-/// invitation to press a key. It uses only the `Canvas` effect, so a test can record a whole
-/// title screen as data without a window.
+/// game is on screen and what to overlay on it -- the title, the invitation to press a key,
+/// the score table. It uses only the `Canvas` effect, so a test can record a whole title
+/// screen as data without a window.
 ///
 mod Screens {
 
     ///
-    /// A translucent wash over the demo, so the title reads on top of it.
+    /// How dark the panel behind overlay text is.
     ///
-    /// Translucent rather than solid, and over the whole field rather than a band: a solid
-    /// band cut the formation in half, which rather defeats an attract screen whose job is
-    /// to show the game off.
+    /// Light enough that the game keeps playing visibly through it. The point of an attract
+    /// screen is the game; the text only has to stay readable where it crosses a sprite.
     ///
-    def veilAlpha(): Int32 = 170
+    def panelAlpha(): Int32 = 130
 
-    def veil(): Unit \ Canvas = {
-        Canvas.fillAlpha(Palette.background(), veilAlpha());
-        Canvas.rect(0.0f32, 0.0f32, Rules.fieldWidth(), Rules.fieldHeight())
+    def padding(): Float32 = 12.0f32
+    def leading(): Float32 = 12.0f32
+
+    /// The width of the widest caption.
+    def blockWidth(captions: List[Caption]): Float32 =
+        List.foldLeft((widest, c) -> Float32.max(widest, View.textWidth(c#text, c#size)), 0.0f32, captions)
+
+    /// The height the captions occupy once stacked.
+    def blockHeight(captions: List[Caption]): Float32 =
+        List.foldLeft((total, c) -> total + c#size + leading(), 0.0f32, captions) - leading()
+
+    /// Draws a stack of centred captions, starting with the first baseline a line down.
+    def stack(captions: List[Caption], top: Float32): Unit \ Canvas = {
+        def draw(rest, y) = match rest {
+            case Nil => ()
+            case c :: more => {
+                Canvas.fill(c#colour);
+                Canvas.textSize(c#size);
+                Canvas.text(c#text, View.centredX(c#text, c#size), y + c#size);
+                draw(more, y + c#size + leading())
+            }
+        };
+        draw(captions, top)
     }
 
-    def line(text: String, size: Float32, y: Float32, colour: Color): Unit \ Canvas = {
-        Canvas.fill(colour);
-        Canvas.textSize(size);
-        Canvas.text(text, View.centredX(text, size), y)
+    ///
+    /// Draws captions on a translucent panel sized to fit them.
+    ///
+    /// Sized to the text rather than spanning the screen: a full-width band hid whichever
+    /// invaders happened to be behind it, and dimming the whole field made the demo murky.
+    ///
+    def block(captions: List[Caption], top: Float32): Unit \ Canvas = {
+        let width = blockWidth(captions);
+        let height = blockHeight(captions);
+        Canvas.fillAlpha(Palette.background(), panelAlpha());
+        Canvas.rect((Rules.fieldWidth() - width) / 2.0f32 - padding(),
+                    top - padding(),
+                    width + 2.0f32 * padding(),
+                    height + 2.0f32 * padding());
+        stack(captions, top)
     }
 
+    def caption(text: String, size: Float32, colour: Color): Caption =
+        { text = text, size = size, colour = colour }
+
+    /// Where a block of `captions` starts if it is to sit centred in the field.
+    def centredTop(captions: List[Caption]): Float32 =
+        (Rules.fieldHeight() - blockHeight(captions)) / 2.0f32
+
     ///
-    /// The attract screen: the demo playing, with the title over it.
+    /// The attract screen: the demo playing at full brightness, with the title over it.
     ///
     def attract(s: Session): Unit \ Canvas = {
         View.render(Session.onScreen(s));
-        veil();
-        let middle = Rules.fieldHeight() / 2.0f32;
-        line("FLIX INVADERS", View.bannerSize(), middle - 24.0f32, Palette.invaderGreen());
-        line("PRESS 1 OR 2 TO PLAY", View.hudSize(), middle + 8.0f32, Palette.ink());
-        line("- DEMO -", View.hudSize(), middle + 36.0f32, Palette.invaderCyan())
+        let captions =
+            caption("FLIX INVADERS", View.bannerSize(), Palette.invaderGreen()) ::
+            caption("PRESS 1 OR 2 TO PLAY", View.hudSize(), Palette.ink()) ::
+            caption("- DEMO -", View.hudSize(), Palette.invaderCyan()) :: Nil;
+        block(captions, centredTop(captions))
+    }
+
+    ///
+    /// Asking for the initials that go beside a qualifying score.
+    ///
+    /// The caret is a literal underscore rather than a drawn rectangle, so it lines up with
+    /// the monospaced font for free.
+    ///
+    def entering(s: Session): Unit \ Canvas = {
+        View.render(Session.onScreen(s));
+        let score = match s#pending {
+            case entry :: _ => entry#score
+            case Nil => 0
+        };
+        let caret = if (String.length(s#typing) < Scores.nameLength()) "_" else "";
+        let captions =
+            caption("NEW HIGH SCORE ${score}", View.hudSize(), Palette.sun()) ::
+            caption(s#typing + caret, View.bannerSize(), Palette.ink()) ::
+            caption("TYPE 3 LETTERS, ENTER", View.hudSize(), Palette.invaderCyan()) :: Nil;
+        block(captions, centredTop(captions))
+    }
+
+    ///
+    /// The high-score table, on its own rather than over the game.
+    ///
+    def table(s: Session): Unit \ Canvas = {
+        Canvas.clear(Palette.background());
+        Canvas.fill(Palette.invaderGreen());
+        Canvas.textSize(View.bannerSize());
+        Canvas.text("HIGH SCORES", View.centredX("HIGH SCORES", View.bannerSize()), 64.0f32);
+
+        let rows =
+            if (List.isEmpty(s#scores)) caption("NOBODY YET", View.hudSize(), Palette.dim()) :: Nil
+            else List.mapWithIndex((i, e) ->
+                caption("${Scores.padded(e#name)}  ${View.scoreText(e#score)}  L${e#level}",
+                        View.hudSize(),
+                        if (i == 0) Palette.sun() else Palette.ink()), s#scores);
+        // No panel here: there is no game behind this screen to see through to.
+        stack(rows, 110.0f32);
+
+        Canvas.fill(Palette.invaderCyan());
+        Canvas.textSize(View.hudSize());
+        Canvas.text("PRESS ENTER",
+                    View.centredX("PRESS ENTER", View.hudSize()),
+                    Rules.fieldHeight() - 40.0f32)
     }
 
     ///
@@ -46,6 +133,8 @@ mod Screens {
     pub def render(s: Session): Unit \ Canvas = match s#screen {
         case Screen.Attract => attract(s)
         case Screen.Playing => View.renderWith(Session.active(s), Session.cabinet(s))
+        case Screen.Entering => entering(s)
+        case Screen.Table => table(s)
     }
 
 }
