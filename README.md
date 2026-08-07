@@ -37,7 +37,7 @@ git clone https://github.com/wstein/flix-invaders
 cd flix-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 407 tests -- no window, no audio device, no filesystem
+bin/flix test      # 416 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
 bin/bench          # measure the demo bot over ten seeds
 bin/bench --recalc # search for better bot numbers and save them
@@ -258,7 +258,7 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Testing
 
-407 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+416 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |
@@ -274,7 +274,7 @@ all three with greps.
 | [TestContrast](test/TestContrast.flix) | 10 | WCAG contrast of every palette colour |
 | [TestRng](test/TestRng.flix) | 10 | determinism, range, distribution |
 | [TestReplay](test/TestReplay.flix) | 11 | identical input replays to an identical world *and* an identical soundtrack |
-| [TestCollide](test/TestCollide.flix) + [TestInput](test/TestInput.flix) | 18 | overlap convention, input edges |
+| [TestCollide](test/TestCollide.flix) + [TestInput](test/TestInput.flix) | 27 | overlap convention, input edges, one frame across many ticks |
 | [TestScoresFile](test/TestScoresFile.flix) | 8 | saving and loading, on a filesystem that does not exist |
 | [TestStats](test/TestStats.flix) | 15 | the telemetry overlay, and that showing it changes nothing |
 | [TestView](test/TestView.flix) | 12 | banner placement against the attract panel, and the countdown |

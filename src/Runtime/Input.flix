@@ -145,6 +145,41 @@ mod Input {
     pub def holding(keys: List[Key]): Snapshot =
         diff(previous = Set.empty(), current = List.toSet(keys), mouseX = 0, mouseY = 0)
 
+    // -- handing one frame's keyboard to several logical ticks ------------------------------
+
+    ///
+    /// How many logical ticks are due, given what has accumulated and what may be spent.
+    ///
+    pub def ticksDue(accumulated: Int64, perTick: Int64, budget: Int32): Int32 =
+        if (perTick <= 0i64 or accumulated < perTick) 0
+        else {
+            let due = accumulated / perTick;
+            if (due > Int32.toInt64(budget)) budget
+            else Option.getWithDefault(0, Int64.tryToInt32(due))
+        }
+
+    ///
+    /// The same snapshot with its edges removed: still held, but pressed and released nothing.
+    ///
+    pub def steady(s: Snapshot): Snapshot =
+        { pressed = Set.empty(), released = Set.empty() | s }
+
+    ///
+    /// One frame's reading of the keyboard, spread over the `n` ticks it has to drive.
+    ///
+    /// A frame does not map to a tick. The display runs at whatever rate the machine manages
+    /// and the simulation runs at a fixed one, so a frame may owe several ticks or none.
+    ///
+    /// Only the first tick gets the edges. A press is a *transition*, and handing the same
+    /// `pressed` set to three catch-up ticks fires it three times -- which for anything
+    /// edge-triggered means the action happens once per stalled frame instead of once per
+    /// press, and for anything that toggles means it can end up back where it started.
+    /// The rest of the ticks keep the keys held, because holding is a state and does last.
+    ///
+    pub def acrossTicks(n: Int32, s: Snapshot): List[Snapshot] =
+        if (n <= 0) Nil
+        else s :: List.repeat(n - 1, steady(s))
+
     ///
     /// Interprets `Input` by answering every `poll` with the same snapshot.
     ///

@@ -81,6 +81,13 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
 - **Handlers must be installed inside the `draw` callback.** They are stack-scoped, and
   `draw` runs on Processing's Animation Thread — a handler installed around `runSketch` on
   the main thread is invisible there.
+- **A frame is not a tick, and the edges belong to the first tick only.** The display runs at
+  whatever the machine manages and the simulation at a fixed rate, so a frame may owe several
+  ticks or none. Two things follow, and both were wrong here for a while: a frame that owes no
+  tick must *not* retire the previous held-key set, or the press is compared away before any
+  step sees it; and a catch-up frame must give `pressed`/`released` to its first tick only, or
+  a one-off action fires once per stalled frame and a toggle can end up back where it started.
+  `Input.ticksDue` and `Input.acrossTicks` are pure and tested; `Sketch` only walks the list.
 - **`runSketch` returns immediately.** The enclosing `region` must be kept alive by hand, or
   the sketch will touch `Ref`s whose region has exited.
 - **Do not measure frame cost with a stopwatch.** Processing sleeps to hold the target

@@ -75,12 +75,22 @@ mod Sketch {
     /// resources, so `getResourceAsStream` returns null here -- and would start working
     /// under `flix build-jar`, which is worse than failing consistently.
     ///
+    /// A file path rather than the classpath, deliberately -- see above.
+    ///
+    /// The stream is closed on both paths. Closing it only after `createFont` returns leaks
+    /// the descriptor whenever the file is present but unreadable as a font, which is the one
+    /// case this function exists to survive.
     def loadFont(path: String): Option[PFont] \ IO =
         try {
             let stream = new FileInputStream(path);
-            let base = Font.createFont(Font.TRUETYPE_FONT, stream);
+            let font = try {
+                let base = Font.createFont(Font.TRUETYPE_FONT, stream);
+                Some(new PFont(base.deriveFont(baseFontSize()), false))
+            } catch {
+                case _: Exception => None
+            };
             stream.close();
-            Some(new PFont(base.deriveFont(baseFontSize()), false))
+            font
         } catch {
             case _: Exception => None
         }
@@ -95,6 +105,15 @@ mod Sketch {
         (Int32.toFloat32(Color.redOf(c)),
          Int32.toFloat32(Color.greenOf(c)),
          Int32.toFloat32(Color.blueOf(c)))
+
+    ///
+    /// The range of simulation rates the runtime will accept.
+    ///
+    /// One tick a second is already unplayable and a thousand is far past any display; the
+    /// bounds exist to keep the arithmetic sound rather than to express a preference.
+    ///
+    def minimumHz(): Int32 = 1
+    def maximumHz(): Int32 = 1000
 
     /// Never advance more than this many logical steps in one frame.
     ///
@@ -131,7 +150,13 @@ mod Sketch {
                   view: ((s, Stats) -> Unit \ Canvas)
     ): s \ IO = region rc {
 
-        let stepNs = 1000000000i64 / Int32.toInt64(cfg#hz);
+        // `Config` is a public record anyone can build, and an hz of nought divides by zero
+        // before the window even opens. A negative one runs the clock backwards, and anything
+        // above a billion rounds `stepNs` down to nought and divides by zero again on the
+        // frame-timing arithmetic below. None of those are worth a crash in a game, so the
+        // rate is brought into a range a display can plausibly be asked for.
+        let hz = Int32.max(minimumHz(), Int32.min(maximumHz(), cfg#hz));
+        let stepNs = 1000000000i64 / Int32.toInt64(hz);
         let budgetNs = stepNs * Int32.toInt64(maxCatchUpSteps());
 
         let world = Ref.fresh(rc, init(cfg#seed));
@@ -158,7 +183,7 @@ mod Sketch {
 
             def setup(app: PApplet): Unit \ IO + rc = {
                 app.getSurface().setTitle(cfg#title);
-                app.frameRate(Int32.toFloat32(cfg#hz));
+                app.frameRate(Int32.toFloat32(hz));
                 // Must be after `size()`, so `setup` and not `settings`: `textFont` goes
                 // through `g`, which does not exist until the surface is made.
                 match cfg#fontPath {
@@ -184,11 +209,22 @@ mod Sketch {
                 Ref.put(now, prevNs);
                 Ref.put(Ref.get(accNs) + capped, accNs);
 
-                // Captured once and frozen, so every step this frame sees the same input.
+                // Captured once and frozen, so every tick this frame drives sees one reading
+                // of the keyboard rather than whatever the Animation Thread has done since.
                 let current = Ref.get(heldNow);
                 let snapshot = Input.diff(previous = Ref.get(heldPrev), current = current,
                                           mouseX = app.mouseX, mouseY = app.mouseY);
-                Ref.put(current, heldPrev);
+
+                // How many ticks this frame owes, worked out before any of them run, because
+                // the edges belong to the first of them and the previous key state may only
+                // be retired once one has actually consumed it.
+                let due = Input.ticksDue(Ref.get(accNs), stepNs, maxCatchUpSteps());
+
+                // A frame that owes no tick leaves `heldPrev` alone. Retiring it here would
+                // hand the press to nobody: the next frame would compare against a set that
+                // already contains the key, see no transition, and the press would be gone.
+                // At a display faster than the simulation that is most frames.
+                if (due > 0) Ref.put(current, heldPrev) else ();
 
                 // Bracketing the work rather than the frame. Processing sleeps to hold the
                 // target rate, so timing a whole frame measures the rate limiter and reports
@@ -196,7 +232,7 @@ mod Sketch {
                 let simStart = System.nanoTime();
                 let before = Ref.get(accNs);
                 runWithClips(voices, () ->
-                    advance(step, world, accNs, stepNs, snapshot, maxCatchUpSteps()));
+                    advance(step, world, accNs, stepNs, Input.acrossTicks(due, snapshot)));
                 let simEnd = System.nanoTime();
 
                 // Installed here, inside the callback, on purpose: handlers are stack-scoped
@@ -292,18 +328,25 @@ mod Sketch {
     /// amount of simulated time, so the result depends only on the inputs -- never on how
     /// long the frame took.
     ///
+    ///
+    /// Runs one tick per snapshot it is given, spending the accumulator as it goes.
+    ///
+    /// How many there are, and which of them carry the edges, is decided in `Input` where it
+    /// can be tested -- this only walks the list. Each tick covers exactly the same amount of
+    /// simulated time, so the result depends on the inputs and never on how long a frame took.
+    ///
     def advance(step: ((s, Snapshot) -> s \ Sound),
                 world: Ref[s, r],
                 accNs: Ref[Int64, r],
                 stepNs: Int64,
-                snapshot: Snapshot,
-                budget: Int32): Unit \ Sound + r =
-        if (budget <= 0 or Ref.get(accNs) < stepNs) ()
-        else {
+                inputs: List[Snapshot]): Unit \ Sound + r = match inputs {
+        case Nil => ()
+        case snapshot :: rest => {
             Ref.put(step(Ref.get(world), snapshot), world);
             Ref.put(Ref.get(accNs) - stepNs, accNs);
-            advance(step, world, accNs, stepNs, snapshot, budget - 1)
+            advance(step, world, accNs, stepNs, rest)
         }
+    }
 
     ///
     /// Parks the main thread until the sketch reports that it has exited.
