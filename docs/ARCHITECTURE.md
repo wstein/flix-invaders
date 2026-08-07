@@ -468,12 +468,18 @@ The result is written to `tuning.json` beside the high scores, and read back by 
 and the benchmark. Every field is optional and falls back to the compiled-in default, so a file
 naming one parameter is a valid file and a config from an older build still loads.
 
-**`stragglers` is deliberately excluded from the search.** Setting it to zero switches off
-flank finishing, which is worth about half a level, so a search allowed to touch it deletes it
-every time. That rule is not a number to optimise but a decision about how the demo should
-*look* — without it the bot digs a hole through the middle of the formation and leaves the
-block at full width all game. The same question is worth asking of anything else added to
-`knobs`: would a worse score actually mean a worse demo?
+**`stragglers` is excluded from the search, and from the config file entirely.** Setting it to
+zero switches off flank finishing, which is worth about half a level, so a search allowed to
+touch it deletes it every time. Excluding it from `knobs` was not enough: a config already
+written with `stragglers: 0` was still being *read*, so the game silently stopped narrowing the
+formation and the demo looked wrong with nothing in the code to explain it. Measured on seed 1
+of level 1, the block held 400px the whole way instead of falling to 200.
+
+The rule that came out of it: **tuned numbers live in the config; decisions about how the demo
+behaves live in `Demo.defaults`, where changing them is a visible edit.** `Tuning.decode`
+ignores the key in both directions, so configs already carrying it recover on their own. The
+same question is worth asking of anything else added to `knobs`: would a worse score actually
+mean a worse demo?
 
 ---
 

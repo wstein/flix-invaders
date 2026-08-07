@@ -49,6 +49,22 @@ mod TestTuning {
     }
 
     @Test
+    def testAConfigCannotSwitchOffFlankFinishing(): Unit \ Assert = {
+        // A config once carried `stragglers: 0`, written by a search optimising level reached,
+        // and the game read it and quietly stopped narrowing the formation -- the demo looked
+        // wrong and nothing in the code had changed. That key is now ignored in both
+        // directions, so a stale config recovers on its own.
+        let t = decoded("{ \"stragglers\": 0, \"dangerWidth\": 55 }");
+        assertEq(expected = Demo.defaults()#stragglers, t#stragglers);
+        assertEq(expected = 55.0f32, t#dangerWidth)
+    }
+
+    @Test
+    def testTheFileDoesNotMentionStragglers(): Unit \ Assert =
+        assertTrueWithMsg(not String.contains(substr = "stragglers", Tuning.encode(Demo.defaults())),
+            "the tuning file offers a key that would overturn a design decision")
+
+    @Test
     def testAnUnknownFieldIsIgnoredRatherThanFatal(): Unit \ Assert = {
         // A field this build has never heard of is somebody else's business, or a leftover.
         let t = decoded("{ \"dangerWidth\": 40, \"warpFactor\": 9 }");

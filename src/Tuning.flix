@@ -9,6 +9,15 @@
 /// a file naming one parameter is a valid file -- which is what you want when trying a single
 /// change, and it means a config written by an older build still loads.
 ///
+/// `stragglers` is the one number that is *not* in the file, in either direction. It decides
+/// whether the bot finishes off a flank column at all, and switching it off is worth about
+/// half a level -- so a search that is allowed to write it turns it off, and a config carrying
+/// that then silently removes the behaviour from the game. It did exactly that once: the demo
+/// went back to leaving the formation at full width, and the cause was a stale config rather
+/// than any code. Tuned numbers live in the file; decisions about how the demo behaves live in
+/// `Demo.defaults`, where changing them is a visible edit. Ignoring the key on the way in also
+/// means the configs already written with it recover on their own.
+///
 mod Tuning {
 
     use Util.Json.Json
@@ -45,7 +54,6 @@ mod Tuning {
             "  \"blockedCost\":      ${t#blockedCost}," ::
             "" ::
             "  \"calm\":             ${t#calm}," ::
-            "  \"stragglers\":       ${t#stragglers}," ::
             "  \"finishFlank\":      ${t#finishFlank}" ::
             "}" :: Nil)
 
@@ -96,7 +104,8 @@ mod Tuning {
                 shelterRelief = number(members, "shelterRelief", base#shelterRelief),
                 blockedCost = number(members, "blockedCost", base#blockedCost),
                 calm = number(members, "calm", base#calm),
-                stragglers = whole(members, "stragglers", base#stragglers),
+                // Not read from the file, and not written to it. See below.
+                stragglers = base#stragglers,
                 finishFlank = number(members, "finishFlank", base#finishFlank)
             })
         }
