@@ -5,6 +5,7 @@ mod TestDemo {
     use Assert.assertFalse
     use Assert.assertNeq
     use Assert.assertTrueWithMsg
+    use Assert.assertFalseWithMsg
 
     def start(): World = Game.initial(2026i64)
 
@@ -93,6 +94,35 @@ mod TestDemo {
         });
         let differs = List.length(List.filter(x -> x, List.zipWith((a, b) -> a != b, shakyRun, steady)));
         assertTrueWithMsg(differs > 20, "the shaky bot never deviated: ${differs}")
+    }
+
+    // -- the shield -------------------------------------------------------------------------
+
+    @Test
+    def testItDoesNotDodgeWhileShielded(): Unit \ Assert = {
+        // Shooting the saucer buys ten seconds of immunity. Spending them dodging wastes the
+        // prize -- that is time to stand under the formation and fire.
+        let w = { bombs = Nil, mystery = None | midGame() };
+        let overhead = { bombs = { x = w#playerX, y = Rules.playerY() - 60.0f32 } :: Nil | w };
+        let shielded = { shield = Rules.shieldTicks() | overhead };
+        assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(overhead)#held)
+                          or Set.memberOf(Key.Right, Demo.aim(overhead)#held),
+            "the fixture does not provoke a dodge in the first place");
+        assertFalseWithMsg(Set.memberOf(Key.Left, Demo.aim(shielded)#held)
+                           or Set.memberOf(Key.Right, Demo.aim(shielded)#held),
+            "the bot fled a bomb its shield was going to stop")
+    }
+
+    @Test
+    def testItStillDodgesWhenTheShieldIsAboutToLapse(): Unit \ Assert = {
+        // The shield runs on a clock. One with a few ticks left does nothing about a bomb that
+        // takes forty to arrive, and walking calmly into that would be a strange celebration.
+        let w = { bombs = Nil, mystery = None | midGame() };
+        let bomb = { x = w#playerX, y = Rules.playerY() - 60.0f32 };
+        let lapsing = { shield = 2, bombs = bomb :: Nil | w };
+        assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(lapsing)#held)
+                          or Set.memberOf(Key.Right, Demo.aim(lapsing)#held),
+            "the bot trusted a shield that expires before the bomb lands")
     }
 
     // -- staying alive ----------------------------------------------------------------------

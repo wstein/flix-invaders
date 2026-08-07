@@ -255,7 +255,7 @@ mod Demo {
 
     def rawDanger(x: Float32, w: World): Float32 =
         List.foldLeft((total, b) ->
-            if (b#y > Rules.playerY()) total
+            if (b#y > Rules.playerY() or harmless(b, w)) total
             else {
                 let across = Float32.abs(b#x - x);
                 if (across > dangerWidth()) total
@@ -266,6 +266,20 @@ mod Demo {
                     total + (1.0f32 - across / dangerWidth()) * (0.3f32 + closeness)
                 }
             }, 0.0f32, w#bombs)
+
+    ///
+    /// Whether the shield will still be up when this bomb arrives.
+    ///
+    /// Shooting the saucer buys ten seconds of immunity, and dodging through it wastes the
+    /// prize -- that is time the cannon should spend standing under the formation and firing.
+    /// Checked bomb by bomb rather than as a blanket "shielded, ignore everything", because
+    /// the shield runs on a clock: one with twenty ticks left does nothing about a bomb that
+    /// takes forty to land, and walking calmly into that would be a strange way to celebrate.
+    ///
+    def harmless(bomb: Vec2, w: World): Bool = {
+        let fall = (Rules.playerY() - bomb#y) / Rules.bombSpeed();
+        fall < Int32.toFloat32(w#shield)
+    }
 
     /// `x` clamped to somewhere the cannon can actually stand.
     def onField(x: Float32): Float32 = {
