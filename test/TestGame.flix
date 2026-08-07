@@ -1003,7 +1003,13 @@ mod TestGame {
     @Test
     def testSaucersArriveSeveralTimesInALevel(): Unit \ Assert = {
         // Once per level made the bonus almost theoretical.
-        let appearances = countOf(SoundCmd.MysteryAppears, heard(3000, start(), Input.empty()));
+        //
+        // Shielded, because the fixture never touches the controls and this is a test of the
+        // saucer's timer, not of how long an idle cannon lasts. Without it, raising the bomb
+        // rate shortens the run and the second saucer never gets the chance to arrive -- the
+        // test would be reporting the player's life expectancy under a different name.
+        let survives = { shield = 100000 | start() };
+        let appearances = countOf(SoundCmd.MysteryAppears, heard(3000, survives, Input.empty()));
         assertTrueWithMsg(appearances >= 2,
             "only ${appearances} saucer(s) in a level's worth of ticks")
     }

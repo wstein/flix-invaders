@@ -130,7 +130,15 @@ mod Rules {
     pub def bombSpeed(): Float32 = 3.0f32
 
     /// One in this many steps, some invader drops a bomb.
-    pub def bombChance(): Int32 = 90
+    ///
+    /// The base rate at which a column drops a bomb, as a one-in-N chance per tick.
+    ///
+    /// Raised by half from 90 because the game was ending the wrong way. Every one of ten
+    /// benchmarked games finished with the formation landing, and every one of them still had
+    /// three to five spare cannons: bombs almost never killed anybody, so lives were
+    /// decoration and the only real clock was the descent.
+    ///
+    pub def bombChance(): Int32 = 60
 
     /// One hit box for every kind, so a squid is no harder to hit than an octopus.
     pub def invaderSize(): Vec2 = { x = 24.0f32, y = 16.0f32 }
@@ -242,10 +250,14 @@ mod Rules {
     /// Bombs get more frequent with each level. This is a one-in-N chance, so smaller is
     /// more dangerous; it is floored so a high level cannot turn into a solid wall of bombs.
     ///
+    /// The per-level step and the floor are scaled with the base, so raising the rate keeps
+    /// the shape of the curve instead of steepening it.
     pub def bombChanceFor(level: Int32): Int32 =
-        Int32.max(minBombChance(), bombChance() - (level - 1) * 5)
+        Int32.max(minBombChance(), bombChance() - (level - 1) * levelBombStep())
 
-    def minBombChance(): Int32 = 15
+    def levelBombStep(): Int32 = 3
+
+    def minBombChance(): Int32 = 10
 
     /// How long the game pauses between clearing a formation and the next one appearing.
     ///
