@@ -328,6 +328,41 @@ below): simulation 0.13 ms, drawing 1.74 ms, about **1.9 ms of a 16.7 ms budget*
 
 ---
 
+## Datalog, and where it does not belong
+
+Flix has a first-class Datalog engine, and this project uses it in exactly one place:
+[`TestScreenGraph.flix`](../test/TestScreenGraph.flix).
+
+The cabinet's screens form a graph, and the properties worth asserting about it are
+reachability properties — every screen can be got to, and no screen traps the player. Both are
+transitive closure, so they are three rules and a `query` rather than a hand-rolled search:
+
+```flix
+Path(x, y) :- Edge(x, y).
+Path(x, z) :- Path(x, y), Edge(y, z).
+```
+
+What makes it a real test rather than a restatement is where `Edge` comes from: the facts are
+**discovered by running `Session.step`** over each screen and a spread of inputs. Typing the
+transitions by hand would assert the author's belief about the state machine and keep passing
+after somebody deleted the way out of `Table`. Deleting it for real strands three screens, not
+one, and the closure says so.
+
+Datalog was considered for the game itself and rejected. Every relational-looking thing in
+`Game.step` — bullet × invader, bomb × player, bullet × bunker cell — is a **single
+non-recursive join** with a geometric predicate. Written as rules they are the same joins
+`List.filter` already does, plus marshalling float geometry into relations sixty times a
+second, with no fixpoint to exploit in return. The one genuine fixpoint anybody proposed —
+propagating danger over the positions the cannon can reach in time, as a lattice — is real,
+but it sits in the hot loop, and the greedy one-step chooser in
+[`Demo.bestSpot`](../src/Invaders/Demo.flix) already clears level four. It is a solver
+replacing fourteen tested lines to buy something unmeasured.
+
+The rule this leaves: **Datalog where the question is recursive, ordinary functions where it
+is not.**
+
+---
+
 ## Rejected alternatives
 
 Recorded because each looks obviously right and is not.

@@ -5,7 +5,7 @@
 /// `World`. A screen outlives a game -- the attract loop keeps running while games start and
 /// end underneath it -- so conflating the two would put cabinet state inside the rules.
 ///
-pub enum Screen with Eq, ToString {
+pub enum Screen with Eq, Order, ToString {
     case Attract
     case Playing
     case Entering
