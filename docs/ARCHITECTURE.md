@@ -241,9 +241,9 @@ flowchart LR
         RS --> PK["park until closed"]
     end
     subgraph anim["Processing Animation Thread"]
-        D[draw] --> ADV["advance: N steps"]
-        ADV --> PL[Audio.playAll]
-        PL --> RN[render under Canvas handler]
+        D[draw] --> ADV["advance: N steps<br/>under the Sound handler"]
+        ADV --> PL["Audio.play, per sound"]
+        ADV --> RN[render under Canvas handler]
         KP["keyPressed and keyReleased"]
     end
     RS -.->|starts| D
@@ -283,7 +283,10 @@ Three things had to be true for this to hold:
 1. **A fixed timestep.** Each step covers exactly 1/60 s, so a slow frame runs more steps
    rather than longer ones. `System.nanoTime` — not `Time.Clock`, whose handler is
    wall-clock `currentTimeMillis` and can jump backwards on an NTP correction.
-2. **Input frozen once per frame.** Every step within a frame sees the same `Snapshot`.
+2. **The keyboard is read once per frame.** Every step within that frame sees the same keys
+   held; only the first sees `pressed` and `released`, because a press is a transition rather
+   than a state. `Input.ticksDue` and `Input.acrossTicks` decide both, and are pure so that
+   the arithmetic can be tested -- `Sketch` itself cannot be.
 3. **Randomness as a value.** `Rng` is a field on `World`, threaded through `step` and
    returned with the new world.
 
@@ -478,9 +481,10 @@ a record of intuition being wrong:
 | Ignore bombs the shield will stop | a little free time | mean level 4.5 → 4.8 |
 
 So the constants are measured rather than argued about. [`bin/bench`](../bin/bench) plays ten
-fixed seeds to completion and reports per-seed outcomes plus aggregate rates. It is pure —
-`Game.step` and the bot are both pure functions — so the same build always produces the same
-numbers, and any difference between builds is the change under test.
+fixed seeds, reporting per-seed outcomes and aggregate rates. It runs `Game.step` under
+`Sound.runWithNoOp`; with that effect discharged, the bot and measurement are deterministic.
+Given the same tuning, the same build produces the same numbers, and any difference between
+builds is the change under test.
 
 Three rules it enforces, each of which was learned by getting it wrong:
 

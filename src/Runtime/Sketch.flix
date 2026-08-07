@@ -322,13 +322,6 @@ mod Sketch {
         }
 
     ///
-    /// Advances the world by whole logical steps while the accumulator allows it.
-    ///
-    /// `step` always receives the same snapshot, and each step covers exactly the same
-    /// amount of simulated time, so the result depends only on the inputs -- never on how
-    /// long the frame took.
-    ///
-    ///
     /// Runs one tick per snapshot it is given, spending the accumulator as it goes.
     ///
     /// How many there are, and which of them carry the edges, is decided in `Input` where it

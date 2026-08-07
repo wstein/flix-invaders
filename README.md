@@ -86,12 +86,12 @@ flowchart LR
         direction LR
         A["1 · Still<br>a fixed picture"] --> B["2 · Animation<br>state and time"]
         B --> C["3 · Collide, Sprites<br>small pure functions"]
-        C --> D["4 · Game.step<br>the whole game, pure"]
+        C --> D["4 · Game.step<br>rules plus Sound"]
         D --> E["5 · Sketch.flix<br>where Java begins"]
     end
     subgraph flix["what makes it Flix"]
         direction LR
-        F["6 · TestScreenGraph<br>Datalog, in the language"] --> G["7 · Tuning, Bench<br>effects you can measure"]
+        F["6 · TestScreenGraph<br>Datalog, in the language"] --> G["7 · Tuning, Bench<br>configuration and measurement"]
     end
     E --> F
 ```
@@ -104,7 +104,7 @@ flowchart LR
 | 4 | [Invaders/Game.flix](src/Invaders/Game.flix) | `bin/flix run` | The rules are a compact function of world and input; sound is the one concrete effect. |
 | 5 | [Runtime/Sketch.flix](src/Runtime/Sketch.flix) | — | Where purity stops and Java starts. One file. |
 | 6 | [TestScreenGraph.flix](test/TestScreenGraph.flix) | `bin/flix test` | Datalog is *in the language*. Three rules prove no screen can trap the player — and the facts are discovered by running the real code, not typed out. |
-| 7 | [Tuning.flix](src/Tuning.flix), [Bench.flix](src/Bench.flix) | `bin/bench` | Effects you can measure: the bot's numbers are data read from JSON, so a search is an ordinary loop and a benchmark plays ten games without a window. |
+| 7 | [Tuning.flix](src/Tuning.flix), [Bench.flix](src/Bench.flix) | `bin/bench` | JSON configuration makes a search an ordinary loop; a headless benchmark plays ten games and reports the result. |
 
 **Your first change**, in under a minute: open [Still.flix](src/Sketches/Still.flix), change a
 colour or move the sun in its `Canvas.ellipse` call, then `bin/sketch static` again.
@@ -176,18 +176,19 @@ sequenceDiagram
     autonumber
     participant P as Processing<br/>Animation Thread
     participant S as Sketch.start
-    participant G as Game.step<br/>(pure)
+    participant G as Game.step<br/>(\ Sound)
     participant A as Audio
-    participant V as View.render<br/>(pure)
+    participant V as View.render<br/>(\ Canvas)
 
     P->>S: draw()
     S->>S: nanoTime into accumulator<br/>(clamped to 5 steps)
     S->>S: freeze one Input.Snapshot
-    loop while accumulator >= 1/60 s
+    S->>S: Input.ticksDue decides N,<br/>Input.acrossTicks gives the edges<br/>to the first tick only
+    loop N ticks
         S->>G: step(world, snapshot)
-        G-->>S: next world plus sounds
+        G->>A: Sound.play, handled as Clip.start()
+        G-->>S: next world
     end
-    S->>A: playAll(sounds)
     Note over A: Clip.start() returns at once,<br/>so the frame never stalls
     S->>V: render(world)
     V-->>P: fill · rect · text
@@ -197,13 +198,15 @@ Two properties fall out of this shape:
 
 - **Frame-rate independence.** A slow frame runs *more* steps, not bigger ones. Every step
   covers exactly 1/60 s.
-- **Input is frozen once per frame.** Every step in a frame sees the same snapshot, which is
-  what lets a recorded run replay exactly.
+- **The keyboard is read once per frame.** Every step in that frame sees the same keys *held*,
+  so holding a direction moves the cannon through all of them. Only the first step sees the
+  *edges*: a press is a transition, and handing it to three catch-up steps would fire a one-off
+  action three times. Together those make a recorded run replay exactly.
 
 ## The rules, as a pipeline
 
-`Game.step` is one pure function built from small named stages, each readable and tested on
-its own.
+`Game.step` is a deterministic function with a concrete `\ Sound` effect, built from small
+named stages, each readable and tested on its own.
 
 ```mermaid
 flowchart TB

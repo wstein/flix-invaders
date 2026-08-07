@@ -25,15 +25,15 @@ pub type alias Outcome = {
 /// as a threat, what standing in cover costs, how long it holds one judgement, when it stops
 /// tidying the flanks -- and none of them can be reasoned about reliably in isolation.
 /// Widening the threat corridor from 30px to 60px cut deaths sixfold, which no amount of
-/// reading the code would have suggested. A more sophisticated dodge, which predicted configFile
+/// reading the code would have suggested. A more sophisticated dodge, which predicted where
 /// the cannon would be when each bomb landed, measured *worse* at every tuning.
 ///
 /// So the constants get measured, not argued about, and this is what does the measuring. Run
 /// it with `bin/bench`.
 ///
-/// Everything here is pure except printing. `Game.step` is a pure function and the bot is a
-/// pure function of the world and its own hand, so a benchmark is an ordinary fold and its
-/// results are exactly reproducible.
+/// The measurement itself is pure: `one` discharges `Game.step`'s `Sound` effect with
+/// `Sound.runWithNoOp`, and the bot is a pure function of the world and its own hand. Given a
+/// tuning and its fixed seeds, the benchmark is an ordinary fold with reproducible results.
 ///
 mod Bench {
 
