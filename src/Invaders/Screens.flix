@@ -102,15 +102,25 @@ mod Screens {
         // Told who else is playing, like the playing screen: a two-player game must still show
         // both scores while the second player is typing.
         View.renderWith(Session.onScreen(s), Session.cabinet(s));
-        let score = match s#pending {
-            case entry :: _ => entry#score
-            case Nil => 0
-        };
+        let asking = List.head(s#pending);
+        let score = asking |> Option.map(claim -> claim#entry#score) |> Option.getWithDefault(0);
         let caret = if (String.length(s#typing) < Scores.nameLength()) "_" else "";
-        let captions =
+
+        // Whose initials these are, but only when there is more than one candidate. In a
+        // one-player game naming the player is noise; in a two-player game the prompts arrive
+        // back to back and are otherwise indistinguishable -- the first version of this screen
+        // asked twice without ever saying who it was asking.
+        let whose =
+            if (s#players < 2) Nil
+            else asking
+                |> Option.map(claim -> caption("PLAYER ${claim#player + 1}",
+                                               View.hudSize(), Palette.invaderGreen()) :: Nil)
+                |> Option.getWithDefault(Nil);
+
+        let captions = List.append(whose,
             caption("NEW HIGH SCORE ${score}", View.hudSize(), Palette.sun()) ::
             caption(s#typing + caret, View.bannerSize(), Palette.ink()) ::
-            caption("TYPE 3 LETTERS, ENTER", View.hudSize(), Palette.invaderCyan()) :: Nil;
+            caption("TYPE 3 LETTERS, ENTER", View.hudSize(), Palette.invaderCyan()) :: Nil);
         block(captions, centredTop(captions))
     }
 

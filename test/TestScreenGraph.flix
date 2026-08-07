@@ -53,7 +53,7 @@ mod TestScreenGraph {
         // A score worth entering initials for, so `Entering` has a name to collect.
         let entering =
             { screen = Screen.Entering,
-              pending = { name = "", score = 9999, level = 4 } :: Nil,
+              pending = { player = 0, entry = { name = "", score = 9999, level = 4 } } :: Nil,
               typing = "AB" | base };
         (Screen.Attract, base) ::
         (Screen.Playing, playing) ::

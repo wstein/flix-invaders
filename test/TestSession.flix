@@ -458,6 +458,48 @@ mod TestSession {
     }
 
     @Test
+    def testTheInitialsPromptSaysWhoseTheyAre(): Unit \ Assert = {
+        // Two qualifying players get two prompts back to back. Without a name on them they
+        // are indistinguishable, and the second reads as the first having gone wrong.
+        let base = twoPlayer();
+        let asking = { screen = Screen.Entering,
+                       pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } ::
+                                 { player = 1, entry = { name = "", score = 3130, level = 3 } } :: Nil
+                     | base };
+        assertTrueWithMsg(List.memberOf("PLAYER 1", texts(asking)),
+            "the first prompt does not say whose it is: ${texts(asking)}");
+
+        // Committing the first moves on to the second, which must name the other player.
+        let second = ticks(1, { typing = "ABC" | asking }, Input.holding(Key.Enter :: Nil));
+        assertTrueWithMsg(List.memberOf("PLAYER 2", texts(second)),
+            "the second prompt still names player one: ${texts(second)}")
+    }
+
+    @Test
+    def testASinglePlayerIsNotToldWhoTheyAre(): Unit \ Assert = {
+        // With one candidate there is nothing to disambiguate, and naming them is noise.
+        let solo = tick(start(), digit(1));
+        let asking = { screen = Screen.Entering,
+                       pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil
+                     | solo };
+        assertFalseWithMsg(List.memberOf("PLAYER 1", texts(asking)),
+            "a one-player game is being told which player it is")
+    }
+
+    @Test
+    def testTheRecordedNameGoesToTheRightScore(): Unit \ Assert = {
+        // The player number is display only -- what gets written must still be the score the
+        // prompt was showing.
+        let base = twoPlayer();
+        let asking = { screen = Screen.Entering, typing = "WLS",
+                       pending = { player = 1, entry = { name = "", score = 3130, level = 3 } } :: Nil
+                     | base };
+        let done = ticks(1, asking, Input.holding(Key.Enter :: Nil));
+        assertEq(expected = Some(3130), Option.map(e -> e#score, List.head(done#scores)));
+        assertEq(expected = Some("WLS"), Option.map(e -> e#name, List.head(done#scores)))
+    }
+
+    @Test
     def testTheInitialsPromptShowsThePlayersGameNotTheDemo(): Unit \ Assert = {
         // Reported from a screenshot: the HUD read 0090 while the banner above it announced a
         // new high score in the thousands. Both numbers were real -- the banner was the
@@ -468,7 +510,7 @@ mod TestSession {
                                               base#worlds),
                        demo = { score = 90, hiScore = 90 | base#demo },
                        screen = Screen.Entering,
-                       pending = { name = "", score = 7310, level = 5 } :: Nil | base };
+                       pending = { player = 0, entry = { name = "", score = 7310, level = 5 } } :: Nil | base };
         let shown = texts(played);
         assertTrueWithMsg(List.memberOf(View.scoreText(7310), shown),
             "the player's score is not on the screen that is asking for their initials: ${shown}");
@@ -484,7 +526,7 @@ mod TestSession {
                              Vector.update(1, { score = 2200 | Vector.get(1, base#worlds) }, base#worlds)),
                      current = 1,
                      screen = Screen.Entering,
-                     pending = { name = "", score = 2200, level = 3 } :: Nil | base };
+                     pending = { player = 1, entry = { name = "", score = 2200, level = 3 } } :: Nil | base };
         let shown = texts(both);
         assertTrue(List.memberOf(View.scoreText(2200), shown));
         assertTrueWithMsg(List.memberOf(View.scoreText(4400), shown),

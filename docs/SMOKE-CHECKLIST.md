@@ -37,7 +37,7 @@ Steps 4 to 17 apply to `invaders`; the rest apply to all three.
 | 13 | `2` starts two players | Two scores in the HUD; losing a cannon costs a life and play continues, and only running out of lives hands over to player two |
 | 13a | The hand-over | Player one's last life is followed by PLAYER 2 / GET READY and a 3, 2, 1 on the same dimmed panel the title uses; the controls do nothing until it finishes |
 | 14a | The initials prompt | The field behind it is the game that just ended, with that player's score in the HUD — not the attract demo's |
-| 14 | Initials | A qualifying score asks for three letters; typing fills them, backspace deletes, enter accepts |
+| 14 | Initials | A qualifying score asks for three letters; typing fills them, backspace deletes, enter accepts. In a two-player game each prompt names whose score it is |
 | 15 | The table | The new entry appears in the right place in the high-score list |
 | 16 | Scores persist | Quit, run again: the table is still there, and the HUD's HI reflects it |
 | 17 | A damaged table is survivable | Corrupt `scores.txt` by hand, then run: the game starts and keeps whatever lines still parse |

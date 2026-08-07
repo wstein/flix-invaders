@@ -16,13 +16,22 @@ pub enum Screen with Eq, Order, ToString {
 /// Everything the cabinet knows: which screen, whose turn, and a game running behind the
 /// title for anybody who walks past.
 ///
+///
+/// A score waiting for its initials, and whose it is.
+///
+/// The player number is carried alongside rather than added to `Entry`, because `Entry` is
+/// what gets written to the high-score file and which of two people set a score is not a
+/// property of the score.
+///
+pub type alias Claim = { player = Int32, entry = Entry }
+
 pub type alias Session = {
     screen = Screen,
     players = Int32,
     current = Int32,
     worlds = Vector[World],
     scores = List[Entry],
-    pending = List[Entry],
+    pending = List[Claim],
     typing = String,
     demo = World,
     demoHand = Hand,
@@ -178,8 +187,10 @@ mod Session {
     ///
     def finish(s: Session): Session = {
         let earned = Vector.toList(s#worlds)
-            |> List.filter(w -> Scores.qualifies(w#score, s#scores))
-            |> List.map(w -> { name = "", score = w#score, level = w#level });
+            |> List.mapWithIndex((i, w) -> (i, w))
+            |> List.filter(match (_, w) -> Scores.qualifies(w#score, s#scores))
+            |> List.map(match (i, w) ->
+                { player = i, entry = { name = "", score = w#score, level = w#level } });
         if (List.isEmpty(earned)) { screen = Screen.Table, pending = Nil | s }
         else { screen = Screen.Entering, pending = earned, typing = "" | s }
     }
@@ -228,8 +239,8 @@ mod Session {
             { typing = afterDelete | s }
         else match s#pending {
             case Nil => { screen = Screen.Table, typing = "" | s }
-            case entry :: rest => {
-                let recorded = Scores.insert({ name = afterDelete | entry }, s#scores);
+            case claim :: rest => {
+                let recorded = Scores.insert({ name = afterDelete | claim#entry }, s#scores);
                 if (List.isEmpty(rest)) { screen = Screen.Table, scores = recorded, pending = Nil, typing = "" | s }
                 else { scores = recorded, pending = rest, typing = "" | s }
             }
