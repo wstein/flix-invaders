@@ -109,6 +109,9 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   of them in the artifact, which took ten minutes and produced a corrupt 1.5GB jar. `bin/flix
   clean` only removes part of it. `rm -rf build` before packaging. From clean the jar is 13MB
   and takes twelve seconds.
+- **`build-jar` packages the compiled tests too.** `test/` is part of the project, so the
+  artifact arrives carrying the whole suite -- half its size and none of its purpose. The
+  release workflow deletes `Test*` from the jar afterwards.
 - **`build-jar` names the artifact after the *directory*, not the package.** A checkout in
   `flix-proc-invaders/` produces `flix-proc-invaders.jar` whatever `flix.toml` says, so the
   release workflow renames it.

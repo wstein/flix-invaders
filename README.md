@@ -311,7 +311,7 @@ that a clock exists. Switching it on cannot change what the game does, and
 ## Building a release
 
 ```sh
-bin/flix build-jar                  # -> artifact/, ~13 MB, about 12 seconds
+bin/flix build-jar                  # -> artifact/, about 12 seconds
 ```
 
 Two things to know about it.
@@ -321,8 +321,10 @@ remove the classes of earlier builds — a working copy built a few dozen times 
 a million class files and several gigabytes, and every one of them lands in the jar. `rm -rf
 build` before building a release; `bin/flix clean` does not get all of it.
 
-**The jar is not self-contained, on purpose.** It holds this project's classes and the font,
-and expects Processing Core beside it:
+**The jar carries no dependency.** It holds this project's classes and its own font, and
+expects Processing Core beside it. The release build also strips the compiled test suite,
+which Flix packages along with everything else and which is half the artifact's size — 13 MB
+down to 6.5 MB — and then fails if a single Processing class made it in:
 
 ```sh
 java -cp flix-invaders.jar:core-4.5.6.jar Main

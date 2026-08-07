@@ -52,9 +52,19 @@ jobs:
           # Flix names the artifact after the directory rather than the package.
           built=$(ls artifact/*.jar | head -1)
           mv "$built" artifact/flix-invaders.jar
+          # Flix compiles test/ as part of the project, so the artifact arrives carrying a
+          # compiled copy of the whole suite -- half its size and none of its purpose.
+          zip -q -d artifact/flix-invaders.jar 'Test*' || true
           # The font is read from a path relative to the working directory, so it travels
-          # inside the jar and the launcher unpacks it on first run.
+          # inside the jar and the launcher unpacks it on first run. It is this project's own
+          # asset; no dependency is packed in, and Processing least of all.
           jar uf artifact/flix-invaders.jar assets/PressStart2P-Regular.ttf
+          # Nothing from Processing may be in here. Shading it would turn dynamic linking into
+          # static linking and trigger LGPL-2.1 section 6; this is the check that says so.
+          if unzip -l artifact/flix-invaders.jar | grep -qE 'processing/|com/jogamp'; then
+            echo "::error::the jar contains Processing classes; it must link to them, not carry them"
+            exit 1
+          fi
           ls -lh artifact/
 
       # Linux runners have no display, and Processing's ShimAWT calls System.exit(1) on a
