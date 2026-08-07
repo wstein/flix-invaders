@@ -18,7 +18,8 @@ mod TestBench {
 
     def game(level: Int32, deaths: Int32, ticks: Int32): Outcome =
         { seed = 1i64, level = level, score = 0, lives = 3, deaths = deaths,
-          kills = 0, drops = 0, ticks = ticks, invaded = true }
+          kills = 0, drops = 0, ticks = ticks, invaded = true,
+          endgame = { pixels = 0.0f32, ticks = 0, kills = 0 } }
 
     // -- rates, not totals ------------------------------------------------------------------
 
@@ -64,6 +65,18 @@ mod TestBench {
     @Test
     def testAnEmptyRunReportsNothingRatherThanDividingByZero(): Unit \ Assert =
         assertEq(expected = 0, Bench.meanLevelTenths(Nil))
+
+    @Test
+    def testEndgameMetricsAreAggregatedPerKill(): Unit \ Assert = {
+        let first = { endgame = { pixels = 120.0f32, ticks = 60, kills = 1 } | game(4, 0, 100) };
+        let second = { endgame = { pixels = 300.0f32, ticks = 156, kills = 2 } | game(5, 0, 100) };
+        let measured = Bench.endgame(first :: second :: Nil);
+        assertEq(expected = 420.0f32, measured#pixels);
+        assertEq(expected = 216, measured#ticks);
+        assertEq(expected = 3, measured#kills);
+        assertEq(expected = 140.0f32, Bench.pixelsPerKill(measured));
+        assertEq(expected = 72.0f32, Bench.ticksPerKill(measured))
+    }
 
     @Test
     def testTheWorstCaseIsReportedSeparately(): Unit \ Assert = {

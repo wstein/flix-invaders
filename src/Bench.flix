@@ -15,8 +15,12 @@ pub type alias Outcome = {
     kills = Int32,
     drops = Int32,
     ticks = Int32,
-    invaded = Bool
+    invaded = Bool,
+    endgame = Endgame
 }
+
+/// The bot's movement and progress while eight or fewer invaders remain in a formation.
+pub type alias Endgame = { pixels = Float32, ticks = Int32, kills = Int32 }
 
 ///
 /// Measuring the computer player.
@@ -60,6 +64,29 @@ mod Bench {
 
     def alive(w: World): Int32 = Vector.count(inv -> inv#alive, w#invaders)
 
+    def emptyEndgame(): Endgame = { pixels = 0.0f32, ticks = 0, kills = 0 }
+
+    ///
+    /// A tick the bot can act on, with eight or fewer invaders left.
+    ///
+    /// All three figures are gated on the same condition, so they describe one regime. Counting
+    /// ticks more loosely -- during the death pause, or through the three-second wait after a
+    /// formation is cleared -- swept in frozen time when no kill was possible: 6120 of 21161,
+    /// 29%, which reported 72 ticks per kill where live play costs 51. Worse than inflated, it
+    /// was *confounded*, because a change that clears more levels buys more frozen ticks and
+    /// looks slower for it.
+    ///
+    def activelyInEndgame(w: World): Bool =
+        w#phase == Phase.Playing and w#pause == 0 and alive(w) <= 8
+
+    def observeEndgame(before: World, after: World, endgame: Endgame): Endgame =
+        if (not activelyInEndgame(before)) endgame
+        else
+            { pixels = endgame#pixels + Float32.abs(after#playerX - before#playerX),
+              ticks = endgame#ticks + 1,
+              // A cleared formation is restored to 55, which would read as negative kills.
+              kills = endgame#kills + Int32.max(0, alive(before) - alive(after)) }
+
     ///
     /// Plays one whole game and reports what happened.
     ///
@@ -70,11 +97,11 @@ mod Bench {
     /// sampling the state immediately after the reset.
     ///
     pub def one(tuning: Tuning, seed: Int64): Outcome = Sound.runWithNoOp(() -> {
-        def loop(left, w, hand, deaths, kills, drops, ticks) =
+        def loop(left, w, hand, deaths, kills, drops, ticks, endgame) =
             if (left <= 0 or w#phase == Phase.Lost)
                 { seed = seed, level = w#level, score = w#score, lives = w#lives,
                   deaths = deaths, kills = kills, drops = drops, ticks = ticks,
-                  invaded = invasionReached(w) }
+                  invaded = invasionReached(w), endgame = endgame }
             else {
                 let (input, next) = Demo.imperfect(tuning, w, hand);
                 let stepped = Game.step(w, input);
@@ -82,9 +109,10 @@ mod Bench {
                      deaths + (if (stepped#lives < w#lives) 1 else 0),
                      kills + (alive(w) - alive(stepped)),
                      drops + (if (stepped#marchDir != w#marchDir) 1 else 0),
-                     ticks + 1)
+                     ticks + 1,
+                     observeEndgame(w, stepped, endgame))
             };
-        loop(budget(), Game.initial(seed), Demo.fresh(seed), 0, 0, 0, 0)
+        loop(budget(), Game.initial(seed), Demo.fresh(seed), 0, 0, 0, 0, emptyEndgame())
     })
 
     /// Whether the formation reached the cannon's line, as opposed to the lives running out.
@@ -140,6 +168,20 @@ mod Bench {
 
     pub def drops(runs: List[Outcome]): Int32 =
         List.foldLeft((total, r) -> total + r#drops, 0, runs)
+
+    pub def endgame(runs: List[Outcome]): Endgame =
+        List.foldLeft((total, r) ->
+            { pixels = total#pixels + r#endgame#pixels,
+              ticks = total#ticks + r#endgame#ticks,
+              kills = total#kills + r#endgame#kills }, emptyEndgame(), runs)
+
+    pub def pixelsPerKill(endgame: Endgame): Float32 =
+        if (endgame#kills <= 0) 0.0f32
+        else endgame#pixels / Int32.toFloat32(endgame#kills)
+
+    pub def ticksPerKill(endgame: Endgame): Float32 =
+        if (endgame#kills <= 0) 0.0f32
+        else Int32.toFloat32(endgame#ticks) / Int32.toFloat32(endgame#kills)
 
     /// How many games ended with the formation landing rather than the lives running out.
     pub def invasions(runs: List[Outcome]): Int32 =
@@ -268,6 +310,9 @@ mod Bench {
         println("  deaths          ${deaths(runs)} = ${showTenths(rateTenths(deaths(runs), ticks))} per 10000 ticks");
         println("  kills           ${kills(runs)} = ${showTenths(rateTenths(kills(runs), ticks))} per 10000 ticks");
         println("  row drops       ${drops(runs)} = ${showTenths(rateTenths(drops(runs), ticks))} per 10000 ticks");
+        let endgame = endgame(runs);
+        println("  <=8 invaders    ${pixelsPerKill(endgame)} px/kill, ${ticksPerKill(endgame)} ticks/kill"
+              + " (${endgame#pixels} px, ${endgame#ticks} ticks, ${endgame#kills} kills)");
         println("  ended by        ${invasions(runs)} invaded, "
               + "${List.length(runs) - invasions(runs)} out of lives");
 

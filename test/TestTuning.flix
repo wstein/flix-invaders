@@ -111,7 +111,8 @@ mod TestTuning {
     @Test
     def testMeritPrefersTheHigherMeanLevel(): Unit \ Assert = {
         let low = { seed = 1i64, level = 4, score = 0, lives = 3, deaths = 0,
-                    kills = 0, drops = 0, ticks = 1000, invaded = true };
+                    kills = 0, drops = 0, ticks = 1000, invaded = true,
+                    endgame = { pixels = 0.0f32, ticks = 0, kills = 0 } };
         let high = { level = 5 | low };
         assertTrue(Bench.merit(high :: Nil) > Bench.merit(low :: Nil))
     }
@@ -121,7 +122,8 @@ mod TestTuning {
         // A mean of 4.5 made of 4 and 5 is worth more than one made of 3 and 6: a demo that
         // collapses one game in six reads as broken rather than fallible.
         let base = { seed = 1i64, level = 4, score = 0, lives = 3, deaths = 0,
-                     kills = 0, drops = 0, ticks = 1000, invaded = true };
+                     kills = 0, drops = 0, ticks = 1000, invaded = true,
+                     endgame = { pixels = 0.0f32, ticks = 0, kills = 0 } };
         let steady = base :: { level = 5 | base } :: Nil;
         let swingy = { level = 3 | base } :: { level = 6 | base } :: Nil;
         assertEq(expected = Bench.meanLevelTenths(steady), Bench.meanLevelTenths(swingy));
