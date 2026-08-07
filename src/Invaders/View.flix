@@ -264,13 +264,48 @@ mod View {
             drawSpareLives(cannon, remaining, index + 1)
         }
 
+    ///
+    /// Where the game's own banners sit.
+    ///
+    /// Above the middle of the field, not in it. The attract screen puts its title panel across
+    /// the centre and plays the demo behind it, so a level banner at the midpoint lands inside
+    /// the panel and neither can be read. `TestView` keeps the two apart.
+    ///
+    pub def bannerY(): Float32 = 140.0f32
+    def bannerHintY(): Float32 = 168.0f32
+    pub def countdownY(): Float32 = 182.0f32
+    def countdownSize(): Float32 = 30.0f32
+
+    ///
+    /// How many steps the between-levels countdown has, and which one `pause` is showing.
+    ///
+    /// Derived from `Rules.levelPauseTicks` rather than fixed, so retuning the pause cannot
+    /// leave the count finishing early or hanging on nought.
+    ///
+    pub def countdownSteps(): Int32 = 3
+
+    pub def countdown(pause: Int32): Int32 = {
+        let each = Int32.max(1, Rules.levelPauseTicks() / countdownSteps());
+        Int32.min(countdownSteps(), (pause + each - 1) / each)
+    }
+
     def drawEndMessage(w: World): Unit \ Canvas = match w#phase {
         case Phase.Playing => ()
         case Phase.Cleared => {
             let message = "LEVEL ${w#level + 1}";
             Canvas.fill(Palette.invaderCyan());
             Canvas.textSize(bannerSize());
-            Canvas.text(message, centredX(message, bannerSize()), Rules.fieldHeight() / 2.0f32)
+            Canvas.text(message, centredX(message, bannerSize()), bannerY());
+            // Counting down turns dead air into a moment to get ready, and tells you the game
+            // is waiting on purpose rather than thinking about something.
+            let count = countdown(w#pause);
+            if (count <= 0) ()
+            else {
+                let digit = "${count}";
+                Canvas.fill(Palette.sun());
+                Canvas.textSize(countdownSize());
+                Canvas.text(digit, centredX(digit, countdownSize()), countdownY())
+            }
         }
         case Phase.Lost => banner("GAME OVER")
     }
@@ -279,10 +314,10 @@ mod View {
         let hint = "PRESS ENTER TO PLAY AGAIN";
         Canvas.fill(Palette.ink());
         Canvas.textSize(bannerSize());
-        Canvas.text(message, centredX(message, bannerSize()), Rules.fieldHeight() / 2.0f32);
+        Canvas.text(message, centredX(message, bannerSize()), bannerY());
         Canvas.fill(Palette.invaderCyan());
         Canvas.textSize(hudSize());
-        Canvas.text(hint, centredX(hint, hudSize()), Rules.fieldHeight() / 2.0f32 + 36.0f32)
+        Canvas.text(hint, centredX(hint, hudSize()), bannerHintY())
     }
 
     ///

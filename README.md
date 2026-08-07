@@ -255,6 +255,7 @@ all three with greps.
 | [TestReplay](test/TestReplay.flix) | 11 | identical input replays to an identical world *and* an identical soundtrack |
 | [TestCollide](test/TestCollide.flix) + [TestInput](test/TestInput.flix) | 18 | overlap convention, input edges |
 | [TestScoresFile](test/TestScoresFile.flix) | 8 | saving and loading, on a filesystem that does not exist |
+| [TestView](test/TestView.flix) | 11 | banner placement against the attract panel, and the countdown |
 | [TestScreenGraph](test/TestScreenGraph.flix) | 4 | no screen traps the player — reachability, in Datalog |
 | [TestBench](test/TestBench.flix) | 12 | the benchmark's own arithmetic — rates, worst cases, cut-short runs |
 | [TestTuning](test/TestTuning.flix) | 11 | the tuning file: round trip, overrides, clamping |

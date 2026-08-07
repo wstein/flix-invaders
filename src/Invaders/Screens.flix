@@ -75,12 +75,22 @@ mod Screens {
     ///
     def attract(s: Session): Unit \ Canvas = {
         View.render(Session.onScreen(s));
-        let captions =
-            caption("FLIX INVADERS", View.bannerSize(), Palette.invaderGreen()) ::
-            caption("PRESS 1 OR 2 TO PLAY", View.hudSize(), Palette.ink()) ::
-            caption("- DEMO -", View.hudSize(), Palette.invaderCyan()) :: Nil;
-        block(captions, centredTop(captions))
+        block(attractCaptions(), centredTop(attractCaptions()))
     }
+
+    def attractCaptions(): List[Caption] =
+        caption("FLIX INVADERS", View.bannerSize(), Palette.invaderGreen()) ::
+        caption("PRESS 1 OR 2 TO PLAY", View.hudSize(), Palette.ink()) ::
+        caption("- DEMO -", View.hudSize(), Palette.invaderCyan()) :: Nil
+
+    ///
+    /// The top edge of the attract screen's panel.
+    ///
+    /// Public because `View` has to stay clear of it. The demo plays *behind* this panel, so
+    /// anything the game itself draws at the middle of the field -- the level banner between
+    /// waves, most of all -- lands inside it and neither is readable.
+    ///
+    pub def attractPanelTop(): Float32 = centredTop(attractCaptions()) - padding()
 
     ///
     /// Asking for the initials that go beside a qualifying score.
