@@ -107,9 +107,17 @@ mod Session {
     pub def active(s: Session): World =
         Vector.get(Int32.min(s#current, Vector.length(s#worlds) - 1), s#worlds)
 
-    /// The world the player is looking at -- the demo on the attract screen.
+    ///
+    /// The world the player is looking at.
+    ///
+    /// The demo only behind the *title*. Behind the initials prompt it is the game that just
+    /// ended, which is the whole point of that screen -- showing the attract game there put
+    /// the demo's score in the HUD beside a banner announcing the player's, so the two
+    /// contradicted each other and neither was theirs.
+    ///
     pub def onScreen(s: Session): World = match s#screen {
         case Screen.Playing => active(s)
+        case Screen.Entering => active(s)
         case _ => s#demo
     }
 

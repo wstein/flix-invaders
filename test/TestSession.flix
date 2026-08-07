@@ -23,6 +23,14 @@ mod TestSession {
             case _ => false
         }, Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty())))
 
+    /// Every string the cabinet draws for this session.
+    def texts(s: Session): List[String] =
+        Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty()))
+            |> List.filterMap(cmd -> match cmd {
+                case DrawCmd.Text(t, _, _) => Some(t)
+                case _ => None
+            })
+
     // -- the attract loop --------------------------------------------------------------
 
     @Test
@@ -386,6 +394,40 @@ mod TestSession {
         // The HI-SCORE slot should show the table's best, not zero, from the first tick.
         let withTable = Session.withScores(2026i64, { name = "ZZZ", score = 5000, level = 3 } :: Nil);
         assertEq(expected = 5000, Session.active(tick(withTable, digit(1)))#hiScore)
+    }
+
+    @Test
+    def testTheInitialsPromptShowsThePlayersGameNotTheDemo(): Unit \ Assert = {
+        // Reported from a screenshot: the HUD read 0090 while the banner above it announced a
+        // new high score in the thousands. Both numbers were real -- the banner was the
+        // player's and the HUD was the *demo's*, because the initials screen was drawing the
+        // attract game behind it.
+        let base = twoPlayer();
+        let played = { worlds = Vector.update(0, { score = 7310, hiScore = 7310 | Vector.get(0, base#worlds) },
+                                              base#worlds),
+                       demo = { score = 90, hiScore = 90 | base#demo },
+                       screen = Screen.Entering,
+                       pending = { name = "", score = 7310, level = 5 } :: Nil | base };
+        let shown = texts(played);
+        assertTrueWithMsg(List.memberOf(View.scoreText(7310), shown),
+            "the player's score is not on the screen that is asking for their initials: ${shown}");
+        assertTrueWithMsg(not List.memberOf(View.scoreText(90), shown),
+            "the demo's score is being shown to the player instead: ${shown}")
+    }
+
+    @Test
+    def testTheInitialsPromptStillShowsBothPlayers(): Unit \ Assert = {
+        // A two-player game has to keep both scores up while the second is typing.
+        let base = twoPlayer();
+        let both = { worlds = Vector.update(0, { score = 4400 | Vector.get(0, base#worlds) },
+                             Vector.update(1, { score = 2200 | Vector.get(1, base#worlds) }, base#worlds)),
+                     current = 1,
+                     screen = Screen.Entering,
+                     pending = { name = "", score = 2200, level = 3 } :: Nil | base };
+        let shown = texts(both);
+        assertTrue(List.memberOf(View.scoreText(2200), shown));
+        assertTrueWithMsg(List.memberOf(View.scoreText(4400), shown),
+            "player one's score vanished while player two typed: ${shown}")
     }
 
     @Test

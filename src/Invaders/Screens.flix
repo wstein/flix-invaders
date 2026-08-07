@@ -99,7 +99,9 @@ mod Screens {
     /// the monospaced font for free.
     ///
     def entering(s: Session): Unit \ Canvas = {
-        View.render(Session.onScreen(s));
+        // Told who else is playing, like the playing screen: a two-player game must still show
+        // both scores while the second player is typing.
+        View.renderWith(Session.onScreen(s), Session.cabinet(s));
         let score = match s#pending {
             case entry :: _ => entry#score
             case Nil => 0
