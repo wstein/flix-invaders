@@ -137,15 +137,15 @@ mod View {
         if (n <= 0) "" else "0" + zeros(n - 1)
 
     /// Left-pads a score with zeros, the way the cabinet displays it.
-    def scoreText(value: Int32): String = {
+    pub def scoreText(value: Int32): String = {
         let digits = Int32.toString(value);
         zeros(4 - String.length(digits)) + digits
     }
 
     /// The HUD type size. Press Start 2P is a pixel font: whole multiples look best.
-    def hudSize(): Float32 = 12.0f32
+    pub def hudSize(): Float32 = 12.0f32
 
-    def bannerSize(): Float32 = 24.0f32
+    pub def bannerSize(): Float32 = 24.0f32
 
     ///
     /// The width of a string, in pixels.
@@ -154,15 +154,15 @@ mod View {
     /// and lets the HUD be laid out by character count rather than by numbers tuned against
     /// whatever font the platform happened to supply.
     ///
-    def textWidth(s: String, size: Float32): Float32 =
+    pub def textWidth(s: String, size: Float32): Float32 =
         Int32.toFloat32(String.length(s)) * size
 
     /// The x that centres `s` in the field.
-    def centredX(s: String, size: Float32): Float32 =
+    pub def centredX(s: String, size: Float32): Float32 =
         (Rules.fieldWidth() - textWidth(s, size)) / 2.0f32
 
     /// The x that right-aligns `s` with its right edge `margin` from the field edge.
-    def rightAlignedX(s: String, size: Float32, margin: Float32): Float32 =
+    pub def rightAlignedX(s: String, size: Float32, margin: Float32): Float32 =
         Rules.fieldWidth() - textWidth(s, size) - margin
 
     def drawHud(w: World): Unit \ Canvas = {

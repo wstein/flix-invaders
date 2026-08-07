@@ -27,6 +27,17 @@ mod Key {
     def vkDown(): Int32 = 40
 
     ///
+    /// The digit a key stands for, if it is one of the number keys.
+    ///
+    /// Processing reports `keyCode`, and for the number row those values are ASCII digits,
+    /// so this is a subtraction rather than a table.
+    ///
+    pub def digit(k: Key): Option[Int32] = match k {
+        case Key.Other(code) if code >= 48 and code <= 57 => Some(code - 48)
+        case _ => None
+    }
+
+    ///
     /// Translates a Processing key code.
     ///
     pub def fromCode(code: Int32): Key =

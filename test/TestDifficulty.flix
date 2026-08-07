@@ -15,39 +15,11 @@ mod TestDifficulty {
     ///
 
     ///
-    /// A competent player: pick the lowest living invader, lead it by the bullet's flight
-    /// time, and fire when lined up.
+    /// The bot under test is the one the game ships -- `Demo.aim`, the same code the attract
+    /// screen drives. Two copies would let the demo drift away from the thing this file
+    /// measures.
     ///
-    /// The leading is essential to the measurement. A bullet takes roughly forty ticks to
-    /// reach the formation, during which the invaders move most of their own width, so
-    /// aiming where a target *is* rather than where it will *be* misses nearly every shot
-    /// and tells you nothing about whether the game is fair.
-    ///
-    /// It does not dodge, so its results are a floor: a human who also dodges does better.
-    ///
-    def aim(w: World): Snapshot = {
-        let target = Vector.foldLeft((best, inv) ->
-            if (not inv#alive) best
-            else match best {
-                case None => Some(inv#pos)
-                case Some(p) => if (inv#pos#y > p#y) Some(inv#pos) else best
-            }, None, w#invaders);
-        match target {
-            case None => Input.empty()
-            case Some(p) => {
-                let living = Vector.count(inv -> inv#alive, w#invaders);
-                let flight = (Rules.playerY() - p#y) / Rules.bulletSpeed();
-                let lead = w#marchDir * Rules.marchSpeedFor(living, w#level) * flight;
-                let dx = (p#x + lead) - w#playerX;
-                let move =
-                    if (dx < -1.5f32) Key.Left :: Nil
-                    else if (dx > 1.5f32) Key.Right :: Nil
-                    else Nil;
-                let fire = if (Float32.abs(dx) < 6.0f32) Key.Space :: Nil else Nil;
-                Input.holding(List.append(move, fire))
-            }
-        }
-    }
+    def aim(w: World): Snapshot = Demo.aim(w)
 
     def playRaw(budget: Int32, w: World): World \ Sound =
         if (budget <= 0 or w#phase == Phase.Lost) w
