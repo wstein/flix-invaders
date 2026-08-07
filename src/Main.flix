@@ -16,6 +16,7 @@
 def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, IO } = {
     let limit = Sketch.maxFramesFromEnv();
     let saved = readScores();
+    let tuning = readTuning();
     let closed = Sketch.start(
         { title = "Flix Invaders",
           width = 640,
@@ -25,7 +26,7 @@ def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, IO } = {
           maxFrames = limit,
           // Relative to the working directory; bin/flix cds to the project root first.
           fontPath = Some("assets/PressStart2P-Regular.ttf") },
-        seed -> Session.withScores(seed, saved),
+        seed -> Session.withTuning(seed, saved, tuning),
         Session.step,
         Screens.render);
     // Only when somebody earned something. A session that changed nothing should not create
@@ -47,6 +48,24 @@ def readScores(): List[Entry] \ { Fs.FileRead, Sys.Env, IO } =
             case Err(why) => {
                 println("could not read ${at#file}: ${why}");
                 Nil
+            }
+        }
+    }
+
+///
+/// The demo player's numbers, or the shipped defaults if there is no config.
+///
+/// The attract screen is the only thing this affects, so a config that cannot be read costs
+/// you a slightly different demo and nothing else. `bin/bench --recalc` is what writes it.
+///
+def readTuning(): Tuning \ { Fs.FileRead, Sys.Env, IO } =
+    match Tuning.path() {
+        case None => Demo.defaults()
+        case Some(file) => match Tuning.load(file) {
+            case Ok(t) => t
+            case Err(why) => {
+                println("could not read ${file}: ${why}");
+                Demo.defaults()
             }
         }
     }

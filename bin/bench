@@ -1,15 +1,17 @@
 #!/bin/sh
-# Measure the demo bot across a fixed set of seeds.
+# Measure the demo bot, and optionally search for better numbers.
 #
-#   bin/bench
-#
-# Prints per-seed outcomes and the aggregate rates. Everything it reports is a pure
-# function of the seeds, so two runs of the same build give identical numbers, and any
-# difference between builds is the change under test.
+#   bin/bench                    play every seed with the stored tuning and report
+#   bin/bench --recalc           search for a better tuning and save it if it wins
+#   bin/bench --recalc=5         ...over at most five rounds (attached form, as getopt wants)
+#   bin/bench --config ./t.json  use a particular config file
+#   bin/bench --defaults         ignore the config; use the tuning compiled in
+#   bin/bench --help
 #
 # Always compare the *rates*, never the totals: a change that ends games sooner posts
 # fewer deaths and fewer row drops while being strictly worse.
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-exec "$root/bin/flix" run --entrypoint Bench.main
+# `--` separates the compiler's own options from the program's.
+exec "$root/bin/flix" run --entrypoint Bench.main -- "$@"

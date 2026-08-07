@@ -26,6 +26,7 @@ pub type alias Session = {
     typing = String,
     demo = World,
     demoHand = Hand,
+    tuning = Tuning,
     seed = Int64
 }
 
@@ -48,6 +49,16 @@ mod Session {
     /// from disk.
     ///
     pub def withScores(seed: Int64, scores: List[Entry]): Session =
+        withTuning(seed, scores, Demo.defaults())
+
+    ///
+    /// The same, with the demo player's numbers supplied.
+    ///
+    /// The cabinet carries them rather than `Demo` owning them as constants, so a tuning read
+    /// from a file reaches the attract screen without anything below here knowing where it
+    /// came from.
+    ///
+    pub def withTuning(seed: Int64, scores: List[Entry], tuning: Tuning): Session =
         { screen = Screen.Attract,
           players = 1,
           current = 0,
@@ -57,6 +68,7 @@ mod Session {
           typing = "",
           demo = Game.initial(demoSeed(seed)),
           demoHand = Demo.fresh(demoSeed(seed)),
+          tuning = tuning,
           seed = seed }
 
     /// Whether this player still has a game to play.
@@ -119,7 +131,7 @@ mod Session {
     /// never shows the same game twice.
     ///
     def attract(input: Snapshot, s: Session): Session = {
-        let (botInput, nextHand) = Demo.imperfect(s#demo, s#demoHand);
+        let (botInput, nextHand) = Demo.imperfect(s#tuning, s#demo, s#demoHand);
         let advanced = Sound.runWithNoOp(() -> Game.step(s#demo, botInput));
         let restarted =
             if (advanced#phase == Phase.Lost) Game.initial(demoSeed(s#seed) + Int32.toInt64(advanced#score) + 1i64)

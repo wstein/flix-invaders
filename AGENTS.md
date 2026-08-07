@@ -25,7 +25,8 @@ pinned compiler into `.flix/`, so local runs match CI exactly.
 - `src/Invaders/` — the pure game model, and the pure cabinet around it (`Session`, `Screens`,
   `Demo`); no `IO`, no window
 - `src/Main.flix` — the only file that reads or writes a file, and only the score table
-- `src/Bench.flix` — the bot benchmark behind `bin/bench`; not part of the game
+- `src/Bench.flix` — the bot benchmark and tuning search behind `bin/bench`; not part of the game
+- `src/Tuning.flix` — the demo player's numbers, as JSON; the second and last file that touches a filesystem
 - `test/` — `@Test` functions; must stay headless and off the filesystem (CI enforces both)
 - `flix.toml` — package metadata, the Flix version, and dependencies
 - `build/`, `artifact/`, `lib/`, `.flix/` — generated; do not edit and do not commit
@@ -62,8 +63,10 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   to build on. You must hand-write `instance Eq[W]`. This is worth knowing because the
   refactor looks free and has apparent stdlib backing (`Net/HttpRequest.flix:29`), and it
   is not -- it was proposed, tested, and rejected on that basis.
-- **Reserved words that bite as ordinary names:** `run`, `spawn`, `from`, and `Static`. The
-  errors point at the *next* token, so they read as unrelated syntax errors.
+- **Reserved words that bite as ordinary names:** `run`, `spawn`, `from`, `where`, and
+  `Static`. The errors point at the *next* token, so they read as unrelated syntax errors —
+  and worse, a parse error inside one function makes the compiler report every *other*
+  function it calls as an unused definition, which sends you hunting in the wrong file.
 - **`size`, `pixelDensity`, `fullScreen`, `smooth` are legal only inside `settings()`.**
   Anywhere else they throw `IllegalStateException`.
 - **`exitActual` is Processing's only `System.exit(0)`**, and `flix run` does not fork a JVM.

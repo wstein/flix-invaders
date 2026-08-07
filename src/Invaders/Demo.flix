@@ -14,6 +14,37 @@
 /// One occupied column of the formation: its lowest invader, and how deep it is.
 pub type alias Column = { x = Float32, y = Float32, depth = Int32 }
 
+///
+/// Every number that decides how the demo player behaves.
+///
+/// A record rather than sixteen `def`s, because they were sixteen `def`s and every one of them
+/// had to be found, edited and recompiled to try a different value. As data they can be varied
+/// in a loop, read from a file, and searched -- see `bin/bench --recalc`.
+///
+/// None of them can be reasoned about in isolation. Widening `dangerWidth` from 30 to 60 cut
+/// deaths sixfold; a cleverer dodge that predicted where the cannon would be when each bomb
+/// landed measured worse at every setting. They are tuned by measurement, and the record of
+/// that is in `docs/ARCHITECTURE.md`.
+///
+pub type alias Tuning = {
+    aimJitter = Int32,
+    judgeFor = Int32,
+    judgeSpread = Int32,
+    lapseOneIn = Int32,
+    lapseFor = Int32,
+    lapseSpread = Int32,
+    startAt = Float32,
+    reverseAt = Float32,
+    dangerWidth = Float32,
+    selfPreservation = Float32,
+    urgency = Float32,
+    shelterRelief = Float32,
+    blockedCost = Float32,
+    calm = Float32,
+    stragglers = Int32,
+    finishFlank = Float32
+}
+
 pub type alias Hand = {
     rng = Rng,
     error = Float32,
@@ -37,64 +68,62 @@ pub type alias Hand = {
 mod Demo {
 
     ///
-    /// How far the shaky bot's aim can be off, in pixels, either way.
+    /// The tuning the game ships with.
     ///
-    /// Smaller than it looks, because the error now *persists* for a stretch of ticks. Drawn
-    /// fresh every tick it was self-cancelling noise averaging to nothing; held, the same
-    /// number is a genuine bias the cannon acts on for half a second. Widening it back out
-    /// does not make the bot look more human, only worse at the game.
+    /// Every value here was measured, not chosen. The reasoning for each is below; the
+    /// evidence is in `docs/ARCHITECTURE.md` and reproducible with `bin/bench`.
     ///
-    def aimJitter(): Int32 = 8
+    pub def defaults(): Tuning = {
+        // Small, because the error *persists* for a stretch of ticks. Drawn fresh every tick
+        // it was self-cancelling noise averaging to nothing; held, the same number is a bias
+        // the cannon acts on for half a second.
+        aimJitter = 8,
 
-    /// How long it sticks with one judgement of the shot, in ticks, and how much that varies.
-    def judgeFor(): Int32 = 18
-    def judgeSpread(): Int32 = 19
+        // How long it sticks with one judgement, and how much that varies. Re-judging every
+        // tick is what made the cannon shake at six reversals a second.
+        judgeFor = 18,
+        judgeSpread = 19,
 
-    ///
-    /// Roughly one tick in this many it stops watching, and for how long when it does.
-    ///
-    /// A pause has to read as a hesitation rather than a freeze. Long lapses also cost lives
-    /// outright -- a fifth of a second of no input is survivable, a third of a second with a
-    /// bomb overhead is not.
-    ///
-    def lapseOneIn(): Int32 = 200
-    def lapseFor(): Int32 = 4
-    def lapseSpread(): Int32 = 9
+        // How often it stops watching, and for how long. A pause has to read as a hesitation
+        // rather than a freeze -- and a third of a second of no input dies to a bomb.
+        lapseOneIn = 200,
+        lapseFor = 4,
+        lapseSpread = 9,
 
-    /// How far off the mark it must be to start walking, and to turn round once walking.
-    ///
-    /// Turning costs more than starting. Without the gap the cannon chatters between left and
-    /// right whenever it sits near its target, because it moves 4px in a tick and the deadzone
-    /// is narrower than that.
-    def startAt(): Float32 = 1.5f32
-    def reverseAt(): Float32 = 6.0f32
+        // How far off the mark before it starts walking, and before it turns round. Turning
+        // costs more than starting, or the cannon chatters whenever it is nearly right.
+        startAt = 1.5f32,
+        reverseAt = 6.0f32,
 
-    ///
-    /// How near a bomb has to pass a position for the bot to count it as a threat.
-    ///
-    /// Wide, and measured rather than guessed. At 30px the bot only reacted once a bomb was
-    /// nearly overhead, which at 4px of travel a tick against 3px of fall is far too late to
-    /// go anywhere. Widening it to 60 cut deaths across ten games from 24 to 4 without making
-    /// the bot noticeably more timid -- it now loses by being invaded, with lives to spare,
-    /// rather than by being hit.
-    ///
-    def dangerWidth(): Float32 = 60.0f32
+        // How near a bomb must pass to count as a threat. At 30 the bot only reacted once a
+        // bomb was nearly overhead, which at 4px of travel a tick against 3px of fall is far
+        // too late. Sixty cut deaths across ten games from 24 to 4.
+        dangerWidth = 60.0f32,
+
+        // What one unit of danger is worth against being in position to shoot, and the
+        // distance that costs as much as one unit of danger.
+        selfPreservation = 6.0f32,
+        urgency = 40.0f32,
+
+        // A bunker overhead stops the bomb, but standing where it cannot shoot has to cost
+        // something -- or the safest game is the one it loses without firing.
+        shelterRelief = 0.25f32,
+        blockedCost = 2.0f32,
+
+        // Tidying the flanks pays only while there is a level left to spend the slower descent
+        // on. Letting it continue to three-quarters of the way down costs a whole level.
+        calm = 0.25f32,
+
+        // Only a *finished* outer column moves the formation's edge, so one survivor is the
+        // case worth taking. Extending to two drops the mean from 4.5 to 3.9.
+        stragglers = 1,
+        finishFlank = 1.1f32
+    }
 
     /// The offsets from its current position that the bot considers standing at.
     def options(): List[Float32] =
         -96.0f32 :: -64.0f32 :: -36.0f32 :: -16.0f32 :: 0.0f32 ::
         16.0f32 :: 36.0f32 :: 64.0f32 :: 96.0f32 :: Nil
-
-    /// What one unit of danger is worth, against being in position to shoot.
-    def selfPreservation(): Float32 = 6.0f32
-
-    ///
-    /// The distance, in pixels, that costs as much as one unit of danger.
-    ///
-    /// Sets the exchange rate between the two halves of the decision. Too high and the bot
-    /// never leaves a shot; too low and it dodges so eagerly that the formation lands on it.
-    ///
-    def urgency(): Float32 = 40.0f32
 
     ///
     /// What to shoot at.
@@ -103,9 +132,9 @@ mod Demo {
     /// what a human would go for. Otherwise the lowest living invader: it is the closest, and
     /// it is the one dropping bombs.
     ///
-    def chooseTarget(w: World): Option[Vec2] = match w#mystery {
+    def chooseTarget(t: Tuning, w: World): Option[Vec2] = match w#mystery {
         case Some(m) => Some({ x = m#x, y = Rules.mysteryY() })
-        case None => bestColumn(w)
+        case None => bestColumn(t, w)
     }
 
     ///
@@ -146,7 +175,7 @@ mod Demo {
     /// Deliberately narrow. Chasing flanks in general is measurably worse -- it costs more kill
     /// rate than it buys descent -- so this fires only when the job is nearly done.
     ///
-    def bestColumn(w: World): Option[Vec2] = {
+    def bestColumn(t: Tuning, w: World): Option[Vec2] = {
         let candidates = columns(w);
         let edges = List.foldLeft((acc, c) -> match acc {
             case None => Some((c#x, c#x))
@@ -157,7 +186,7 @@ mod Demo {
             case Some((left, right)) =>
                 let looming = pressure(candidates);
                 List.foldLeft((best, c) -> {
-                    let score = columnWorth(c, left, right, looming);
+                    let score = columnWorth(t, c, left, right, looming);
                     match best {
                         case None => Some(({ x = c#x, y = c#y }, score))
                         case Some((_, top)) =>
@@ -168,12 +197,12 @@ mod Demo {
         }
     }
 
-    def columnWorth(target: Column, left: Float32, right: Float32, looming: Float32): Float32 = {
+    def columnWorth(t: Tuning, target: Column, left: Float32, right: Float32, looming: Float32): Float32 = {
         // Near 0 at the top of the formation, near 1 on the invasion line.
         let imminence = Float32.max(0.0f32, target#y) / Rules.playerY();
         let onAFlank = target#x == left or target#x == right;
-        let nearlyDone = target#depth <= stragglers();
-        imminence + (if (onAFlank and nearlyDone) finishFlank() * composure(looming) else 0.0f32)
+        let nearlyDone = target#depth <= t#stragglers;
+        imminence + (if (onAFlank and nearlyDone) t#finishFlank * composure(t, looming) else 0.0f32)
     }
 
     ///
@@ -188,42 +217,16 @@ mod Demo {
     /// How much appetite there is for tidying up the flanks, given how low they have got.
     ///
     /// Finishing an outer column is a long game -- it pays back over the rest of the level --
-    /// and there is no rest of the level once the front row is at the door. Past `calm()` the
+    /// and there is no rest of the level once the front row is at the door. Past `t#calm` the
     /// bonus fades out, so the bot drops the housekeeping and clears the bottom row, which is
     /// both the thing about to land on it and the thing dropping the bombs.
     ///
-    def composure(looming: Float32): Float32 =
-        if (looming < calm()) 1.0f32
-        else Float32.max(0.0f32, (1.0f32 - looming) / (1.0f32 - calm()))
+    def composure(t: Tuning, looming: Float32): Float32 =
+        if (looming < t#calm) 1.0f32
+        else Float32.max(0.0f32, (1.0f32 - looming) / (1.0f32 - t#calm))
 
-    ///
-    /// How far down the formation may come before the bot stops tidying flanks.
-    ///
-    /// Low, and measured. Tidying only pays while there is a level left to spend the slower
-    /// descent on, so the window for it is the opening quarter; after that the bottom row is
-    /// both the thing about to land and the thing dropping the bombs. Letting the bot keep
-    /// tidying to three-quarters of the way down costs a whole level on the unlucky seeds --
-    /// worst case 3 rather than 4 -- for no extra narrowing at all.
-    ///
-    def calm(): Float32 = 0.25f32
 
-    ///
-    /// How few must remain in an outer column before finishing it takes priority.
-    ///
-    /// One. The case where the shot is unarguable: a single survivor on the flank is holding
-    /// the whole block at its width, and killing it is one shot for a permanent reduction in
-    /// the descent rate. Going to two is measurably worse -- mean level 3.9 against 4.3 --
-    /// because a column with two left is a detour rather than a finishing move.
-    ///
-    def stragglers(): Int32 = 1
 
-    ///
-    /// What finishing that column is worth.
-    ///
-    /// Just above 1.0, which is the most imminence can ever score, so a lone straggler on the
-    /// flank outranks anything -- but only just, and nothing else about flanks does.
-    ///
-    def finishFlank(): Float32 = 1.1f32
 
     ///
     /// How dangerous it is to stand at `x`.
@@ -233,37 +236,26 @@ mod Demo {
     /// what stops the bot sidestepping out of one bomb's path and into another's -- which is
     /// how it kept dying with lives to spare.
     ///
-    def danger(x: Float32, w: World): Float32 =
+    def danger(t: Tuning, x: Float32, w: World): Float32 =
         // A standing bunker overhead stops the bomb before it arrives, which is what bunkers
         // are for. Shelter is not total -- blocks are being eaten all game, and the bot should
         // not treat a two-block stub as a roof -- but it is worth most of a dodge.
-        if (Bunkers.blocks(w#bunkers, x)) shelterRelief() * rawDanger(x, w)
-        else rawDanger(x, w)
+        if (Bunkers.blocks(w#bunkers, x)) t#shelterRelief * rawDanger(t, x, w)
+        else rawDanger(t, x, w)
 
-    /// How much of a bomb's threat a bunker overhead removes.
-    def shelterRelief(): Float32 = 0.25f32
 
-    ///
-    /// What it costs to stand somewhere it cannot shoot from.
-    ///
-    /// Shelter that is never left is a stalemate: under a bunker the bot is safe, so a purely
-    /// danger-driven chooser parks there, and since it will not fire through its own cover it
-    /// clears nothing and is eventually invaded. Standing in cover has to cost something, or
-    /// the safest game is the one it loses.
-    ///
-    def blockedCost(): Float32 = 2.0f32
 
-    def rawDanger(x: Float32, w: World): Float32 =
+    def rawDanger(t: Tuning, x: Float32, w: World): Float32 =
         List.foldLeft((total, b) ->
             if (b#y > Rules.playerY() or harmless(b, w)) total
             else {
                 let across = Float32.abs(b#x - x);
-                if (across > dangerWidth()) total
+                if (across > t#dangerWidth) total
                 else {
                     // Near 0 up at the formation, near 1 just above the cannon: a bomb about
                     // to land matters far more than one just dropped.
                     let closeness = Float32.max(0.0f32, b#y) / Rules.playerY();
-                    total + (1.0f32 - across / dangerWidth()) * (0.3f32 + closeness)
+                    total + (1.0f32 - across / t#dangerWidth) * (0.3f32 + closeness)
                 }
             }, 0.0f32, w#bombs)
 
@@ -308,12 +300,12 @@ mod Demo {
     ///
     /// The best place to stand: safe first, in position second.
     ///
-    def bestSpot(aimX: Float32, w: World): Float32 = {
+    def bestSpot(t: Tuning, aimX: Float32, w: World): Float32 = {
         let scored = List.map(offset -> {
             let x = onField(w#playerX + offset);
-            (x, danger(x, w) * selfPreservation()
-                + Float32.abs(aimX - x) / urgency()
-                + (if (Bunkers.blocks(w#bunkers, x)) blockedCost() else 0.0f32))
+            (x, danger(t, x, w) * t#selfPreservation
+                + Float32.abs(aimX - x) / t#urgency
+                + (if (Bunkers.blocks(w#bunkers, x)) t#blockedCost else 0.0f32))
         }, options());
         List.foldLeft((best, candidate) -> {
             let (x, score) = candidate;
@@ -334,8 +326,8 @@ mod Demo {
     /// time. Aiming at where a target *is* rather than where it will *be* misses nearly
     /// every shot.
     ///
-    def intent(error: Float32, w: World): Option[{ goal = Float32, fire = Bool }] = {
-        match chooseTarget(w) {
+    def intent(t: Tuning, error: Float32, w: World): Option[{ goal = Float32, fire = Bool }] = {
+        match chooseTarget(t, w) {
             case None => None
             case Some(p) => {
                 let living = Vector.count(inv -> inv#alive, w#invaders);
@@ -353,7 +345,7 @@ mod Demo {
                 // towards the best. Treating them separately made the bot oscillate between
                 // fleeing and lining up, and do neither well.
                 let aimX = w#playerX + dx;
-                Some({ goal = bestSpot(aimX, w) - w#playerX, fire = worthFiring(dx, w) })
+                Some({ goal = bestSpot(t, aimX, w) - w#playerX, fire = worthFiring(dx, w) })
             }
         }
     }
@@ -368,8 +360,8 @@ mod Demo {
     }
 
     /// Which way to walk, with no commitment to a previous direction.
-    def wants(goal: Float32): Int32 =
-        if (goal < -startAt()) -1 else if (goal > startAt()) 1 else 0
+    def wants(t: Tuning, goal: Float32): Int32 =
+        if (goal < -t#startAt) -1 else if (goal > t#startAt) 1 else 0
 
     ///
     /// A competent player: perfect aim, and it dodges.
@@ -377,9 +369,9 @@ mod Demo {
     /// Used by the balance test, where the point is to measure the *game* rather than the
     /// player. Its results are an optimistic bound -- a human misses.
     ///
-    pub def aim(w: World): Snapshot = match intent(0.0f32, w) {
+    pub def aim(t: Tuning, w: World): Snapshot = match intent(t, 0.0f32, w) {
         case None => Input.empty()
-        case Some(i) => keysFor(wants(i#goal), i#fire)
+        case Some(i) => keysFor(wants(t, i#goal), i#fire)
     }
 
     /// A hand that has not played yet.
@@ -396,22 +388,22 @@ mod Demo {
     /// Returns the advanced generator, so the caller keeps the demo's randomness entirely
     /// separate from the world's.
     ///
-    pub def imperfect(w: World, hand: Hand): (Snapshot, Hand) =
+    pub def imperfect(t: Tuning, w: World, hand: Hand): (Snapshot, Hand) =
         if (hand#lapse > 0)
             // Still looking away. Hands off the controls until it comes back.
             (Input.empty(), { lapse = hand#lapse - 1, moving = 0 | hand })
         else {
-            let (lapsing, afterChance) = Rng.chance(lapseOneIn(), hand#rng);
+            let (lapsing, afterChance) = Rng.chance(t#lapseOneIn, hand#rng);
             if (lapsing) {
-                let (extra, next) = Rng.nextInt32Below(lapseSpread(), afterChance);
-                (Input.empty(), { rng = next, lapse = lapseFor() + extra, moving = 0 | hand })
+                let (extra, next) = Rng.nextInt32Below(t#lapseSpread, afterChance);
+                (Input.empty(), { rng = next, lapse = t#lapseFor + extra, moving = 0 | hand })
             } else {
-                let (error, settled, next) = judge(hand, afterChance);
-                match intent(error, w) {
+                let (error, settled, next) = judge(t, hand, afterChance);
+                match intent(t, error, w) {
                     case None =>
                         (Input.empty(), { rng = next, error = error, settled = settled, moving = 0 | hand })
                     case Some(i) => {
-                        let moving = commit(hand#moving, i#goal);
+                        let moving = commit(t, hand#moving, i#goal);
                         (keysFor(moving, i#fire),
                          { rng = next, error = error, settled = settled, moving = moving | hand })
                     }
@@ -424,12 +416,12 @@ mod Demo {
     ///
     /// Holding it is the whole point. Re-drawing every tick is what made the cannon shake.
     ///
-    def judge(hand: Hand, rng: Rng): (Float32, Int32, Rng) =
+    def judge(t: Tuning, hand: Hand, rng: Rng): (Float32, Int32, Rng) =
         if (hand#settled > 0) (hand#error, hand#settled - 1, rng)
         else {
-            let (drawn, afterError) = Rng.nextInt32Below(2 * aimJitter() + 1, rng);
-            let (extra, afterHold) = Rng.nextInt32Below(judgeSpread(), afterError);
-            (Int32.toFloat32(drawn - aimJitter()), judgeFor() + extra, afterHold)
+            let (drawn, afterError) = Rng.nextInt32Below(2 * t#aimJitter + 1, rng);
+            let (extra, afterHold) = Rng.nextInt32Below(t#judgeSpread, afterError);
+            (Int32.toFloat32(drawn - t#aimJitter), t#judgeFor + extra, afterHold)
         }
 
     ///
@@ -440,10 +432,10 @@ mod Demo {
     /// a tick, so it passes `reverseAt` within two ticks of going too far -- it just no longer
     /// twitches when it is nearly right.
     ///
-    def commit(moving: Int32, goal: Float32): Int32 = {
-        let wanted = wants(goal);
+    def commit(t: Tuning, moving: Int32, goal: Float32): Int32 = {
+        let wanted = wants(t, goal);
         let reversing = wanted != 0 and moving != 0 and wanted != moving;
-        if (reversing and Float32.abs(goal) < reverseAt()) moving else wanted
+        if (reversing and Float32.abs(goal) < t#reverseAt) moving else wanted
     }
 
 }

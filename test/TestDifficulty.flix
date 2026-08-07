@@ -19,7 +19,7 @@ mod TestDifficulty {
     /// screen drives. Two copies would let the demo drift away from the thing this file
     /// measures.
     ///
-    def aim(w: World): Snapshot = Demo.aim(w)
+    def aim(w: World): Snapshot = Demo.aim(Demo.defaults(), w)
 
     def playRaw(budget: Int32, w: World): World \ Sound =
         if (budget <= 0 or w#phase == Phase.Lost) w
@@ -32,7 +32,7 @@ mod TestDifficulty {
     def playShakyRaw(budget: Int32, w: World, hand: Hand): World \ Sound =
         if (budget <= 0 or w#phase == Phase.Lost) w
         else {
-            let (input, next) = Demo.imperfect(w, hand);
+            let (input, next) = Demo.imperfect(Demo.defaults(), w, hand);
             playShakyRaw(budget - 1, Game.step(w, input), next)
         }
 

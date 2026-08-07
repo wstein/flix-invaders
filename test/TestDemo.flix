@@ -12,7 +12,7 @@ mod TestDemo {
     /// A world a few hundred ticks in, so there is something to aim at.
     def midGame(): World =
         Sound.runWithNoOp(() -> {
-            def loop(n, w) = if (n <= 0) w else loop(n - 1, Game.step(w, Demo.aim(w)));
+            def loop(n, w) = if (n <= 0) w else loop(n - 1, Game.step(w, Demo.aim(Demo.defaults(), w)));
             loop(300, start())
         })
 
@@ -20,20 +20,20 @@ mod TestDemo {
 
     @Test
     def testTheBotAimsAtSomething(): Unit \ Assert = {
-        let s = Demo.aim(start());
+        let s = Demo.aim(Demo.defaults(), start());
         assertTrueWithMsg(not Set.isEmpty(s#held), "the bot did nothing on a full formation")
     }
 
     @Test
     def testTheBotIsDeterministic(): Unit \ Assert = {
         let w = midGame();
-        assertEq(expected = Demo.aim(w)#held, Demo.aim(w)#held)
+        assertEq(expected = Demo.aim(Demo.defaults(), w)#held, Demo.aim(Demo.defaults(), w)#held)
     }
 
     @Test
     def testTheBotHoldsFireWhenNothingIsLeft(): Unit \ Assert = {
         let cleared = { invaders = Vector.map(inv -> { alive = false | inv }, start()#invaders) | start() };
-        assertTrue(Set.isEmpty(Demo.aim(cleared)#held))
+        assertTrue(Set.isEmpty(Demo.aim(Demo.defaults(), cleared)#held))
     }
 
     // -- the shaky bot ----------------------------------------------------------------
@@ -42,7 +42,7 @@ mod TestDemo {
     def shaky(n: Int32, w: World, hand: Hand): List[Snapshot] =
         if (n <= 0) Nil
         else {
-            let (snapshot, next) = Demo.imperfect(w, hand);
+            let (snapshot, next) = Demo.imperfect(Demo.defaults(), w, hand);
             snapshot :: shaky(n - 1, w, next)
         }
 
@@ -87,7 +87,7 @@ mod TestDemo {
             def loop(k, w, acc) =
                 if (k <= 0 or w#phase == Phase.Lost) List.reverse(acc)
                 else {
-                    let input = Demo.aim(w);
+                    let input = Demo.aim(Demo.defaults(), w);
                     loop(k - 1, Game.step(w, input), input#held :: acc)
                 };
             loop(600, Game.initial(2026i64), Nil)
@@ -105,11 +105,11 @@ mod TestDemo {
         let w = { bombs = Nil, mystery = None | midGame() };
         let overhead = { bombs = { x = w#playerX, y = Rules.playerY() - 60.0f32 } :: Nil | w };
         let shielded = { shield = Rules.shieldTicks() | overhead };
-        assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(overhead)#held)
-                          or Set.memberOf(Key.Right, Demo.aim(overhead)#held),
+        assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), overhead)#held)
+                          or Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), overhead)#held),
             "the fixture does not provoke a dodge in the first place");
-        assertFalseWithMsg(Set.memberOf(Key.Left, Demo.aim(shielded)#held)
-                           or Set.memberOf(Key.Right, Demo.aim(shielded)#held),
+        assertFalseWithMsg(Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), shielded)#held)
+                           or Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), shielded)#held),
             "the bot fled a bomb its shield was going to stop")
     }
 
@@ -120,8 +120,8 @@ mod TestDemo {
         let w = { bombs = Nil, mystery = None | midGame() };
         let bomb = { x = w#playerX, y = Rules.playerY() - 60.0f32 };
         let lapsing = { shield = 2, bombs = bomb :: Nil | w };
-        assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(lapsing)#held)
-                          or Set.memberOf(Key.Right, Demo.aim(lapsing)#held),
+        assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), lapsing)#held)
+                          or Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), lapsing)#held),
             "the bot trusted a shield that expires before the bomb lands")
     }
 
@@ -139,7 +139,7 @@ mod TestDemo {
                 def loop(n, w, hand) =
                     if (n <= 0 or w#phase == Phase.Lost) w
                     else {
-                        let (input, next) = Demo.imperfect(w, hand);
+                        let (input, next) = Demo.imperfect(Demo.defaults(), w, hand);
                         loop(n - 1, Game.step(w, input), next)
                     };
                 loop(30000, Game.initial(seed), Demo.fresh(seed))
@@ -179,7 +179,7 @@ mod TestDemo {
         let w = overheadAtShelter();
         assertTrueWithMsg(Bunkers.blocks(w#bunkers, w#playerX),
             "the fixture is not actually standing under a bunker");
-        assertFalse(Set.memberOf(Key.Space, Demo.aim(w)#held))
+        assertFalse(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), w)#held))
     }
 
     @Test
@@ -189,7 +189,7 @@ mod TestDemo {
         let w = overheadAtShelter();
         let bare = { bunkers = Vector.map(b -> { cells = Vector.map(_ -> false, b#cells) | b },
                                           w#bunkers) | w };
-        assertTrue(Set.memberOf(Key.Space, Demo.aim(bare)#held))
+        assertTrue(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), bare)#held))
     }
 
     @Test
@@ -201,7 +201,7 @@ mod TestDemo {
         let bomb = { bombs = { x = sheltered#playerX, y = Rules.playerY() - 60.0f32 } :: Nil | sheltered };
         let exposed = { bunkers = Vector.map(b -> { cells = Vector.map(_ -> false, b#cells) | b },
                                              bomb#bunkers) | bomb };
-        let staysPut = Set.isEmpty(Demo.aim(bomb)#held) or not Set.isEmpty(Demo.aim(exposed)#held);
+        let staysPut = Set.isEmpty(Demo.aim(Demo.defaults(), bomb)#held) or not Set.isEmpty(Demo.aim(Demo.defaults(), exposed)#held);
         assertTrueWithMsg(staysPut,
             "the bot treated cover and open ground as equally dangerous")
     }
@@ -225,7 +225,7 @@ mod TestDemo {
             def loop(k, w, h, acc) =
                 if (k <= 0 or w#phase == Phase.Lost) List.reverse(acc)
                 else {
-                    let (input, next) = Demo.imperfect(w, h);
+                    let (input, next) = Demo.imperfect(Demo.defaults(), w, h);
                     loop(k - 1, Game.step(w, input), next, (input, w#pause == 0) :: acc)
                 };
             loop(n, Game.initial(seed), hand, Nil)
@@ -239,7 +239,7 @@ mod TestDemo {
             def loop(k, w, hand, acc) =
                 if (k <= 0 or w#phase == Phase.Lost) List.reverse(acc)
                 else {
-                    let (input, next) = Demo.imperfect(w, hand);
+                    let (input, next) = Demo.imperfect(Demo.defaults(), w, hand);
                     loop(k - 1, Game.step(w, input), next, (input, w#pause == 0) :: acc)
                 };
             loop(n, Game.initial(seed), Demo.fresh(seed), Nil)
@@ -309,7 +309,7 @@ mod TestDemo {
         // `w#rng`, watching the attract screen would change what a replay means.
         let w = midGame();
         let before = w#rng;
-        let (_, _) = Demo.imperfect(w, Demo.fresh(99i64));
+        let (_, _) = Demo.imperfect(Demo.defaults(), w, Demo.fresh(99i64));
         assertEq(expected = before, w#rng);
         // And the perfect bot is a pure function of the world alone.
         assertEq(expected = before, w#rng)
@@ -318,7 +318,7 @@ mod TestDemo {
     @Test
     def testTheBotMakesNoSound(): Unit \ Assert =
         // `aim` only reads; nothing about choosing an input should be audible.
-        assertEq(expected = (Nil: List[SoundCmd]), Sound.played(() -> { let _ = Demo.aim(midGame()); () }))
+        assertEq(expected = (Nil: List[SoundCmd]), Sound.played(() -> { let _ = Demo.aim(Demo.defaults(), midGame()); () }))
 
     // -- self-preservation and greed ------------------------------------------------------
 
@@ -327,7 +327,7 @@ mod TestDemo {
         // Staying alive beats lining up a shot.
         let w = midGame();
         let overhead = { bombs = { x = w#playerX, y = Rules.playerY() - 60.0f32 } :: Nil | w };
-        let moves = Demo.aim(overhead)#held;
+        let moves = Demo.aim(Demo.defaults(), overhead)#held;
         assertTrueWithMsg(Set.memberOf(Key.Left, moves) or Set.memberOf(Key.Right, moves),
             "the bot stood still under a falling bomb")
     }
@@ -337,7 +337,7 @@ mod TestDemo {
         // A bomb far off to the side is not a reason to abandon a shot.
         let w = midGame();
         let wide = { bombs = { x = w#playerX + 300.0f32, y = Rules.playerY() - 60.0f32 } :: Nil | w };
-        assertEq(expected = Demo.aim(w)#held, Demo.aim(wide)#held)
+        assertEq(expected = Demo.aim(Demo.defaults(), w)#held, Demo.aim(Demo.defaults(), wide)#held)
     }
 
     @Test
@@ -346,7 +346,7 @@ mod TestDemo {
         let w = midGame();
         let cornered = { playerX = Rules.playerSize()#x / 2.0f32 | w };
         let bomb = { bombs = { x = cornered#playerX, y = Rules.playerY() - 40.0f32 } :: Nil | cornered };
-        assertTrue(Set.memberOf(Key.Right, Demo.aim(bomb)#held))
+        assertTrue(Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), bomb)#held))
     }
 
     @Test
@@ -359,7 +359,7 @@ mod TestDemo {
             else { alive = false | inv }, w#invaders);
         // The saucer is the target, far away -- so the bot is not aimed at the invader.
         let distracted = { invaders = overhead, mystery = Some({ x = 20.0f32, dir = -1.0f32 }) | w };
-        assertTrueWithMsg(Set.memberOf(Key.Space, Demo.aim(distracted)#held),
+        assertTrueWithMsg(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), distracted)#held),
             "the bot walked past an invader directly overhead without firing")
     }
 
@@ -370,7 +370,7 @@ mod TestDemo {
         let farRight = Vector.mapWithIndex((i, inv) ->
             if (i == 0) { pos = { x = 600.0f32, y = 200.0f32 }, alive = true | inv }
             else { alive = false | inv }, w#invaders);
-        assertFalse(Set.memberOf(Key.Space, Demo.aim({ invaders = farRight | w })#held))
+        assertFalse(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), { invaders = farRight | w })#held))
     }
 
     @Test
@@ -379,7 +379,7 @@ mod TestDemo {
         let w = midGame();
         let far = Rules.fieldWidth() - 40.0f32;
         let ufo = { mystery = Some({ x = far, dir = 1.0f32 }), bombs = Nil | { playerX = 60.0f32 | w } };
-        assertTrueWithMsg(Set.memberOf(Key.Right, Demo.aim(ufo)#held),
+        assertTrueWithMsg(Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), ufo)#held),
             "the bot ignored a saucer on the far side")
     }
 
@@ -393,9 +393,9 @@ mod TestDemo {
             else { alive = false | inv }, base#invaders);
         let w = { invaders = oneRight | base };
         let withUfo = { mystery = Some({ x = 40.0f32, dir = -1.0f32 }) | w };
-        assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(withUfo)#held),
+        assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), withUfo)#held),
             "the bot did not go for the saucer on its left");
-        assertTrueWithMsg(Set.memberOf(Key.Right, Demo.aim({ mystery = None | w })#held),
+        assertTrueWithMsg(Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), { mystery = None | w })#held),
             "the bot did not return to the invader on its right")
     }
 

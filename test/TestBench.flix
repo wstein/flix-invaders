@@ -113,8 +113,8 @@ mod TestBench {
     def testTheSameSeedGivesTheSameGame(): Unit \ Assert = {
         // The whole method rests on this: if a build's numbers moved, the build moved them.
         // One seed only -- the point is determinism, not coverage, and games are not cheap.
-        let first = Bench.one(2026i64);
-        let again = Bench.one(2026i64);
+        let first = Bench.one(Demo.defaults(), 2026i64);
+        let again = Bench.one(Demo.defaults(), 2026i64);
         assertEq(expected = first#level, again#level);
         assertEq(expected = first#score, again#score);
         assertEq(expected = first#ticks, again#ticks);
@@ -124,7 +124,7 @@ mod TestBench {
     @Test
     def testAMeasuredGameActuallyEnded(): Unit \ Assert = {
         // If this ever fails the budget is too small, and every rate in the report is wrong.
-        let outcome = Bench.one(2026i64);
+        let outcome = Bench.one(Demo.defaults(), 2026i64);
         assertTrueWithMsg(outcome#ticks < Bench.budget(),
             "seed 2026 was still running after ${outcome#ticks} ticks; raise Bench.budget()")
     }

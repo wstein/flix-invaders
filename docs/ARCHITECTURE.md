@@ -456,6 +456,25 @@ Three rules it enforces, each of which was learned by getting it wrong:
 that reports the wrong number is worse than none: it is a confident wrong answer, and every
 decision downstream inherits it.
 
+### Searching, not sweeping
+
+The bot's numbers are a `Tuning` record rather than sixteen `def`s, which is what makes
+`bin/bench --recalc` possible: a candidate is a value, so a search is an ordinary loop and
+needs no recompilation. It is coordinate descent — each parameter is offered a few multiples of
+its current value, the best wins, and the search carries that improvement into the next
+parameter. Deterministic, so a `--recalc` can be repeated and checked.
+
+The result is written to `tuning.json` beside the high scores, and read back by both the game
+and the benchmark. Every field is optional and falls back to the compiled-in default, so a file
+naming one parameter is a valid file and a config from an older build still loads.
+
+**`stragglers` is deliberately excluded from the search.** Setting it to zero switches off
+flank finishing, which is worth about half a level, so a search allowed to touch it deletes it
+every time. That rule is not a number to optimise but a decision about how the demo should
+*look* — without it the bot digs a hole through the middle of the formation and leaves the
+block at full width all game. The same question is worth asking of anything else added to
+`knobs`: would a worse score actually mean a worse demo?
+
 ---
 
 ## Rejected alternatives
