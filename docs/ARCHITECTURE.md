@@ -170,11 +170,39 @@ because Flix records have no `Eq` instance; see *Rejected alternatives*.
 
 ---
 
-## Sound, and why it is data
+## Sound: data or effect?
 
-`Game.step` has no effect row, and `Sketch.start` types `step` the same way. So the rules
-cannot *perform* a sound. Instead each stage appends to `World.sounds`, cleared at the top of
-every step, and the runtime plays whatever the tick produced.
+<a id="sound-data-or-effect"></a>
+
+Each stage appends to `World.sounds`, cleared at the top of every step, and the runtime plays
+whatever the tick produced.
+
+**This is a choice, and the close one in the whole design.** An earlier version of this
+document claimed sound *had* to be data because `step` is pure — which is circular, since
+`step`'s purity is itself the choice. The constraint actually encountered was that
+`Sketch.start` cannot be polymorphic over effect *variables*; a **concrete** effect on `step`,
+handled inside the anonymous `PApplet` callback, compiles fine. It was tested:
+
+```flix
+pub def start(init: (Int64 -> s),
+              step: ((s, Int32) -> s \ Beep),   // concrete effect -- compiles
+              view: (s -> Unit \ Canvas)): Unit \ IO
+```
+
+So the real trade-off:
+
+| | data (today) | effect |
+|---|---|---|
+| `Game.step` type | `(World, Snapshot) -> World`, no effect row | `\ Sound` |
+| `TestReplay` | folds `Game.step` directly | must install a handler |
+| `World.sounds` | a field holding *output*, cleared every step, in the digest | gone |
+| Collection across a frame | runtime accumulates per step into a `pending` Ref | handler accumulates naturally |
+| Symmetry with `Canvas` | needs this section to explain | none needed |
+
+`World.sounds` is the tell: it is output, not state. The effect is the more idiomatic design
+and probably the better one. What data buys is that `step` has *literally no effect row* --
+the strongest form of the property this project advertises -- and that replay determinism is
+structural rather than dependent on which handler someone installed.
 
 ```mermaid
 flowchart LR
@@ -231,7 +259,7 @@ Recorded because each looks obviously right and is not.
 | Alternative | Why not |
 |---|---|
 | `World` as a single-case enum wrapping a record | Looks free and has stdlib precedent (`Net/HttpRequest.flix`). But `pub enum W({...}) with Eq` **does not compile** — records have no `Eq` for the derivation to build on, so it would mean hand-writing a 24-field instance, against 751 field-select sites. Tested and rejected. |
-| The stdlib `Random` effect instead of `Rng` data | An anonymous `PApplet` subclass compiles to a fixed JVM method, so `draw` cannot carry a polymorphic effect. `handleWithSeed` also builds a fresh generator per invocation, which would restart the sequence every frame. |
+| The stdlib `Random` effect instead of `Rng` data | Weaker than it first appears. `Sketch.start` cannot be polymorphic over effect variables, but a *concrete* effect on `step` compiles. The reason that survives: `handleWithSeed` builds a fresh generator per invocation, so installing it per frame restarts the sequence — you would have to write a handler over a persistent generator, and determinism would then depend on which handler was installed rather than on the types. |
 | `@DefaultHandler` on `Canvas` / `Input` | The only sensible default is a silent no-op, which would let a test that forgot to choose an interpretation compile and assert on a frame nobody drew. Leaving them undefaulted keeps that a type error. |
 | Datalog in the frame loop | All 25 stdlib examples are whole-relation fixpoints over static facts, and the engine re-stratifies per solve with no incremental API. Reasonable at level-load time; malpractice at 60 Hz. |
 | The Processing Sound library | Not on Maven Central; the JitPack artifact contains zero classes. Would require republishing LGPL and Apache jars from this repo. `javax.sound.sampled` gives the same arcade bleeps with no dependency. |

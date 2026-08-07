@@ -45,6 +45,11 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   `mod Foo { ... }`; you get `Undefined type`, which looks like a classpath problem and is not.
 - **Never name a receiver `_this`.** The leading underscore makes it a *hidden* variable
   (`E6956`) that the body cannot use. This project names it `app`.
+- **A *concrete* effect on the frame callback is fine; a polymorphic one is not.**
+  `Sketch.start` cannot be generic over effect variables (`E6469`) because the anonymous
+  `PApplet` subclass compiles `draw` to a fixed JVM method. But `step: ((s, i) -> s \ Sound)`
+  with the handler installed inside `draw` compiles and runs — verified. Do not cite the
+  polymorphism limit as a reason a given effect is impossible; check which case you are in.
 - **Wrapping a record in a single-case enum does NOT give you `Eq`/`ToString`.**
   `pub enum W({a = Int32}) with Eq` fails: records have no `Eq` instance for the derivation
   to build on. You must hand-write `instance Eq[W]`. This is worth knowing because the

@@ -194,12 +194,14 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Design notes
 
-- **Randomness is data, not an effect.** An `Rng` threads through `step` like any other part
-  of the world, so a game that uses randomness stays a pure function of its inputs. This was
-  forced by a real constraint — an anonymous `PApplet` subclass compiles to a fixed JVM
-  method and cannot carry a polymorphic effect — and turned out to be the better design.
-- **Sound is data too.** `step` records a `List[SoundCmd]`; the runtime plays it. A machine
-  with no sound card runs the identical simulation.
+- **Randomness and sound are data, not effects.** An `Rng` and a `List[SoundCmd]` thread
+  through `step` like any other part of the world, so `Game.step` has *no effect row at all*
+  and `TestReplay` can fold it directly. A machine with no sound card runs the identical
+  simulation.
+
+  This is a choice, not a constraint. A concrete `Sound` effect handled inside the frame
+  callback compiles perfectly well — see [ARCHITECTURE.md](docs/ARCHITECTURE.md#sound-data-or-effect)
+  for the trade-off, which is genuinely close and arguably lands the other way.
 - **Pixel art, no image files.** Sprites are rows of `#` and `.` in
   [Sprites.flix](src/Invaders/Sprites.flix), collapsed into horizontal runs so that 55
   invaders and four bunkers cost about 1.1 ms a frame.
