@@ -15,6 +15,19 @@ There is **no Java in this repository**. Flix subclasses Processing's `PApplet` 
 [an ordinary pure function](src/Invaders/Demo.flix) of the world, and the same one the balance
 tests drive.*
 
+## Play it without building it
+
+```sh
+curl -fsSLO https://github.com/wstein/flix-invaders/releases/latest/download/invaders
+chmod +x invaders
+./invaders
+```
+
+That script is the whole download. On first run it fetches the game and Processing Core into
+`~/.cache/flix-invaders`, checks both against pinned SHA-1s, unpacks the arcade font and plays;
+after that it runs offline. Java 21 and nothing else. `./invaders --where` prints the cache
+directory and `--clean` removes it — nothing is installed anywhere else.
+
 ## Quickstart
 
 You need **Java 21+** and nothing else — the Flix compiler downloads itself on first use.
@@ -24,7 +37,7 @@ git clone https://github.com/wstein/flix-invaders
 cd flix-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 403 tests -- no window, no audio device, no filesystem
+bin/flix test      # 405 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
 bin/bench          # measure the demo bot over ten seeds
 bin/bench --recalc # search for better bot numbers and save them
@@ -245,13 +258,13 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Testing
 
-403 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+405 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |
 | --- | --- | --- |
 | [TestGame](test/TestGame.flix) | 107 | every rule, hit boxes, levels, shield, bonus lives |
-| [TestSession](test/TestSession.flix) | 51 | screens, taking turns, typed initials |
+| [TestSession](test/TestSession.flix) | 53 | screens, taking turns, typed initials |
 | [TestAnimation](test/TestAnimation.flix) | 27 | elastic collisions; conservation of momentum and energy |
 | [TestBunkers](test/TestBunkers.flix) | 25 | damage, absorption, erosion, camping behind a drilled slit |
 | [TestSprites](test/TestSprites.flix) | 19 | run-length decomposition of the pixel art |
@@ -294,6 +307,39 @@ The frame loop is the only thing that can measure any of this and the view is th
 that can show it, so it travels between them as an ordinary value — nothing in between learns
 that a clock exists. Switching it on cannot change what the game does, and
 [a test holds it to that](test/TestStats.flix).
+
+## Building a release
+
+```sh
+bin/flix build-jar                  # -> artifact/, ~13 MB, about 12 seconds
+```
+
+Two things to know about it.
+
+**Clean first.** `build-jar` packages whatever is sitting in `build/class`, and Flix does not
+remove the classes of earlier builds — a working copy built a few dozen times accumulates over
+a million class files and several gigabytes, and every one of them lands in the jar. `rm -rf
+build` before building a release; `bin/flix clean` does not get all of it.
+
+**The jar is not self-contained, on purpose.** It holds this project's classes and the font,
+and expects Processing Core beside it:
+
+```sh
+java -cp flix-invaders.jar:core-4.5.6.jar Main
+```
+
+`flix build-fatjar` would fold Processing in and must not be used: it is LGPL-2.1, and shading
+converts dynamic linking into static linking, which triggers the relinking obligation in
+section 6. Keeping it separate is also what makes it replaceable — see
+[THIRD-PARTY.md](THIRD-PARTY.md).
+
+Releases are cut by tagging. [`release.yaml`](.github/workflows/release.yaml) checks, tests,
+builds the jar, runs it headless under Xvfb for 120 frames, stamps
+[the launcher](packaging/invaders) with the tag and the jar's SHA-1, and publishes both:
+
+```sh
+git tag v0.2.0 && git push --tags
+```
 
 ## Non-goals
 

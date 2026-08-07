@@ -243,7 +243,7 @@ mod Session {
     /// so the table never gains a blank row.
     ///
     def entering(input: Snapshot, s: Session): Session = {
-        let typed = Set.foldLeft((acc, k) -> match Key.letter(k) {
+        let typed = Set.foldLeft((acc, k) -> match Key.nameCharacter(k) {
             case Some(c) if String.length(acc) < Scores.nameLength() => acc + "${c}"
             case _ => acc
         }, s#typing, input#pressed);

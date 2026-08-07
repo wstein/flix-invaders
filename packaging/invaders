@@ -1,0 +1,104 @@
+#!/bin/sh
+# Flix Invaders -- single-file bootstrap.
+#
+#   curl -fsSLO https://github.com/wstein/flix-invaders/releases/latest/download/invaders
+#   chmod +x invaders
+#   ./invaders
+#
+# This script is the whole download. On first run it fetches the game and Processing
+# Core into a cache directory, checks both against the digests pinned below, unpacks
+# the arcade font beside them, and plays. After that it runs offline and starts in
+# about a second.
+#
+# Everything it writes lives under one directory, printed by `./invaders --where`, and
+# removed by `./invaders --clean`. Nothing is installed anywhere else.
+#
+# Processing Core is fetched as its own jar rather than bundled into the game's, on
+# purpose. It is LGPL-2.1: shading it into a single artifact would convert dynamic
+# linking into static linking and trigger the relinking obligation in section 6. Kept
+# separate it also stays replaceable -- put your own build of Processing Core at the
+# path below and this will run against it. See THIRD-PARTY.md in the repository.
+set -eu
+
+# Stamped by the release workflow. VERSION is the git tag; GAME_SHA1 is empty in the
+# repository copy and filled in for the published one.
+VERSION="${INVADERS_VERSION:-main}"
+GAME_SHA1=""
+REPO="wstein/flix-invaders"
+
+CORE_VERSION=4.5.6
+CORE_SHA1=e51ed348c657dd24acfe77106563b472d0db04a8
+CORE_URL="https://repo1.maven.org/maven2/org/processing/core/${CORE_VERSION}/core-${CORE_VERSION}.jar"
+
+GAME_URL="https://github.com/${REPO}/releases/download/${VERSION}/flix-invaders.jar"
+
+home="${XDG_CACHE_HOME:-$HOME/.cache}/flix-invaders"
+room="$home/$VERSION"
+game="$room/flix-invaders.jar"
+core="$home/processing-core-${CORE_VERSION}.jar"
+
+case "${1:-}" in
+    --where) echo "$home"; exit 0 ;;
+    --clean) rm -rf "$home"; echo "removed $home"; exit 0 ;;
+    --help|-h)
+        sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+        exit 0 ;;
+esac
+
+die() { echo "invaders: $*" >&2; exit 1; }
+
+need_java() {
+    command -v java >/dev/null 2>&1 || die "needs Java 21 or later on the PATH."
+    # `java -version` writes to stderr and its format has been stable for years.
+    have=$(java -version 2>&1 | head -1 | sed 's/.*version "\([0-9]*\).*/\1/')
+    case "$have" in
+        ''|*[!0-9]*) return 0 ;;                       # unreadable; let the JVM decide
+        *) [ "$have" -ge 21 ] || die "needs Java 21 or later, found $have." ;;
+    esac
+}
+
+digest() {
+    if command -v sha1sum >/dev/null 2>&1; then sha1sum "$1" | cut -d' ' -f1
+    elif command -v shasum >/dev/null 2>&1; then shasum -a 1 "$1" | cut -d' ' -f1
+    else echo ""
+    fi
+}
+
+download() {
+    if command -v curl >/dev/null 2>&1; then curl -fsSL "$1" -o "$2"
+    elif command -v wget >/dev/null 2>&1; then wget -qO "$2" "$1"
+    else die "needs curl or wget to fetch $1"
+    fi
+}
+
+# Downloads $1 to $2 and checks it against $3, which may be empty for "cannot verify".
+fetch() {
+    url=$1; into=$2; want=$3; what=$4
+    mkdir -p "$(dirname "$into")"
+    echo "Fetching $what ..." >&2
+    download "$url" "$into.part" || die "could not download $url"
+    if [ -n "$want" ]; then
+        got=$(digest "$into.part")
+        if [ -z "$got" ]; then
+            echo "invaders: no sha1sum or shasum found; $what is unverified." >&2
+        elif [ "$got" != "$want" ]; then
+            rm -f "$into.part"
+            die "checksum mismatch for $what: expected $want, got $got"
+        fi
+    fi
+    mv "$into.part" "$into"
+}
+
+need_java
+[ -f "$core" ] || fetch "$CORE_URL" "$core" "$CORE_SHA1" "Processing Core ${CORE_VERSION} (LGPL-2.1)"
+[ -f "$game" ] || fetch "$GAME_URL" "$game" "$GAME_SHA1" "Flix Invaders ${VERSION}"
+
+# The game reads its font from a path relative to the working directory, so the assets
+# are unpacked once beside the jar and everything runs from there.
+if [ ! -d "$room/assets" ]; then
+    (cd "$room" && unzip -qo "$game" 'assets/*') 2>/dev/null \
+        || echo "invaders: could not unpack the font; the game will use a default one." >&2
+fi
+
+cd "$room"
+exec java -cp "$game:$core" Main "$@"

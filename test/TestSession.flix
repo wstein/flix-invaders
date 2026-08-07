@@ -500,6 +500,28 @@ mod TestSession {
     }
 
     @Test
+    def testANameMayContainDigits(): Unit \ Assert = {
+        // `Scores.clean` has always accepted A-Z and 0-9 on the way in from a file, so a
+        // hand-edited table could hold a name the game would not let you type.
+        let asking = { screen = Screen.Entering,
+                       pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil
+                     | tick(start(), digit(1)) };
+        let typed = ticks(1, asking, Input.holding(Key.Other(87) :: Nil))   // W
+            |> (s1 -> ticks(1, s1, Input.holding(Key.Other(51) :: Nil)))    // 3
+            |> (s2 -> ticks(1, s2, Input.holding(Key.Other(83) :: Nil)));   // S
+        assertEq(expected = "W3S", typed#typing)
+    }
+
+    @Test
+    def testADigitNameIsRecordedAsTyped(): Unit \ Assert = {
+        let asking = { screen = Screen.Entering, typing = "R2D",
+                       pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil
+                     | tick(start(), digit(1)) };
+        let done = ticks(1, asking, Input.holding(Key.Enter :: Nil));
+        assertEq(expected = Some("R2D"), Option.map(e -> e#name, List.head(done#scores)))
+    }
+
+    @Test
     def testTheInitialsPromptSaysWhoseTheyAre(): Unit \ Assert = {
         // Two qualifying players get two prompts back to back. Without a name on them they
         // are indistinguishable, and the second reads as the first having gone wrong.

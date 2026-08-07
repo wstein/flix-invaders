@@ -13,6 +13,7 @@ pinned compiler into `.flix/`, so local runs match CI exactly.
 - `bin/flix test` — run every `@Test` function under `test/`
 - `bin/flix run` — run `main`
 - `bin/flix build` — compile to `build/class`
+- `bin/flix build-jar` — package to `artifact/`; **`rm -rf build` first**, see the gotcha below
 - `bin/flix doc` — write API documentation to `build/doc/`, matching this compiler exactly
 - `bin/bench` — measure the demo bot over ten seeds; **run this before and after any change to
   `src/Invaders/Demo.flix` or to a tuning constant in `Rules`**
@@ -102,6 +103,15 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   measured. Three separate measurements in this project read backwards before that was fixed,
   including one that reported every bunker perfectly intact because it stopped sampling at the
   level change, which resets them.
+- **`build-jar` packages stale classes, without bound.** Flix emits a class per closure and
+  never removes the ones a previous build left behind, so `build/class` grows monotonically —
+  this working copy reached 1.38 million files and 5.7GB in a day, and `build-jar` duly put all
+  of them in the artifact, which took ten minutes and produced a corrupt 1.5GB jar. `bin/flix
+  clean` only removes part of it. `rm -rf build` before packaging. From clean the jar is 13MB
+  and takes twelve seconds.
+- **`build-jar` names the artifact after the *directory*, not the package.** A checkout in
+  `flix-proc-invaders/` produces `flix-proc-invaders.jar` whatever `flix.toml` says, so the
+  release workflow renames it.
 - **`getResourceAsStream` returns null for project files.** Flix's class loaders parent to
   the *platform* loader and never consult project resources. Read assets from a file path —
   and note it would start working under `flix build-jar`, so a resource-based path fails

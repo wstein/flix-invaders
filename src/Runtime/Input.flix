@@ -51,6 +51,20 @@ mod Key {
         case _ => None
     }
 
+    ///
+    /// A character that may appear in a name: A-Z or 0-9.
+    ///
+    /// Two separate lookups rather than one range, because `keyCode` puts the digits well
+    /// below the letters and nothing sensible lies between them. `Scores.clean` accepts the
+    /// same set on the way in from a file, so what can be typed and what can be stored agree.
+    ///
+    pub def nameCharacter(k: Key): Option[Char] = match letter(k) {
+        case Some(c) => Some(c)
+        case None => Option.map(n -> String.charAt(n, digits()), digit(k))
+    }
+
+    def digits(): String = "0123456789"
+
     pub def digit(k: Key): Option[Int32] = match k {
         case Key.Other(code) if code >= 48 and code <= 57 => Some(code - 48)
         case _ => None

@@ -120,7 +120,7 @@ mod Screens {
         let captions = List.append(whose,
             caption("NEW HIGH SCORE ${score}", View.hudSize(), Palette.sun()) ::
             caption(s#typing + caret, View.bannerSize(), Palette.ink()) ::
-            caption("TYPE 3 LETTERS, ENTER", View.hudSize(), Palette.invaderCyan()) :: Nil);
+            caption("TYPE 3, THEN ENTER", View.hudSize(), Palette.invaderCyan()) :: Nil);
         block(captions, centredTop(captions))
     }
 
