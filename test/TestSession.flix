@@ -160,4 +160,116 @@ mod TestSession {
         }, cmds))
     }
 
+    // -- alternating play ---------------------------------------------------------------
+
+    def twoPlayer(): Session = tick(start(), digit(2))
+
+    /// Puts a bomb on the active cannon so the next step destroys it.
+    def aboutToDie(s: Session): Session = {
+        let w = Session.active(s);
+        { worlds = Vector.update(s#current, { bombs = { x = w#playerX, y = Rules.playerY() } :: Nil | w },
+                                 s#worlds) | s }
+    }
+
+    @Test
+    def testTwoPlayersGetSeparateGames(): Unit \ Assert = {
+        // Separate formations, bunkers, lives and levels -- not a shared field.
+        let s = twoPlayer();
+        let a = Vector.get(0, s#worlds);
+        let b = Vector.get(1, s#worlds);
+        assertEq(expected = Rules.startingLives(), a#lives);
+        assertEq(expected = Rules.startingLives(), b#lives);
+        assertNeq(unexpected = a#seed, b#seed)
+    }
+
+    @Test
+    def testTheTurnPassesWhenTheCannonIsDestroyed(): Unit \ Assert = {
+        // Classic behaviour: the turn ends on losing a cannon, not on running out of lives.
+        let hit = tick(aboutToDie(twoPlayer()), Input.empty());
+        assertEq(expected = 0, hit#current);
+        let after = ticks(Rules.deathPauseTicks() + 2, hit, Input.empty());
+        assertEq(expected = 1, after#current)
+    }
+
+    @Test
+    def testTheOtherPlayersGameIsUntouchedWhileWaiting(): Unit \ Assert = {
+        // Player two's world must be frozen during player one's turn.
+        let s = twoPlayer();
+        let waiting = Vector.get(1, s#worlds);
+        let later = ticks(60, s, Input.holding(Key.Space :: Nil));
+        assertEq(expected = waiting#tick, Vector.get(1, later#worlds)#tick);
+        assertTrue(Vector.get(0, later#worlds)#tick > 0)
+    }
+
+    @Test
+    def testASinglePlayerKeepsTheirTurnAfterDying(): Unit \ Assert = {
+        // With nobody to hand over to, the same player carries on with their next life.
+        let solo = tick(start(), digit(1));
+        let after = ticks(Rules.deathPauseTicks() + 3, aboutToDie(solo), Input.empty());
+        assertEq(expected = 0, after#current);
+        assertEq(expected = Rules.startingLives() - 1, Session.active(after)#lives)
+    }
+
+    @Test
+    def testAFinishedPlayerIsSkipped(): Unit \ Assert = {
+        // Player two is out; the turn must come back to player one rather than stalling.
+        let s = twoPlayer();
+        let out = { worlds = Vector.update(1, { phase = Phase.Lost | Vector.get(1, s#worlds) }, s#worlds) | s };
+        assertEq(expected = Some(0), Session.nextPlayer(0, out))
+    }
+
+    @Test
+    def testNobodyLeftEndsTheSession(): Unit \ Assert = {
+        let s = twoPlayer();
+        let over = { worlds = Vector.map(w -> { phase = Phase.Lost | w }, s#worlds) | s };
+        assertEq(expected = (None: Option[Int32]), Session.nextPlayer(0, over));
+        assertTrue(Session.allDone(over))
+    }
+
+    @Test
+    def testTheGameOverScreenWaitsForEnter(): Unit \ Assert = {
+        let s = twoPlayer();
+        let over = { worlds = Vector.map(w -> { phase = Phase.Lost | w }, s#worlds) | s };
+        assertEq(expected = Screen.Playing, ticks(50, over, Input.empty())#screen);
+        assertEq(expected = Screen.Attract, tick(over, Input.holding(Key.Enter :: Nil))#screen)
+    }
+
+    // -- the two-player HUD ---------------------------------------------------------------
+
+    @Test
+    def testTheHudCarriesTheOtherPlayersScore(): Unit \ Assert = {
+        let s = twoPlayer();
+        let scored = { worlds = Vector.update(1, { score = 750 | Vector.get(1, s#worlds) }, s#worlds) | s };
+        assertEq(expected = 750, Session.cabinet(scored)#otherScore);
+        assertEq(expected = 1, Session.cabinet(scored)#player)
+    }
+
+    @Test
+    def testASoloGameHasNoOtherScore(): Unit \ Assert = {
+        let c = Session.cabinet(tick(start(), digit(1)));
+        assertEq(expected = 0, c#otherScore);
+        assertEq(expected = 1, c#players)
+    }
+
+    @Test
+    def testBothScoresAreShownInTwoPlayer(): Unit \ Assert = {
+        // The second slot used to be a hard-coded zero; it must now track a real player.
+        let s = twoPlayer();
+        let scored = { worlds = Vector.update(1, { score = 1234 | Vector.get(1, s#worlds) }, s#worlds) | s };
+        let cmds = Canvas.commands((640, 480), () -> Screens.render(scored));
+        assertTrue(List.exists(cmd -> match cmd {
+            case DrawCmd.Text(t, _, _) => String.contains(substr = "1234", t)
+            case _ => false
+        }, cmds))
+    }
+
+    @Test
+    def testTheHudNamesWhoseTurnItIs(): Unit \ Assert = {
+        let cmds = Canvas.commands((640, 480), () -> Screens.render(twoPlayer()));
+        assertTrue(List.exists(cmd -> match cmd {
+            case DrawCmd.Text(t, _, _) => String.contains(substr = "P1", t)
+            case _ => false
+        }, cmds))
+    }
+
 }

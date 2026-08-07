@@ -6,6 +6,20 @@
 /// world, `render` always produces the same commands, which is why a replayed game renders
 /// identically.
 ///
+///
+/// Who else is playing, from the point of view of one game.
+///
+/// The rules know nothing about a second player -- a `World` is one game. This is the little
+/// bit of cabinet context the HUD needs in order to fill in the other score and show whose
+/// turn it is.
+///
+pub type alias Cabinet = { player = Int32, players = Int32, otherScore = Int32 }
+
+mod Cabinet {
+    /// A single player with nobody to contrast against.
+    pub def solo(): Cabinet = { player = 1, players = 1, otherScore = 0 }
+}
+
 mod View {
 
     ///
@@ -165,15 +179,19 @@ mod View {
     pub def rightAlignedX(s: String, size: Float32, margin: Float32): Float32 =
         Rules.fieldWidth() - textWidth(s, size) - margin
 
-    def drawHud(w: World): Unit \ Canvas = {
+    def drawHud(w: World, c: Cabinet): Unit \ Canvas = {
         Canvas.textSize(hudSize());
         let margin = 24.0f32;
 
-        Canvas.fill(Palette.invaderCyan());
+        // The player whose turn it is gets the bright label; the other is dimmed. On a
+        // one-player game there is nobody to contrast with, so both stay bright.
+        let lit = n -> if (c#players < 2 or c#player == n) Palette.ink() else Palette.dim();
+
+        Canvas.fill(lit(1));
         Canvas.text("SCORE<1>", margin, 26.0f32);
-        Canvas.fill(Palette.ink());
+        Canvas.fill(Palette.invaderCyan());
         Canvas.text("HI-SCORE", centredX("HI-SCORE", hudSize()), 26.0f32);
-        Canvas.fill(Palette.sun());
+        Canvas.fill(lit(2));
         Canvas.text("SCORE<2>", rightAlignedX("SCORE<2>", hudSize(), margin), 26.0f32);
 
         // Each value sits centred under its own label.
@@ -183,9 +201,12 @@ mod View {
             (labelWidth - valueWidth) / 2.0f32
         };
         Canvas.fill(Palette.ink());
-        let own = scoreText(w#score);
+        // The active player's score comes from the live world; the other from the cabinet.
+        let mine = scoreText(w#score);
+        let theirs = scoreText(c#otherScore);
+        let own = if (c#player == 1) mine else theirs;
+        let other = if (c#player == 1) theirs else mine;
         let best = scoreText(w#hiScore);
-        let other = scoreText(0);
         Canvas.text(own, margin + under("SCORE<1>", own), 48.0f32);
         Canvas.text(best, centredX("HI-SCORE", hudSize()) + under("HI-SCORE", best), 48.0f32);
         Canvas.text(other, rightAlignedX("SCORE<2>", hudSize(), margin) + under("SCORE<2>", other), 48.0f32)
@@ -194,7 +215,7 @@ mod View {
     ///
     /// The green line the cannon stands on, the remaining lives, and the credit counter.
     ///
-    def drawCabinet(w: World): Unit \ Canvas = {
+    def drawCabinet(w: World, c: Cabinet): Unit \ Canvas = {
         Canvas.fill(Palette.ground());
         Canvas.rect(0.0f32, Rules.groundY(), Rules.fieldWidth(), 2.0f32);
 
@@ -207,7 +228,7 @@ mod View {
         drawSpareLives(Sprites.cannon(), w#lives - 1, 0);
 
         Canvas.fill(Palette.ink());
-        let level = "LEVEL ${w#level}";
+        let level = if (c#players < 2) "LEVEL ${w#level}" else "P${c#player}  LEVEL ${w#level}";
         Canvas.text(level, centredX(level, hudSize()), Rules.fieldHeight() - 8.0f32);
         Canvas.text("CREDIT 01", rightAlignedX("CREDIT 01", hudSize(), 24.0f32), Rules.fieldHeight() - 8.0f32)
     }
@@ -242,9 +263,14 @@ mod View {
     }
 
     ///
-    /// Describes one frame.
+    /// Describes one frame of a single game, with no cabinet around it.
     ///
-    pub def render(w: World): Unit \ Canvas = {
+    pub def render(w: World): Unit \ Canvas = renderWith(w, Cabinet.solo())
+
+    ///
+    /// Describes one frame, told who else is playing.
+    ///
+    pub def renderWith(w: World, c: Cabinet): Unit \ Canvas = {
         Canvas.clear(Palette.background());
         drawMystery(w);
         drawInvaders(w);
@@ -253,8 +279,8 @@ mod View {
         drawPlayer(w);
         drawShield(w);
         drawBlasts(w);
-        drawHud(w);
-        drawCabinet(w);
+        drawHud(w, c);
+        drawCabinet(w, c);
         drawEndMessage(w)
     }
 

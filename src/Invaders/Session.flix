@@ -45,6 +45,36 @@ mod Session {
           demoRng = Rng.fromSeed(demoSeed(seed)),
           seed = seed }
 
+    /// Whether this player still has a game to play.
+    pub def stillIn(w: World): Bool = w#phase != Phase.Lost
+
+    /// True once every player has finished.
+    pub def allDone(s: Session): Bool = not Vector.exists(stillIn, s#worlds)
+
+    ///
+    /// The next player still in the game, starting after `current` and wrapping.
+    ///
+    /// Returns `None` when nobody is left, which is what ends the session.
+    ///
+    pub def nextPlayer(current: Int32, s: Session): Option[Int32] = {
+        let count = Vector.length(s#worlds);
+        def look(offset) =
+            if (offset > count) None
+            else {
+                let i = Int32.remainder(current + offset, count);
+                if (stillIn(Vector.get(i, s#worlds))) Some(i) else look(offset + 1)
+            };
+        look(1)
+    }
+
+    /// What the HUD needs to know about the other player.
+    pub def cabinet(s: Session): Cabinet = {
+        let other =
+            if (s#players < 2) 0
+            else Vector.get(Int32.remainder(s#current + 1, Vector.length(s#worlds)), s#worlds)#score;
+        { player = s#current + 1, players = s#players, otherScore = other }
+    }
+
     /// The world whose turn it is.
     pub def active(s: Session): World =
         Vector.get(Int32.min(s#current, Vector.length(s#worlds) - 1), s#worlds)
@@ -100,12 +130,25 @@ mod Session {
     /// cabinet in charge of what happens after a game keeps the decision in one place.
     ///
     def playing(input: Snapshot, s: Session): Session \ Sound = {
-        let current = active(s);
-        if (current#phase == Phase.Lost and Set.memberOf(Key.Enter, input#pressed))
-            { screen = Screen.Attract | s }
+        if (allDone(s))
+            if (Set.memberOf(Key.Enter, input#pressed)) { screen = Screen.Attract | s } else s
         else {
-            let stepped = Game.step(current, input);
-            { worlds = Vector.update(s#current, stepped, s#worlds) | s }
+            let before = active(s);
+            let stepped = Game.step(before, input);
+            let worlds = Vector.update(s#current, stepped, s#worlds);
+            let advanced = { worlds = worlds | s };
+
+            // A turn ends when the cannon is destroyed -- which is the moment the death
+            // pause runs out, not the moment the last life goes. Using the pause means no
+            // extra state: it is already set on being hit and counted down each tick.
+            let cannonLost = before#pause > 0 and stepped#pause == 0 and stepped#phase == Phase.Playing;
+            let outOfLives = stepped#phase == Phase.Lost;
+
+            if (not (cannonLost or outOfLives)) advanced
+            else match nextPlayer(s#current, advanced) {
+                case Some(next) => { current = next | advanced }
+                case None => advanced   // nobody left; the game-over screen holds
+            }
         }
     }
 

@@ -45,7 +45,7 @@ mod Screens {
     ///
     pub def render(s: Session): Unit \ Canvas = match s#screen {
         case Screen.Attract => attract(s)
-        case Screen.Playing => View.render(Session.onScreen(s))
+        case Screen.Playing => View.renderWith(Session.active(s), Session.cabinet(s))
     }
 
 }
