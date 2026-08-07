@@ -60,6 +60,8 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   `PApplet` subclass compiles `draw` to a fixed JVM method. But `step: ((s, i) -> s \ Sound)`
   with the handler installed inside `draw` compiles and runs — verified. Do not cite the
   polymorphism limit as a reason a given effect is impossible; check which case you are in.
+  `docs/ARCHITECTURE.md` explains why this is a boundary limit rather than a house style, so
+  a reader does not conclude that Flix requires a rigid pure/impure divide.
 - **Wrapping a record in a single-case enum does NOT give you `Eq`/`ToString`.**
   `pub enum W({a = Int32}) with Eq` fails: records have no `Eq` instance for the derivation
   to build on. You must hand-write `instance Eq[W]`. This is worth knowing because the
@@ -109,7 +111,7 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   residual `Time.Clock`, whose only handler is `runWithIO`, so hand-write a frozen one to keep
   the test pure — see `test/TestScoresFile.flix`.
 - **Never compare bot tunings on totals.** A change that ends games sooner posts fewer deaths
-  and fewer row drops while being strictly worse. `bin/bench` reports rates per 1000 ticks for
+  and fewer row drops while being strictly worse. `bin/bench` reports rates per 10,000 ticks for
   this reason, and flags any game cut short by the budget — such a game was interrupted, not
   measured. Three separate measurements in this project read backwards before that was fixed,
   including one that reported every bunker perfectly intact because it stopped sampling at the

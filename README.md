@@ -75,12 +75,25 @@ a text file, and a damaged one costs you the table, not the game.
 
 This codebase is meant to be read, not just run. Each step adds exactly one idea.
 
+Steps 1 to 5 build the game: a picture, then state, then rules, then the one place Java
+appears. Steps 6 and 7 are the parts that are *Flix* rather than functional programming in
+general — logic programming embedded in the language, and effects tracked well enough that a
+benchmark can play thousands of games without a window.
+
 ```mermaid
 flowchart LR
-    A["1 · Still<br>a fixed picture"] --> B["2 · Animation<br>state and time"]
-    B --> C["3 · Collide, Sprites<br>small pure functions"]
-    C --> D["4 · Game.step<br>the whole game, pure"]
-    D --> E["5 · Sketch.flix<br>where Java begins"]
+    subgraph build["the game"]
+        direction LR
+        A["1 · Still<br>a fixed picture"] --> B["2 · Animation<br>state and time"]
+        B --> C["3 · Collide, Sprites<br>small pure functions"]
+        C --> D["4 · Game.step<br>the whole game, pure"]
+        D --> E["5 · Sketch.flix<br>where Java begins"]
+    end
+    subgraph flix["what makes it Flix"]
+        direction LR
+        F["6 · TestScreenGraph<br>Datalog, in the language"] --> G["7 · Tuning, Bench<br>effects you can measure"]
+    end
+    E --> F
 ```
 
 | # | Read | Run | The one new idea |
@@ -88,14 +101,20 @@ flowchart LR
 | 1 | [Sketches/Still.flix](src/Sketches/Still.flix) | `bin/sketch static` | Drawing is a sequence of operations. A window is only one way to interpret them. |
 | 2 | [Sketches/Animation.flix](src/Sketches/Animation.flix) | `bin/sketch animation` | A world, and a pure `step` that advances it. No clock, no frame counter. |
 | 3 | [Invaders/Collide.flix](src/Invaders/Collide.flix), [Sprites.flix](src/Invaders/Sprites.flix) | `bin/flix test` | Ordinary functions, tested directly. Pixel art is data written as text. |
-| 4 | [Invaders/Game.flix](src/Invaders/Game.flix) | `bin/flix run` | The entire game is `(World, Snapshot) -> World`. That is the whole point. |
+| 4 | [Invaders/Game.flix](src/Invaders/Game.flix) | `bin/flix run` | The rules are a compact function of world and input; sound is the one concrete effect. |
 | 5 | [Runtime/Sketch.flix](src/Runtime/Sketch.flix) | — | Where purity stops and Java starts. One file. |
+| 6 | [TestScreenGraph.flix](test/TestScreenGraph.flix) | `bin/flix test` | Datalog is *in the language*. Three rules prove no screen can trap the player — and the facts are discovered by running the real code, not typed out. |
+| 7 | [Tuning.flix](src/Tuning.flix), [Bench.flix](src/Bench.flix) | `bin/bench` | Effects you can measure: the bot's numbers are data read from JSON, so a search is an ordinary loop and a benchmark plays ten games without a window. |
 
 **Your first change**, in under a minute: open [Still.flix](src/Sketches/Still.flix), change a
 colour or move the sun in its `Canvas.ellipse` call, then `bin/sketch static` again.
 
 **Your first real change:** in [Animation.flix](src/Sketches/Animation.flix) set `gravity()`
 to `0.15f32` and watch the balls fall. You changed a pure function; nothing else moved.
+
+**Your first measured change:** run `bin/bench`, raise `dangerWidth` in
+`~/.config/flix-invaders/tuning.json` from 60 to 90, and run it again. You have just changed
+how the computer plays and can say by how much — which is step 7's whole point.
 
 ---
 
@@ -240,6 +259,12 @@ flowchart LR
 Adding a fourth — a draw-call counter, an SVG exporter — means adding a function to
 [Canvas.flix](src/Runtime/Canvas.flix), not touching the runtime.
 
+`Game.step` has a concrete `\ Sound` effect because of the JVM callback, not because Flix
+requires effects to be rigidly isolated. `Sketch.start` becomes Processing's fixed `draw`
+method and therefore cannot be generic over an effect variable; the handlers themselves remain
+effect-polymorphic, so they can run in a larger effect context. The runtime installs the
+concrete `Sound` handler inside `draw`, where the JVM boundary permits it.
+
 ---
 
 ## Design notes
@@ -252,8 +277,9 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
   installed. See [ARCHITECTURE.md](docs/ARCHITECTURE.md#sound-data-or-effect) for why sound
   went the other way.
 - **Pixel art, no image files.** Sprites are rows of `#` and `.` in
-  [Sprites.flix](src/Invaders/Sprites.flix), collapsed into horizontal runs so that 55
-  invaders and four bunkers cost about 1.1 ms a frame.
+  [Sprites.flix](src/Invaders/Sprites.flix), parsed once by `Sprite.of` into horizontal runs.
+  A full frame with 55 invaders and four bunkers costs about 1.9 ms: 0.13 ms simulation and
+  1.74 ms drawing.
 - **Colours are checked, not eyeballed.** [TestContrast.flix](test/TestContrast.flix) asserts
   WCAG 2.1 ratios for the whole palette — 4.5:1 for text, 3:1 for shapes.
 - **Balance is a test.** [TestDifficulty.flix](test/TestDifficulty.flix) drives the real game

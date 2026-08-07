@@ -136,6 +136,36 @@ The filesystem effects are the one place where the type system does *not* protec
 both carry `@DefaultHandler`, so a test that forgets a handler compiles and writes to the
 real disk. CI greps for it. See *Persistence* below.
 
+### Why `Game.step` names one concrete effect and not a variable
+
+`Game.step` is `(World, Snapshot) -> World \ Sound`. A reader coming to Flix for its effect
+system may reasonably ask why it is not `\ ef` — polymorphic, so the same rules could be run
+with telemetry attached during play and with nothing attached under test. That is the obvious
+shape, and it is worth being clear that it is **a limit of the boundary, not a preference**.
+
+`Sketch.start` takes `step` as a callback and installs it on an anonymous `PApplet` subclass.
+That subclass compiles `draw` to a fixed JVM method, so `start` cannot be generic over effect
+*variables* — the attempt is rejected as `E6469`. A **concrete** effect is fine, which is why
+`\ Sound` works and `\ ef` does not. Anything effect-polymorphic in the rules would have to
+be made concrete again before it reached the window, which is the whole of the saving.
+
+The rest of the project is effect-polymorphic throughout, and that is where Flix earns its
+keep — every handler in it has a signature of the shape:
+
+```flix
+pub def runWithCollector(dims: (Int32, Int32), f: Unit -> a \ ef): (a, List[DrawCmd]) \ ef - Canvas
+```
+
+`ef` is any effects the caller had; `- Canvas` is the one being discharged. That is what lets
+the same `View.render` paint a window, fill a list in a test, or do nothing at all, with the
+type system checking each case. `Sound.silent` exists for the same reason in reverse: it
+widens a pure function into an effectful position with `checked_ecast`.
+
+So the isolation in `Invaders/` is not Flix insisting on a Haskell-style pure/impure divide.
+It is one JVM interop constraint at one callback, and a deliberate choice to keep the rules
+readable — everywhere the constraint does not apply, effects are tracked, subtracted and
+handled rather than walled off.
+
 ### 3. Touching Java (`Runtime/Sketch`, `Runtime/Audio`)
 
 `Sketch.flix` owns the window, the frame loop, key tracking and the Processing lifecycle.
@@ -280,10 +310,12 @@ and the reasoning for that turned out to be wrong twice over, which is worth kee
 *had* to be data because `step` is pure. But `step`'s purity is itself the choice; it cannot
 also be the reason for it.
 
-**The constraint that does exist is narrower than it looks.** `Sketch.start` cannot be
-polymorphic over effect *variables* — the anonymous `PApplet` subclass compiles `draw` to a
-fixed JVM method. A **concrete** effect on `step`, handled inside the callback, compiles fine.
-That was tested before anything was built on it:
+**The constraint that does exist is narrower than it looks.** `Game.step` has a concrete
+`\ Sound` effect because `Sketch.start` cannot be polymorphic over effect *variables* — the
+anonymous `PApplet` subclass compiles `draw` to a fixed JVM method. This is a JVM-callback
+limit, not a preference for isolating effects: the `Canvas` and `Sound` handlers remain
+effect-polymorphic in the larger contexts they handle. A **concrete** effect on `step`, handled
+inside the callback, compiles fine. That was tested before anything was built on it:
 
 ```flix
 pub def start(init: (Int64 -> s),
