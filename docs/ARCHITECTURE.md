@@ -37,6 +37,7 @@ flowchart TD
         Input[Input.flix<br>effect + Snapshot]
         Sound[Sound.flix<br>effect + handlers]
         Scores[Scores.flix<br>the table, and its file]
+        Stats[Stats.flix<br>frame telemetry]
         Draw["Draw.flix<br>Color, DrawCmd"]
         Palette[Palette.flix]
         Rng[Rng.flix<br>pure generator]
@@ -50,7 +51,18 @@ flowchart TD
     Main --> Session
     Main --> Screens
     Main --> Scores
+    Main --> Tuning
     Main --> Sketch
+
+    Tuning[Tuning.flix<br>the bot's numbers, as JSON]
+    Bench[Bench.flix<br>bin/bench]
+    Tuning --> Demo
+    Tuning --> Scores
+    Bench --> Tuning
+    Bench --> Game
+    Bench --> Demo
+    Screens --> Stats
+    Sketch --> Stats
 
     Session --> Game
     Session --> Demo
@@ -82,6 +94,10 @@ flowchart TD
     Sketch --> Audio
     Audio --> Sound
 ```
+
+`Bench.flix` and `Tuning.flix` sit outside the game: they are the measuring tools behind
+`bin/bench`, not something the cabinet runs. `Tuning` is the second and last file that reaches
+a filesystem.
 
 `Types.flix` holds both the `World` and the `Rules` module — every tunable constant in one
 place, so the game can be retuned without hunting through logic.
@@ -145,7 +161,9 @@ sequenceDiagram
     participant W as Sketch.start
     M->>S: location(), load(at)
     S-->>M: List[Entry]
-    M->>W: start(cfg, seed -> Session.withScores(seed, saved), ...)
+    M->>S: Tuning.load(path)
+    S-->>M: Tuning
+    M->>W: start(cfg, seed -> Session.withTuning(seed, saved, tuning), ...)
     Note over W: the window runs<br/>nothing here can reach a file
     W-->>M: the session it closed on
     M->>S: save(at, closed#scores)
@@ -251,14 +269,21 @@ because Flix records have no `Eq` instance; see *Rejected alternatives*.
 
 <a id="sound-data-or-effect"></a>
 
-Each stage appends to `World.sounds`, cleared at the top of every step, and the runtime plays
-whatever the tick produced.
+`Game.step` is `(World, Snapshot) -> World \ Sound`. Each stage that makes a noise calls
+`Sound.play`, and whoever is running the step decides what that means: the runtime triggers a
+clip, a test collects a list, a machine with no mixer does nothing.
 
-**This is a choice, and the close one in the whole design.** An earlier version of this
-document claimed sound *had* to be data because `step` is pure — which is circular, since
-`step`'s purity is itself the choice. The constraint actually encountered was that
-`Sketch.start` cannot be polymorphic over effect *variables*; a **concrete** effect on `step`,
-handled inside the anonymous `PApplet` callback, compiles fine. It was tested:
+It was data first — a `World.sounds` field that each step appended to and the runtime drained —
+and the reasoning for that turned out to be wrong twice over, which is worth keeping.
+
+**The first justification was circular.** An earlier version of this document claimed sound
+*had* to be data because `step` is pure. But `step`'s purity is itself the choice; it cannot
+also be the reason for it.
+
+**The constraint that does exist is narrower than it looks.** `Sketch.start` cannot be
+polymorphic over effect *variables* — the anonymous `PApplet` subclass compiles `draw` to a
+fixed JVM method. A **concrete** effect on `step`, handled inside the callback, compiles fine.
+That was tested before anything was built on it:
 
 ```flix
 pub def start(init: (Int64 -> s),
@@ -266,40 +291,23 @@ pub def start(init: (Int64 -> s),
               view: (s -> Unit \ Canvas)): Unit \ IO
 ```
 
-So the real trade-off:
+Which left an ordinary trade-off rather than a constraint:
 
-| | data (today) | effect |
+| | data | effect (today) |
 |---|---|---|
 | `Game.step` type | `(World, Snapshot) -> World`, no effect row | `\ Sound` |
-| `TestReplay` | folds `Game.step` directly | must install a handler |
+| `TestReplay` | folds `Game.step` directly | installs a handler |
 | `World.sounds` | a field holding *output*, cleared every step, in the digest | gone |
-| Collection across a frame | runtime accumulates per step into a `pending` Ref | handler accumulates naturally |
-| Symmetry with `Canvas` | needs this section to explain | none needed |
+| Collection across a frame | runtime accumulates per step into a `pending` Ref | the handler accumulates naturally |
+| Symmetry with `Canvas` | needs a section like this to explain | none needed |
 
-`World.sounds` is the tell: it is output, not state. The effect is the more idiomatic design
-and probably the better one. What data buys is that `step` has *literally no effect row* --
-the strongest form of the property this project advertises -- and that replay determinism is
-structural rather than dependent on which handler someone installed.
+`World.sounds` was the tell. It was output, not state, and a field that every step clears is a
+return value wearing a disguise. `Sound` is now an effect exactly like `Canvas`, with the same
+three interpretations, and this section survives only to record why the first answer was wrong.
 
-```mermaid
-flowchart LR
-    ST["step stage<br>e.g. fire"] --> SP["Sound.play(cmd)"]
-    SP --> H1["runWithClips<br>in the frame callback"]
-    SP --> H2["runWithCollector<br>tests"]
-    SP --> H3["runWithNoOp<br>no device"]
-    H1 --> CL["Clip pool<br>first idle voice wins"]
-```
-
-Consequences:
-
-- Tests assert on sound with **no audio device** — they install a collector.
-- A machine with no sound card runs the identical simulation.
-- The march bassline is spaced by *distance marched*, not by a timer, so its tempo tracks the
-  formation's speed-up with no extra state.
-
-`AudioSystem` throws an unchecked `IllegalArgumentException` when no mixer exists — not the
-declared `LineUnavailableException` — so every entry point in `Audio.flix` catches `Exception`
-and degrades to silence.
+`Rng` stayed data, and the asymmetry is deliberate: a generator *is* state — it has to be
+carried from one step to the next and belongs in the digest — while a sound is something a step
+emits and never reads back.
 
 ---
 

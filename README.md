@@ -1,4 +1,4 @@
-# flix-proc-invaders
+# flix-invaders
 
 A **Flix creative-coding pilot using Processing Core**: an arcade game where the rules are a
 pure function, the tests never open a window, and the effect system marks exactly where the
@@ -9,13 +9,19 @@ exists to answer one question: *does Flix's effect system make creative coding c
 
 There is **no Java in this repository**. Flix subclasses Processing's `PApplet` directly.
 
+![The attract screen: a computer player working through level 3 while the title sits over it](docs/media/demo.gif)
+
+*Attract mode — nobody is playing. The demo is
+[an ordinary pure function](src/Invaders/Demo.flix) of the world, and the same one the balance
+tests drive.*
+
 ## Quickstart
 
 You need **Java 21+** and nothing else — the Flix compiler downloads itself on first use.
 
 ```sh
-git clone https://github.com/wstein/flix-proc-invaders
-cd flix-proc-invaders
+git clone https://github.com/wstein/flix-invaders
+cd flix-invaders
 
 bin/flix check     # type-check; the fast feedback loop
 bin/flix test      # 389 tests -- no window, no audio device, no filesystem
@@ -25,7 +31,8 @@ bin/bench --recalc # search for better bot numbers and save them
 ```
 
 **Controls:** `1` or `2` at the title screen picks one or two players; arrows move, space
-fires, enter moves on, **F3** shows stats for nerds. Two players alternate on each destroyed cannon, as the original did.
+fires, enter moves on, **F3** shows stats for nerds. Two players alternate on each destroyed
+cannon, as the original did.
 Shelter behind the bunkers — they stop bombs but wear away. Shoot the saucer for points *and*
 a temporary shield — a dome over the cannon that flashes for its last couple of seconds, so you
 can see it going. Every 2500 points buys a life. Clearing the formation starts a harder
@@ -242,12 +249,12 @@ all three with greps.
 
 | Area | Tests | What it pins down |
 | --- | --- | --- |
-| [TestGame](test/TestGame.flix) | 106 | every rule, hit boxes, levels, shield, bonus lives |
+| [TestGame](test/TestGame.flix) | 107 | every rule, hit boxes, levels, shield, bonus lives |
 | [TestSession](test/TestSession.flix) | 37 | screens, alternating turns, typed initials |
 | [TestAnimation](test/TestAnimation.flix) | 27 | elastic collisions; conservation of momentum and energy |
 | [TestBunkers](test/TestBunkers.flix) | 25 | damage, absorption, erosion, camping behind a drilled slit |
 | [TestSprites](test/TestSprites.flix) | 19 | run-length decomposition of the pixel art |
-| [TestDemo](test/TestDemo.flix) | 29 | the computer player: aim, dodge, when to fire, and not shaking |
+| [TestDemo](test/TestDemo.flix) | 26 | the computer player: aim, dodge, when to fire, and not shaking |
 | [TestScores](test/TestScores.flix) | 16 | the table's format and ordering, with no handlers at all |
 | [TestCanvas](test/TestCanvas.flix) | 14 | the effect and its interpretations |
 | [TestContrast](test/TestContrast.flix) | 10 | WCAG contrast of every palette colour |
@@ -256,10 +263,10 @@ all three with greps.
 | [TestCollide](test/TestCollide.flix) + [TestInput](test/TestInput.flix) | 18 | overlap convention, input edges |
 | [TestScoresFile](test/TestScoresFile.flix) | 8 | saving and loading, on a filesystem that does not exist |
 | [TestStats](test/TestStats.flix) | 15 | the telemetry overlay, and that showing it changes nothing |
-| [TestView](test/TestView.flix) | 11 | banner placement against the attract panel, and the countdown |
+| [TestView](test/TestView.flix) | 12 | banner placement against the attract panel, and the countdown |
 | [TestScreenGraph](test/TestScreenGraph.flix) | 4 | no screen traps the player — reachability, in Datalog |
 | [TestBench](test/TestBench.flix) | 12 | the benchmark's own arithmetic — rates, worst cases, cut-short runs |
-| [TestTuning](test/TestTuning.flix) | 11 | the tuning file: round trip, overrides, clamping |
+| [TestTuning](test/TestTuning.flix) | 13 | the tuning file: round trip, overrides, clamping |
 | [TestDifficulty](test/TestDifficulty.flix) | 5 | the game is winnable, not trivial, and the demo reaches about level four |
 
 ## Stats for nerds
@@ -291,7 +298,8 @@ that a clock exists. Switching it on cannot change what the game does, and
 
 Deliberately out of scope: image and audio assets, networking, a game engine, a browser
 playground, and a Processing Mode. Sprites are text in the source and sounds are arithmetic —
-the only binary asset is the arcade font.
+the arcade font is the only binary the *game* loads. (The recording above is documentation; it
+is never read at runtime.)
 
 Persistence *was* on this list. It came off for the high-score table, and stayed as small as
 it could: one text file, written by [`main`](src/Main.flix) alone, on the way out. Nothing
