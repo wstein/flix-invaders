@@ -27,6 +27,7 @@ pub type alias Session = {
     demo = World,
     demoHand = Hand,
     tuning = Tuning,
+    nerds = Bool,
     seed = Int64
 }
 
@@ -69,6 +70,7 @@ mod Session {
           demo = Game.initial(demoSeed(seed)),
           demoHand = Demo.fresh(demoSeed(seed)),
           tuning = tuning,
+          nerds = false,
           seed = seed }
 
     /// Whether this player still has a game to play.
@@ -230,7 +232,21 @@ mod Session {
     ///
     /// One tick of the cabinet.
     ///
-    pub def step(s: Session, input: Snapshot): Session \ Sound = match s#screen {
+    ///
+    /// Whether the telemetry overlay is up.
+    ///
+    /// F3, following the convention every game that has one of these uses. It is cabinet state
+    /// rather than game state: it survives a game ending, and turning it on must not change
+    /// what the game does -- `TestSession` holds it to that.
+    ///
+    pub def togglesNerds(input: Snapshot): Bool = Set.memberOf(Key.F3, input#pressed)
+
+    pub def step(s: Session, input: Snapshot): Session \ Sound = {
+        let shown = if (togglesNerds(input)) not s#nerds else s#nerds;
+        { nerds = shown | advance(s, input) }
+    }
+
+    def advance(s: Session, input: Snapshot): Session \ Sound = match s#screen {
         case Screen.Attract => attract(input, s)
         case Screen.Playing => playing(input, s)
         case Screen.Entering => entering(input, s)

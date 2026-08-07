@@ -137,14 +137,89 @@ mod Screens {
                     Rules.fieldHeight() - 40.0f32)
     }
 
+    // -- stats for nerds ------------------------------------------------------------------
+
+    def nerdSize(): Float32 = 10.0f32
+    def nerdLeft(): Float32 = 12.0f32
+    def nerdTop(): Float32 = 64.0f32
+    def nerdLine(): Float32 = 13.0f32
+    def nerdWidth(): Float32 = 214.0f32
+
+    ///
+    /// The telemetry overlay, in the corner, on F3.
+    ///
+    /// Left-aligned and monospaced-by-accident -- the arcade font is fixed width -- so the
+    /// numbers sit in columns and a changing digit is easy to catch out of the corner of an
+    /// eye. Deliberately in the top left, clear of the score row above it, the formation, and
+    /// the attract panel across the middle.
+    ///
+    /// What it shows is chosen to answer the questions this project actually asks: is the
+    /// frame budget being met, is the simulation keeping up, and is the world where you think
+    /// it is. `DIGEST` is the same fingerprint the replay tests compare, so two runs that
+    /// should be identical can be checked against each other by eye.
+    ///
+    def nerds(s: Session, telemetry: Stats): Unit \ Canvas = {
+        let w = Session.onScreen(s);
+        let lines = nerdLines(s, w, telemetry);
+        let height = Int32.toFloat32(List.length(lines)) * nerdLine() + padding();
+
+        Canvas.fillAlpha(Palette.background(), 190);
+        Canvas.rect(nerdLeft() - padding() / 2.0f32, nerdTop() - nerdLine(),
+                    nerdWidth(), height);
+
+        Canvas.textSize(nerdSize());
+        List.forEachWithIndex((i, line) -> {
+            let (label, value) = line;
+            Canvas.fill(Palette.dim());
+            Canvas.text(label, nerdLeft(), nerdTop() + Int32.toFloat32(i) * nerdLine());
+            Canvas.fill(Palette.invaderCyan());
+            Canvas.text(value, nerdLeft() + 84.0f32, nerdTop() + Int32.toFloat32(i) * nerdLine())
+        }, lines)
+    }
+
+    ///
+    /// What the overlay says, as label and value pairs.
+    ///
+    /// Split out from the drawing so a test can read it. Everything here is a pure function of
+    /// the session and the figures the runtime handed over.
+    ///
+    pub def nerdLines(s: Session, w: World, telemetry: Stats): List[(String, String)] = {
+        let alive = Vector.count(inv -> inv#alive, w#invaders);
+        let blocks = Vector.foldLeft((total, b) -> total + Bunkers.remaining(b), 0, w#bunkers);
+        ("FPS", Stats.oneDecimal(telemetry#fps)) ::
+        ("SIM", "${Stats.twoDecimals(telemetry#simMs)} MS") ::
+        ("DRAW", "${Stats.twoDecimals(telemetry#drawMs)} MS") ::
+        ("BUDGET", "${Stats.twoDecimals(telemetry#simMs + telemetry#drawMs)} / "
+                 + "${Stats.twoDecimals(1000.0f32 / Int32.toFloat32(Rules.ticksPerSecond()))} MS") ::
+        ("STEPS", "${telemetry#steps}  CATCHUP ${telemetry#catchUps}") ::
+        ("FRAMES", "${telemetry#frames}") ::
+        ("SCREEN", "${s#screen}") ::
+        ("TICK", "${w#tick}  LEVEL ${w#level}") ::
+        ("INVADERS", "${alive} / ${Rules.totalInvaders()}") ::
+        ("SHOTS", "${List.length(w#bullets)} UP  ${List.length(w#bombs)} DOWN") ::
+        ("BUNKERS", "${blocks}") ::
+        ("SHIELD", "${w#shield}") ::
+        ("SEED", "${w#seed}") ::
+        ("DIGEST", digestOf(w)) :: Nil
+    }
+
+    /// The replay fingerprint, shortened to something a person can compare at a glance.
+    def digestOf(w: World): String = {
+        let full = Game.digest(w);
+        if (String.length(full) <= 22) full else String.takeLeft(22, full) + ".."
+    }
+
     ///
     /// One frame of whatever the cabinet is showing.
     ///
-    pub def render(s: Session): Unit \ Canvas = match s#screen {
-        case Screen.Attract => attract(s)
-        case Screen.Playing => View.renderWith(Session.active(s), Session.cabinet(s))
-        case Screen.Entering => entering(s)
-        case Screen.Table => table(s)
+    pub def render(s: Session, telemetry: Stats): Unit \ Canvas = {
+        match s#screen {
+            case Screen.Attract => attract(s)
+            case Screen.Playing => View.renderWith(Session.active(s), Session.cabinet(s))
+            case Screen.Entering => entering(s)
+            case Screen.Table => table(s)
+        };
+        if (s#nerds) nerds(s, telemetry) else ()
     }
 
 }

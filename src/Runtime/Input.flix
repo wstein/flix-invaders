@@ -13,6 +13,7 @@ pub enum Key with Eq, Order, ToString {
     case Enter
     case Escape
     case Backspace
+    case F3
     case Other(Int32)
 }
 
@@ -20,6 +21,7 @@ mod Key {
 
     // Processing reports java.awt.event.KeyEvent.VK_* values in PApplet.keyCode.
     def vkBackspace(): Int32 = 8
+    def vkF3(): Int32 = 114
     def vkEnter(): Int32 = 10
     def vkEscape(): Int32 = 27
     def vkSpace(): Int32 = 32
@@ -66,6 +68,7 @@ mod Key {
         else if (code == vkSpace()) Key.Space
         else if (code == vkEnter()) Key.Enter
         else if (code == vkEscape()) Key.Escape
+        else if (code == vkF3()) Key.F3
         else Key.Other(code)
 
 }

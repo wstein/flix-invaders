@@ -27,6 +27,7 @@ pinned compiler into `.flix/`, so local runs match CI exactly.
 - `src/Main.flix` — the only file that reads or writes a file, and only the score table
 - `src/Bench.flix` — the bot benchmark and tuning search behind `bin/bench`; not part of the game
 - `src/Tuning.flix` — the demo player's numbers, as JSON; the second and last file that touches a filesystem
+- `src/Runtime/Stats.flix` — the frame loop's telemetry, shown by `F3`; pure arithmetic, measured in `Sketch`
 - `test/` — `@Test` functions; must stay headless and off the filesystem (CI enforces both)
 - `flix.toml` — package metadata, the Flix version, and dependencies
 - `build/`, `artifact/`, `lib/`, `.flix/` — generated; do not edit and do not commit

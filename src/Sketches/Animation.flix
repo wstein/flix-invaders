@@ -243,7 +243,7 @@ mod Animation {
               maxFrames = limit, fontPath = None },
             initial,
             Sound.silent(step),
-            view)
+            (world, _stats) -> view(world))
     }
 
 }

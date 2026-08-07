@@ -31,6 +31,7 @@ Steps 4 to 17 apply to `invaders`; the rest apply to all three.
 | 10 | Attract mode | Leaving the title alone plays a visible demo behind it, in silence, and the invaders stay legible through the panel |
 | 10a | The shield | Shooting the saucer raises an unbroken dome over the cannon with a highlight running along it; it flashes for its last couple of seconds, then goes. It should never appear in pieces |
 | 10b | Between waves | Clearing a formation shows LEVEL n and a 3, 2, 1 counting down, each number held for a full second, both centred and *above* the demo's title box rather than behind it |
+| 10c | Stats for nerds | F3 shows a telemetry panel in the top left and F3 again hides it; FPS reads about 60, SIM and DRAW are well under 16.67, and the game plays exactly the same with it up |
 | 11 | The demo is competent | Over a minute or two it dodges bombs, shoots the saucer, and reaches roughly level four before losing |
 | 12 | `1` starts one player | One game, one score in the HUD |
 | 13 | `2` starts two players | Two scores in the HUD; losing a cannon hands over to the other player, whose game resumes where it was |

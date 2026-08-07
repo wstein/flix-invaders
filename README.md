@@ -18,14 +18,14 @@ git clone https://github.com/wstein/flix-proc-invaders
 cd flix-proc-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 373 tests -- no window, no audio device, no filesystem
+bin/flix test      # 389 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
 bin/bench          # measure the demo bot over ten seeds
 bin/bench --recalc # search for better bot numbers and save them
 ```
 
 **Controls:** `1` or `2` at the title screen picks one or two players; arrows move, space
-fires, enter moves on. Two players alternate on each destroyed cannon, as the original did.
+fires, enter moves on, **F3** shows stats for nerds. Two players alternate on each destroyed cannon, as the original did.
 Shelter behind the bunkers — they stop bombs but wear away. Shoot the saucer for points *and*
 a temporary shield — a dome over the cannon that flashes for its last couple of seconds, so you
 can see it going. Every 2500 points buys a life. Clearing the formation starts a harder
@@ -237,7 +237,7 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Testing
 
-373 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+389 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |
@@ -255,11 +255,37 @@ all three with greps.
 | [TestReplay](test/TestReplay.flix) | 11 | identical input replays to an identical world *and* an identical soundtrack |
 | [TestCollide](test/TestCollide.flix) + [TestInput](test/TestInput.flix) | 18 | overlap convention, input edges |
 | [TestScoresFile](test/TestScoresFile.flix) | 8 | saving and loading, on a filesystem that does not exist |
+| [TestStats](test/TestStats.flix) | 15 | the telemetry overlay, and that showing it changes nothing |
 | [TestView](test/TestView.flix) | 11 | banner placement against the attract panel, and the countdown |
 | [TestScreenGraph](test/TestScreenGraph.flix) | 4 | no screen traps the player — reachability, in Datalog |
 | [TestBench](test/TestBench.flix) | 12 | the benchmark's own arithmetic — rates, worst cases, cut-short runs |
 | [TestTuning](test/TestTuning.flix) | 11 | the tuning file: round trip, overrides, clamping |
 | [TestDifficulty](test/TestDifficulty.flix) | 5 | the game is winnable, not trivial, and the demo reaches about level four |
+
+## Stats for nerds
+
+`F3` puts the runtime's own telemetry in the corner, in the style every game with one of these
+uses:
+
+```
+FPS      59.9          SCREEN   Attract
+SIM      0.13 MS       TICK     900  LEVEL 1
+DRAW     1.74 MS       INVADERS 10 / 55
+BUDGET   1.87 / 16.67  SHOTS    1 UP  1 DOWN
+STEPS    1  CATCHUP 0  BUNKERS  262
+FRAMES   1             DIGEST   Playing|t=900|x=288.0|..
+```
+
+Two things about it are worth knowing. The timings bracket the **work**, not the frame:
+Processing sleeps to hold the target rate, so a stopwatch around a whole frame measures the
+rate limiter and reports ~16.7ms whatever the sketch costs. And `DIGEST` is the same
+fingerprint [the replay tests](test/TestReplay.flix) compare, so two runs that should be
+identical can be checked against each other by eye.
+
+The frame loop is the only thing that can measure any of this and the view is the only thing
+that can show it, so it travels between them as an ordinary value — nothing in between learns
+that a clock exists. Switching it on cannot change what the game does, and
+[a test holds it to that](test/TestStats.flix).
 
 ## Non-goals
 

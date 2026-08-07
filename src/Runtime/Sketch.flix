@@ -120,10 +120,15 @@ mod Sketch {
     /// earned. It is read after `park` returns, by which point the Animation Thread has
     /// stopped writing it.
     ///
+    /// `view` is also handed the runtime's own performance figures, because the frame loop is
+    /// the only thing that can measure them and the view is the only thing that can show them.
+    /// They describe the *previous* frame -- this one is not finished being drawn -- which is
+    /// what any such display shows.
+    ///
     pub def start(cfg: Config,
                   init: (Int64 -> s),
                   step: ((s, Snapshot) -> s \ Sound),
-                  view: (s -> Unit \ Canvas)
+                  view: ((s, Stats) -> Unit \ Canvas)
     ): s \ IO = region rc {
 
         let stepNs = 1000000000i64 / Int32.toInt64(cfg#hz);
@@ -136,6 +141,7 @@ mod Sketch {
         let prevNs = Ref.fresh(rc, 0i64);
         let frames = Ref.fresh(rc, 0);
         let done = Ref.fresh(rc, false);
+        let stats = Ref.fresh(rc, Stats.empty());
 
         // Opened once. An empty pool means the machine has no usable audio device, and every
         // Audio call then does nothing.
@@ -184,13 +190,24 @@ mod Sketch {
                                           mouseX = app.mouseX, mouseY = app.mouseY);
                 Ref.put(current, heldPrev);
 
+                // Bracketing the work rather than the frame. Processing sleeps to hold the
+                // target rate, so timing a whole frame measures the rate limiter and reports
+                // ~16.7ms at 60Hz whatever the sketch actually costs.
+                let simStart = System.nanoTime();
+                let before = Ref.get(accNs);
                 runWithClips(voices, () ->
                     advance(step, world, accNs, stepNs, snapshot, maxCatchUpSteps()));
+                let simEnd = System.nanoTime();
 
                 // Installed here, inside the callback, on purpose: handlers are stack-scoped
                 // and `draw` runs on Processing's Animation Thread, so a handler installed
                 // around `runSketch` on the main thread would be invisible.
-                runWithSurface(app, () -> view(Ref.get(world)));
+                runWithSurface(app, () -> view(Ref.get(world), Ref.get(stats)));
+                let drawEnd = System.nanoTime();
+
+                let taken = Int64.tryToInt32((before - Ref.get(accNs)) / stepNs) |> Option.getWithDefault(0);
+                Ref.put(Stats.observe(Ref.get(stats), elapsed, simEnd - simStart,
+                                      drawEnd - simEnd, taken, elapsed > budgetNs), stats);
 
                 Ref.put(Ref.get(frames) + 1, frames);
                 match cfg#maxFrames {

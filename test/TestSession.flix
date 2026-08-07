@@ -21,7 +21,7 @@ mod TestSession {
         List.count(cmd -> match cmd {
             case DrawCmd.Rect(_, _, _, _) => true
             case _ => false
-        }, Canvas.commands((640, 480), () -> Screens.render(s)))
+        }, Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty())))
 
     // -- the attract loop --------------------------------------------------------------
 
@@ -142,7 +142,7 @@ mod TestSession {
 
     @Test
     def testTheAttractScreenSaysHowToStart(): Unit \ Assert = {
-        let cmds = Canvas.commands((640, 480), () -> Screens.render(start()));
+        let cmds = Canvas.commands((640, 480), () -> Screens.render(start(), Stats.empty()));
         let says = needle -> List.exists(cmd -> match cmd {
             case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
             case _ => false
@@ -154,7 +154,7 @@ mod TestSession {
     @Test
     def testPlayingDrawsNoTitle(): Unit \ Assert = {
         let playing = tick(start(), digit(1));
-        let cmds = Canvas.commands((640, 480), () -> Screens.render(playing));
+        let cmds = Canvas.commands((640, 480), () -> Screens.render(playing, Stats.empty()));
         assertTrue(not List.exists(cmd -> match cmd {
             case DrawCmd.Text(t, _, _) => String.contains(substr = "DEMO", t)
             case _ => false
@@ -266,7 +266,7 @@ mod TestSession {
         // The second slot used to be a hard-coded zero; it must now track a real player.
         let s = twoPlayer();
         let scored = { worlds = Vector.update(1, { score = 1234 | Vector.get(1, s#worlds) }, s#worlds) | s };
-        let cmds = Canvas.commands((640, 480), () -> Screens.render(scored));
+        let cmds = Canvas.commands((640, 480), () -> Screens.render(scored, Stats.empty()));
         assertTrue(List.exists(cmd -> match cmd {
             case DrawCmd.Text(t, _, _) => String.contains(substr = "1234", t)
             case _ => false
@@ -275,7 +275,7 @@ mod TestSession {
 
     @Test
     def testTheHudNamesWhoseTurnItIs(): Unit \ Assert = {
-        let cmds = Canvas.commands((640, 480), () -> Screens.render(twoPlayer()));
+        let cmds = Canvas.commands((640, 480), () -> Screens.render(twoPlayer(), Stats.empty()));
         assertTrue(List.exists(cmd -> match cmd {
             case DrawCmd.Text(t, _, _) => String.contains(substr = "P1", t)
             case _ => false
@@ -365,7 +365,7 @@ mod TestSession {
     def testTheTableScreenListsTheNames(): Unit \ Assert = {
         let withTable = Session.withScores(2026i64, { name = "ABC", score = 4321, level = 2 } :: Nil);
         let showing = { screen = Screen.Table | withTable };
-        let cmds = Canvas.commands((640, 480), () -> Screens.render(showing));
+        let cmds = Canvas.commands((640, 480), () -> Screens.render(showing, Stats.empty()));
         let says = needle -> List.exists(cmd -> match cmd {
             case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
             case _ => false
