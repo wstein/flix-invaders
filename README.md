@@ -18,8 +18,9 @@ git clone https://github.com/wstein/flix-proc-invaders
 cd flix-proc-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 336 tests -- no window, no audio device, no filesystem
+bin/flix test      # 348 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
+bin/bench          # measure the demo bot over ten seeds
 ```
 
 **Controls:** `1` or `2` at the title screen picks one or two players; arrows move, space
@@ -234,7 +235,7 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Testing
 
-336 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+348 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |
@@ -253,6 +254,7 @@ all three with greps.
 | [TestCollide](test/TestCollide.flix) + [TestInput](test/TestInput.flix) | 18 | overlap convention, input edges |
 | [TestScoresFile](test/TestScoresFile.flix) | 8 | saving and loading, on a filesystem that does not exist |
 | [TestScreenGraph](test/TestScreenGraph.flix) | 4 | no screen traps the player — reachability, in Datalog |
+| [TestBench](test/TestBench.flix) | 12 | the benchmark's own arithmetic — rates, worst cases, cut-short runs |
 | [TestDifficulty](test/TestDifficulty.flix) | 5 | the game is winnable, not trivial, and the demo reaches about level four |
 
 ## Non-goals

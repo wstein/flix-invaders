@@ -14,6 +14,8 @@ pinned compiler into `.flix/`, so local runs match CI exactly.
 - `bin/flix run` — run `main`
 - `bin/flix build` — compile to `build/class`
 - `bin/flix doc` — write API documentation to `build/doc/`, matching this compiler exactly
+- `bin/bench` — measure the demo bot over ten seeds; **run this before and after any change to
+  `src/Invaders/Demo.flix` or to a tuning constant in `Rules`**
 
 ## Layout
 
@@ -23,6 +25,7 @@ pinned compiler into `.flix/`, so local runs match CI exactly.
 - `src/Invaders/` — the pure game model, and the pure cabinet around it (`Session`, `Screens`,
   `Demo`); no `IO`, no window
 - `src/Main.flix` — the only file that reads or writes a file, and only the score table
+- `src/Bench.flix` — the bot benchmark behind `bin/bench`; not part of the game
 - `test/` — `@Test` functions; must stay headless and off the filesystem (CI enforces both)
 - `flix.toml` — package metadata, the Flix version, and dependencies
 - `build/`, `artifact/`, `lib/`, `.flix/` — generated; do not edit and do not commit
@@ -89,6 +92,12 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   `Fs.FileSystem.withInMemoryFS`; CI greps for exactly that. `withInMemoryFS` leaves a
   residual `Time.Clock`, whose only handler is `runWithIO`, so hand-write a frozen one to keep
   the test pure — see `test/TestScoresFile.flix`.
+- **Never compare bot tunings on totals.** A change that ends games sooner posts fewer deaths
+  and fewer row drops while being strictly worse. `bin/bench` reports rates per 1000 ticks for
+  this reason, and flags any game cut short by the budget — such a game was interrupted, not
+  measured. Three separate measurements in this project read backwards before that was fixed,
+  including one that reported every bunker perfectly intact because it stopped sampling at the
+  level change, which resets them.
 - **`getResourceAsStream` returns null for project files.** Flix's class loaders parent to
   the *platform* loader and never consult project resources. Read assets from a file path —
   and note it would start working under `flix build-jar`, so a resource-based path fails

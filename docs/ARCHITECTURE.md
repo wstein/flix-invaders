@@ -425,6 +425,39 @@ would not be.
 
 ---
 
+## Measuring the bot
+
+The demo player carries about a dozen interacting constants, and the record of tuning them is
+a record of intuition being wrong:
+
+| Change | Expected | Measured |
+|---|---|---|
+| Widen the threat corridor 30px → 60px | a small gain | **deaths 24 → 4** |
+| Predict where the cannon will be when each bomb lands | clearly better | *worse*, at every tuning |
+| Weight the formation's flanks | slower descent, better play | slower descent, **lower** levels |
+| Ignore bombs the shield will stop | a little free time | mean level 4.5 → 4.8 |
+
+So the constants are measured rather than argued about. [`bin/bench`](../bin/bench) plays ten
+fixed seeds to completion and reports per-seed outcomes plus aggregate rates. It is pure —
+`Game.step` and the bot are both pure functions — so the same build always produces the same
+numbers, and any difference between builds is the change under test.
+
+Three rules it enforces, each of which was learned by getting it wrong:
+
+- **Rates, never totals.** A change that ends games sooner posts fewer deaths and fewer row
+  drops while being strictly worse.
+- **One stopping condition.** Nothing may stop a run early on something the change under test
+  could itself affect. A bunker-damage measurement once reported every bunker perfectly intact
+  because it stopped at the level change — which resets them.
+- **Report the worst seed, not just the mean.** Bomb luck moves a single seed by two levels,
+  and a tuning that lifts the mean while collapsing one seed is a bad trade.
+
+[`TestBench`](../test/TestBench.flix) tests the arithmetic rather than the bot. A benchmark
+that reports the wrong number is worse than none: it is a confident wrong answer, and every
+decision downstream inherits it.
+
+---
+
 ## Rejected alternatives
 
 Recorded because each looks obviously right and is not.
