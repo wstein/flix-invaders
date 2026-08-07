@@ -93,4 +93,68 @@ mod Scores {
         else name + List.foldLeft((acc, _) -> acc + " ", "", List.range(0, missing))
     }
 
+    // -- where the table lives ------------------------------------------------------------
+    //
+    // Everything above this line is arithmetic on data. Everything below touches a real
+    // filesystem, and is called from `main` alone.
+
+    def folder(): String = "flix-invaders"
+
+    def fileName(): String = "scores.txt"
+
+    ///
+    /// Where the table is kept: the file, and the directory that must exist to hold it.
+    ///
+    /// Both, rather than just the file, because saving has to create the directory on a first
+    /// run. Carrying the directory alongside is honest about what was built; recovering it by
+    /// hunting for the last separator in the path would be guesswork about a string we
+    /// assembled ourselves.
+    ///
+    pub type alias Location = { dir = String, file = String }
+
+    ///
+    /// Where the table lives, by the XDG convention.
+    ///
+    /// `$XDG_CONFIG_HOME/flix-invaders` when that is set, otherwise
+    /// `~/.config/flix-invaders`. `None` on a machine with neither -- there is nowhere
+    /// sensible to put it, and inventing somewhere is worse than going without.
+    ///
+    pub def location(): Option[Location] \ Sys.Env = {
+        let separator = Sys.Env.getFileSeparator();
+        let configured =
+            Sys.Env.getVar("XDG_CONFIG_HOME") |> Option.filter(dir -> not String.isEmpty(dir));
+        let fallback =
+            Sys.Env.getUserHomeDirectory() |> Option.map(home -> "${home}${separator}.config");
+        Option.withDefault(default = fallback, configured)
+            |> Option.map(base -> {
+                let dir = "${base}${separator}${folder()}";
+                { dir = dir, file = "${dir}${separator}${fileName()}" }
+            })
+    }
+
+    ///
+    /// Reads the table, or an empty one if there is not a file yet.
+    ///
+    /// A missing file is the ordinary first run and yields `Ok(Nil)`. Every other error is
+    /// returned rather than swallowed: a table you have no permission to read is not the same
+    /// as no scores, and quietly treating it as one would let the next save overwrite
+    /// somebody's table with nothing.
+    ///
+    pub def load(at: Location): Result[IoError, List[Entry]] \ Fs.FileRead =
+        match Fs.FileRead.readLines(at#file) {
+            case Ok(lines) => Ok(parse(lines))
+            case Err(IoError.IoError(IoError.ErrorKind.NotFound, _)) => Ok(Nil)
+            case Err(other) => Err(other)
+        }
+
+    ///
+    /// Writes the table, creating the directory if this is the first run.
+    ///
+    /// `mkDirs` is content when the directory already exists, so there is no existence check
+    /// here -- one would be redundant, and racy besides.
+    ///
+    pub def save(at: Location, entries: List[Entry]): Result[IoError, Unit] \ Fs.FileWrite =
+        Fs.FileWrite.mkDirs(at#dir)
+            |> Result.flatMap(_ -> Fs.FileWrite.writeLines(lines = render(ranked(entries)), at#file))
+
 }

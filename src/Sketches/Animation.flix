@@ -233,7 +233,8 @@ mod Animation {
 
     pub def main(): Unit \ IO = {
         let limit = Sketch.maxFramesFromEnv();
-        Sketch.start(
+        // The demo sketches have nothing to persist; only the game reads the closing state.
+        discard Sketch.start(
             { title = "Animation",
               width = fieldWidthPx(),
               height = fieldHeightPx(),

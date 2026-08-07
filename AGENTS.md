@@ -20,8 +20,10 @@ pinned compiler into `.flix/`, so local runs match CI exactly.
 - `src/Runtime/` — the effect boundary. `Runtime/Sketch.flix` (window) and
   `Runtime/Audio.flix` (sound card) are the **only** files that touch Java
 - `src/Sketches/` — teaching sketches
-- `src/Invaders/` — the pure game model; no `IO`, no window
-- `test/` — `@Test` functions; must stay headless (CI enforces this)
+- `src/Invaders/` — the pure game model, and the pure cabinet around it (`Session`, `Screens`,
+  `Demo`); no `IO`, no window
+- `src/Main.flix` — the only file that reads or writes a file, and only the score table
+- `test/` — `@Test` functions; must stay headless and off the filesystem (CI enforces both)
 - `flix.toml` — package metadata, the Flix version, and dependencies
 - `build/`, `artifact/`, `lib/`, `.flix/` — generated; do not edit and do not commit
 
@@ -81,6 +83,12 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   `LineUnavailableException`.** `AudioSystem` only throws the declared checked exception when
   a mixer exists but refuses; with no mixer at all it throws unchecked from `getLine`. Catch
   `Exception` at the audio boundary or CI dies with a bare exit code.
+- **`Fs.FileRead` and `Fs.FileWrite` carry `@DefaultHandler`, and the default is the real
+  disk.** A test that forgets to install a handler compiles, passes, and writes to the machine
+  that ran it — there is no type error to catch it. Any test naming `Fs.` must run under
+  `Fs.FileSystem.withInMemoryFS`; CI greps for exactly that. `withInMemoryFS` leaves a
+  residual `Time.Clock`, whose only handler is `runWithIO`, so hand-write a frozen one to keep
+  the test pure — see `test/TestScoresFile.flix`.
 - **`getResourceAsStream` returns null for project files.** Flix's class loaders parent to
   the *platform* loader and never consult project resources. Read assets from a file path —
   and note it would start working under `flix build-jar`, so a resource-based path fails

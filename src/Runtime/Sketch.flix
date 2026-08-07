@@ -116,11 +116,15 @@ mod Sketch {
     /// The simulation advances on a fixed timestep, so behaviour does not depend on frame
     /// rate or machine speed. That is what makes a recorded input script replay exactly.
     ///
+    /// Returns the state the window closed on, so a caller can persist something the player
+    /// earned. It is read after `park` returns, by which point the Animation Thread has
+    /// stopped writing it.
+    ///
     pub def start(cfg: Config,
                   init: (Int64 -> s),
                   step: ((s, Snapshot) -> s \ Sound),
                   view: (s -> Unit \ Canvas)
-    ): Unit \ IO = region rc {
+    ): s \ IO = region rc {
 
         let stepNs = 1000000000i64 / Int32.toInt64(cfg#hz);
         let budgetNs = stepNs * Int32.toInt64(maxCatchUpSteps());
@@ -222,7 +226,8 @@ mod Sketch {
         // runSketch returns immediately. The region has to be kept alive by hand, because
         // `draw` is still reading and writing these Refs on the Animation Thread.
         park(done);
-        Audio.close(voices)
+        Audio.close(voices);
+        Ref.get(world)
     }
 
     ///

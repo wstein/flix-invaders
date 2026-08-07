@@ -42,9 +42,25 @@ jobs:
         run: |
           if grep -rn 'Sketch\.start\|Audio\.' test/; then
             echo "::error::test/ must not open a window or an audio device."
-            echo "::error::Use Canvas.runCollecting for rendering and assert on World.sounds for audio."
+            echo "::error::Use Canvas.runWithCollector for drawing and Sound.played for audio."
             exit 1
           fi
+
+      # Fs.FileRead and Fs.FileWrite carry @DefaultHandler, so a test that simply forgets
+      # a handler still compiles -- and then reads and writes the runner's real disk.
+      # There is no compiler backstop for this, so it is a grep: any test that names Fs.
+      # must install the in-memory filesystem.
+      - name: Verify tests never touch the real filesystem
+        run: |
+          status=0
+          for file in $(grep -rl 'Fs\.' test/ || true); do
+            if ! grep -q 'withInMemoryFS' "$file"; then
+              echo "::error file=$file::names Fs. without Fs.FileSystem.withInMemoryFS;"
+              echo "::error file=$file::this test would read or write the real filesystem."
+              status=1
+            fi
+          done
+          exit $status
 
       - name: Verify formatting
         run: |

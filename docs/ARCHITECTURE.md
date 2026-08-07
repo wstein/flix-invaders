@@ -17,7 +17,13 @@ reach `Sketch.flix` or `Audio.flix` — that direction does not exist.
 flowchart TD
     Main[Main.flix]
 
-    subgraph invaders["Invaders/ - pure"]
+    subgraph cabinet["Invaders/ - the cabinet, pure"]
+        Session[Session.flix<br>screens and turns]
+        Screens[Screens.flix<br>title, initials, table]
+        Demo[Demo.flix<br>the computer player]
+    end
+
+    subgraph invaders["Invaders/ - the game, pure"]
         Game[Game.flix<br>the rules]
         View[View.flix<br>what to draw]
         Types[Types.flix<br>World and Rules]
@@ -29,7 +35,8 @@ flowchart TD
     subgraph runtime["Runtime/ - the boundary"]
         Canvas[Canvas.flix<br>effect + handlers]
         Input[Input.flix<br>effect + Snapshot]
-        Sound[Sound.flix<br>SoundCmd data]
+        Sound[Sound.flix<br>effect + handlers]
+        Scores[Scores.flix<br>the table, and its file]
         Draw["Draw.flix<br>Color, DrawCmd"]
         Palette[Palette.flix]
         Rng[Rng.flix<br>pure generator]
@@ -40,9 +47,18 @@ flowchart TD
         Audio[Audio.flix<br>sound card]
     end
 
-    Main --> Game
-    Main --> View
+    Main --> Session
+    Main --> Screens
+    Main --> Scores
     Main --> Sketch
+
+    Session --> Game
+    Session --> Demo
+    Session --> Scores
+    Screens --> Session
+    Screens --> View
+    Screens --> Canvas
+    Demo --> Types
 
     Game --> Types
     Game --> Bunkers
@@ -79,30 +95,90 @@ place, so the game can be retuned without hunting through logic.
 No `IO`, no window, no device — enforced by types, not convention. `Game.step` is:
 
 ```flix
-pub def step(world: World, input: Snapshot): World
+pub def step(world: World, input: Snapshot): World \ Sound
 ```
 
-No effect row at all. It cannot read a clock, open a file, or draw. Everything it needs —
-including the random number generator — is a field on `World`.
+One effect, and it is the one the rules genuinely have: saying what should be heard. There is
+no `IO` in that row, so `step` cannot read a clock, open a file, or draw. Everything else it
+needs — including the random number generator — is a field on `World`.
 
-### 2. The boundary (`Runtime/Canvas`, `Input`, `Sound`)
+### 2. The boundary (`Runtime/Canvas`, `Input`, `Sound`, `Fs`)
 
-Two effects and one data type:
+Three effects of our own, plus the standard library's filesystem effects at the very edge:
 
 | | Kind | Why |
 |---|---|---|
 | `Canvas` | effect | Drawing reads naturally as a sequence of commands, and several interpretations are genuinely useful |
 | `Input` | effect | A `poll` that returns the same frozen snapshot all step |
 | `Sound` | effect | The rules say what should be heard; three interpretations decide how |
+| `Fs.FileRead`, `Fs.FileWrite` | stdlib effects | Reached only by `main`, and only for the high-score file |
 
 `Rng` is the one thing that stayed data — see *Sound: data or effect?* below for why the two
 went different ways.
+
+The filesystem effects are the one place where the type system does *not* protect us:
+both carry `@DefaultHandler`, so a test that forgets a handler compiles and writes to the
+real disk. CI greps for it. See *Persistence* below.
 
 ### 3. Touching Java (`Runtime/Sketch`, `Runtime/Audio`)
 
 `Sketch.flix` owns the window, the frame loop, key tracking and the Processing lifecycle.
 `Audio.flix` owns waveform synthesis and a pool of `javax.sound.sampled` clips. Nothing else
 in `src/` imports a Java class.
+
+`Main.flix` is a third file that reaches outside the process, though not through Java: it
+reads and writes the high-score file through `Fs`. See *Persistence*.
+
+---
+
+## Persistence
+
+One text file, `NAME|SCORE|LEVEL` per line, in `$XDG_CONFIG_HOME/flix-invaders/scores.txt` or
+`~/.config/flix-invaders/scores.txt`.
+
+The whole of it is arranged so that exactly one function can touch a disk:
+
+```mermaid
+sequenceDiagram
+    participant M as Main.flix
+    participant S as Scores.flix
+    participant W as Sketch.start
+    M->>S: location(), load(at)
+    S-->>M: List[Entry]
+    M->>W: start(cfg, seed -> Session.withScores(seed, saved), ...)
+    Note over W: the window runs<br/>nothing here can reach a file
+    W-->>M: the session it closed on
+    M->>S: save(at, closed#scores)
+```
+
+`Sketch.start`'s `init` stays a pure `Int64 -> s`; the loaded table is captured in a closure
+around it. `start` returns the state the window closed on, which is the only reason it returns
+anything at all. Everything in between — `Session.step`, the screens, the rules — is unchanged
+and still has no idea a filesystem exists.
+
+Two decisions worth naming:
+
+- **A missing file is not an error.** `load` translates `NotFound` to an empty table and
+  passes every other error through. Collapsing them with `Result.getWithDefault` would mean a
+  table you merely lacked permission to *read* got silently overwritten with nothing on the
+  way out.
+- **A damaged line costs you that line.** `parse` drops what it cannot read rather than
+  failing. Hand-editing the file should cost you some scores, not the game.
+
+### The hazard
+
+`Fs.FileRead` and `Fs.FileWrite` both carry `@DefaultHandler`, and the default writes to the
+real disk. A test that simply forgets to install a handler therefore **compiles and passes**,
+having scribbled on the machine that ran it. This is the one place in the project where the
+type system does not catch the mistake, so CI does:
+
+```
+any file in test/ that names `Fs.` must also name `withInMemoryFS`
+```
+
+`TestScoresFile.flix` is the only such file. It runs on `Fs.FileSystem.withInMemoryFS`, and
+handles the residual `Clock` with a frozen one, so the filesystem tests do not even read the
+machine's time.
 
 ---
 
