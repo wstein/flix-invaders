@@ -177,18 +177,18 @@ mod Session {
     def playing(input: Snapshot, s: Session): Session \ Sound = {
         if (allDone(s)) finish(s)
         else {
-            let before = active(s);
-            let stepped = Game.step(before, input);
+            let stepped = Game.step(active(s), input);
             let worlds = Vector.update(s#current, stepped, s#worlds);
             let advanced = { worlds = worlds | s };
 
-            // A turn ends when the cannon is destroyed -- which is the moment the death
-            // pause runs out, not the moment the last life goes. Using the pause means no
-            // extra state: it is already set on being hit and counted down each tick.
-            let cannonLost = before#pause > 0 and stepped#pause == 0 and stepped#phase == Phase.Playing;
-            let outOfLives = stepped#phase == Phase.Lost;
-
-            if (not (cannonLost or outOfLives)) advanced
+            // A turn is a whole game: player one plays down to their last life before player
+            // two starts. Losing a cannon costs a life and nothing else.
+            //
+            // The arcade original hands over on every destroyed cannon, and that was built
+            // first. It is a different game rather than a better or worse one -- alternating
+            // keeps both players watching and neither able to hold a run together, and this
+            // way round trades the second for the first.
+            if (stepped#phase != Phase.Lost) advanced
             else match nextPlayer(s#current, advanced) {
                 case Some(next) => { current = next | advanced }
                 case None => advanced   // nobody left; the game-over screen holds

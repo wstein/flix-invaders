@@ -24,15 +24,16 @@ git clone https://github.com/wstein/flix-invaders
 cd flix-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 389 tests -- no window, no audio device, no filesystem
+bin/flix test      # 391 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
 bin/bench          # measure the demo bot over ten seeds
 bin/bench --recalc # search for better bot numbers and save them
 ```
 
 **Controls:** `1` or `2` at the title screen picks one or two players; arrows move, space
-fires, enter moves on, **F3** shows stats for nerds. Two players alternate on each destroyed
-cannon, as the original did.
+fires, enter moves on, **F3** shows stats for nerds. With two players, player one plays their
+whole game before player two starts — the arcade original hands over on each destroyed cannon,
+and this deliberately does not.
 Shelter behind the bunkers — they stop bombs but wear away. Shoot the saucer for points *and*
 a temporary shield — a dome over the cannon that flashes for its last couple of seconds, so you
 can see it going. Every 2500 points buys a life. Clearing the formation starts a harder
@@ -244,13 +245,13 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Testing
 
-389 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+391 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |
 | --- | --- | --- |
 | [TestGame](test/TestGame.flix) | 107 | every rule, hit boxes, levels, shield, bonus lives |
-| [TestSession](test/TestSession.flix) | 37 | screens, alternating turns, typed initials |
+| [TestSession](test/TestSession.flix) | 39 | screens, taking turns, typed initials |
 | [TestAnimation](test/TestAnimation.flix) | 27 | elastic collisions; conservation of momentum and energy |
 | [TestBunkers](test/TestBunkers.flix) | 25 | damage, absorption, erosion, camping behind a drilled slit |
 | [TestSprites](test/TestSprites.flix) | 19 | run-length decomposition of the pixel art |

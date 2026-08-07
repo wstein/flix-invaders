@@ -184,12 +184,39 @@ mod TestSession {
     }
 
     @Test
-    def testTheTurnPassesWhenTheCannonIsDestroyed(): Unit \ Assert = {
-        // Classic behaviour: the turn ends on losing a cannon, not on running out of lives.
+    def testLosingACannonDoesNotEndTheTurn(): Unit \ Assert = {
+        // A turn is a whole game. Losing a cannon costs a life and nothing else -- the
+        // arcade original hands over here, and this does not.
         let hit = tick(aboutToDie(twoPlayer()), Input.empty());
         assertEq(expected = 0, hit#current);
         let after = ticks(Rules.deathPauseTicks() + 2, hit, Input.empty());
+        assertEq(expected = 0, after#current);
+        assertEq(expected = Rules.startingLives() - 1, Session.active(after)#lives)
+    }
+
+    @Test
+    def testTheTurnPassesWhenTheLastLifeGoes(): Unit \ Assert = {
+        // ...and only then.
+        let s = twoPlayer();
+        let onLastLife = { worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) },
+                                                  s#worlds) | s };
+        let after = ticks(Rules.deathPauseTicks() + 3, aboutToDie(onLastLife), Input.empty());
         assertEq(expected = 1, after#current)
+    }
+
+    @Test
+    def testPlayerOnePlaysAWholeGameBeforePlayerTwoStarts(): Unit \ Assert = {
+        // The property in one test: player two's world does not advance a single tick until
+        // player one has none left.
+        let s = twoPlayer();
+        let untouched = Vector.get(1, s#worlds)#tick;
+        def loop(n, sess) =
+            if (n <= 0 or sess#current != 0) sess
+            else loop(n - 1, tick(sess, Input.holding(Key.Space :: Nil)));
+        let handedOver = loop(20000, s);
+        assertEq(expected = 1, handedOver#current);
+        assertEq(expected = Phase.Lost, Vector.get(0, handedOver#worlds)#phase);
+        assertEq(expected = untouched, Vector.get(1, handedOver#worlds)#tick)
     }
 
     @Test
