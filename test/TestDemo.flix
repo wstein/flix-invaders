@@ -95,6 +95,32 @@ mod TestDemo {
         assertTrueWithMsg(differs > 20, "the shaky bot never deviated: ${differs}")
     }
 
+    // -- staying alive ----------------------------------------------------------------------
+
+    @Test
+    def testItLosesToTheFormationRatherThanToBombs(): Unit \ Assert = {
+        // A demo that dies to bombs looks careless, and it is also the wrong failure: bombs
+        // are dodgeable and the descent is not. The bot should run out of screen before it
+        // runs out of lives. This is the property the dodging is tuned for, and it is easy to
+        // lose again -- narrowing `dangerWidth` back to 30 breaks it.
+        let seeds = 2026i64 :: 7i64 :: 99i64 :: 1234i64 :: Nil;
+        let survived = List.count(seed -> {
+            let ended = Sound.runWithNoOp(() -> {
+                def loop(n, w, hand) =
+                    if (n <= 0 or w#phase == Phase.Lost) w
+                    else {
+                        let (input, next) = Demo.imperfect(w, hand);
+                        loop(n - 1, Game.step(w, input), next)
+                    };
+                loop(30000, Game.initial(seed), Demo.fresh(seed))
+            });
+            ended#lives > 0
+        }, seeds);
+        assertTrueWithMsg(survived >= List.length(seeds) - 1,
+            "the bot ran out of lives on ${List.length(seeds) - survived} of ${List.length(seeds)} "
+            + "seeds; it is being hit rather than invaded")
+    }
+
     // -- its own bunkers ------------------------------------------------------------------
 
     /// An x directly under standing blocks of the first bunker.

@@ -18,7 +18,7 @@ git clone https://github.com/wstein/flix-proc-invaders
 cd flix-proc-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 333 tests -- no window, no audio device, no filesystem
+bin/flix test      # 334 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
 ```
 
@@ -234,7 +234,7 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Testing
 
-333 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+334 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |
@@ -244,7 +244,7 @@ all three with greps.
 | [TestAnimation](test/TestAnimation.flix) | 27 | elastic collisions; conservation of momentum and energy |
 | [TestBunkers](test/TestBunkers.flix) | 25 | damage, absorption, erosion, camping behind a drilled slit |
 | [TestSprites](test/TestSprites.flix) | 19 | run-length decomposition of the pixel art |
-| [TestDemo](test/TestDemo.flix) | 23 | the computer player: aim, dodge, when to fire, and not shaking |
+| [TestDemo](test/TestDemo.flix) | 27 | the computer player: aim, dodge, when to fire, and not shaking |
 | [TestScores](test/TestScores.flix) | 16 | the table's format and ordering, with no handlers at all |
 | [TestCanvas](test/TestCanvas.flix) | 14 | the effect and its interpretations |
 | [TestContrast](test/TestContrast.flix) | 10 | WCAG contrast of every palette colour |

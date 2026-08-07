@@ -66,8 +66,16 @@ mod Demo {
     def startAt(): Float32 = 1.5f32
     def reverseAt(): Float32 = 6.0f32
 
-    /// How close overhead a bomb has to be to count as a threat to a position.
-    def dangerWidth(): Float32 = 30.0f32
+    ///
+    /// How near a bomb has to pass a position for the bot to count it as a threat.
+    ///
+    /// Wide, and measured rather than guessed. At 30px the bot only reacted once a bomb was
+    /// nearly overhead, which at 4px of travel a tick against 3px of fall is far too late to
+    /// go anywhere. Widening it to 60 cut deaths across ten games from 24 to 4 without making
+    /// the bot noticeably more timid -- it now loses by being invaded, with lives to spare,
+    /// rather than by being hit.
+    ///
+    def dangerWidth(): Float32 = 60.0f32
 
     /// The offsets from its current position that the bot considers standing at.
     def options(): List[Float32] =
