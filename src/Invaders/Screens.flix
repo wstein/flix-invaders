@@ -215,28 +215,25 @@ mod Screens {
     /// The beat between one player's game ending and the next player's starting.
     ///
     /// Their own fresh field is already behind it, so what they are about to play is visible
-    /// while they get a hand back on the controls. Same position and same count as the pause
-    /// between waves -- it is the same idea, and two different countdowns would be two things
-    /// to learn.
+    /// while they get a hand back on the controls. On the same dimmed panel the title uses,
+    /// for the same reason: the field behind stays legible, and a plain overlay of text on a
+    /// formation is hard to read at a glance.
+    ///
+    /// Same position and same count as the pause between waves -- it is the same idea, and
+    /// two different countdowns would be two things to learn.
     ///
     def handover(s: Session): Unit \ Canvas = {
         View.renderWith(Session.active(s), Session.cabinet(s));
-        let who = "PLAYER ${s#current + 1}";
-        let ready = "GET READY";
-        Canvas.fill(Palette.ink());
-        Canvas.textSize(View.bannerSize());
-        Canvas.text(who, View.centredX(who, View.bannerSize()), View.bannerY());
-        Canvas.fill(Palette.invaderCyan());
-        Canvas.textSize(View.hudSize());
-        Canvas.text(ready, View.centredX(ready, View.hudSize()), View.bannerY() + 22.0f32);
         let count = View.countdown(s#handover);
-        if (count <= 0) ()
-        else {
-            let digit = "${count}";
-            Canvas.fill(Palette.sun());
-            Canvas.textSize(View.countdownSize());
-            Canvas.text(digit, View.centredX(digit, View.countdownSize()), View.countdownY())
-        }
+        let digits =
+            if (count <= 0) Nil
+            else caption("${count}", View.countdownSize(), Palette.sun()) :: Nil;
+        let captions =
+            caption("PLAYER ${s#current + 1}", View.bannerSize(), Palette.ink()) ::
+            caption("GET READY", View.hudSize(), Palette.invaderCyan()) ::
+            digits;
+        // Positioned so the first line lands on the same baseline as every other banner.
+        block(captions, View.bannerY() - View.bannerSize())
     }
 
     ///

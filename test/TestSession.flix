@@ -4,6 +4,7 @@ mod TestSession {
     use Assert.assertTrue
     use Assert.assertNeq
     use Assert.assertTrueWithMsg
+    use Assert.assertFalseWithMsg
 
     def start(): Session = Session.initial(2026i64)
 
@@ -431,6 +432,29 @@ mod TestSession {
         let live = ticks(Rules.handoverTicks() + 2, waiting, Input.empty());
         assertEq(expected = 0, live#handover);
         assertTrue(Session.active(live)#tick > Session.active(waiting)#tick)
+    }
+
+    @Test
+    def testTheGetReadyTextSitsOnADimmedPanel(): Unit \ Assert = {
+        // Plain text over a formation is hard to read at a glance; the title screen solved
+        // that with a translucent panel sized to the words, and this uses the same one.
+        let waiting = { handover = Rules.handoverTicks(), current = 1,
+                        screen = Screen.Playing | twoPlayer() };
+        let dimmed = Canvas.commands((640, 480), () -> Screens.render(waiting, Stats.empty()))
+            |> List.exists(cmd -> match cmd {
+                case DrawCmd.FillAlpha(_, _) => true
+                case _ => false
+            });
+        assertTrueWithMsg(dimmed, "the get-ready text is drawn straight onto the game");
+
+        // ...and it is not there once play begins.
+        let live = { handover = 0 | waiting };
+        let plain = Canvas.commands((640, 480), () -> Screens.render(live, Stats.empty()))
+            |> List.exists(cmd -> match cmd {
+                case DrawCmd.FillAlpha(_, _) => true
+                case _ => false
+            });
+        assertFalseWithMsg(plain, "the panel is still up after the count finished")
     }
 
     @Test
