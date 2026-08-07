@@ -29,6 +29,7 @@ Steps 4 to 17 apply to `invaders`; the rest apply to all three.
 | 8 | Play to a loss | The game reaches its lost state rather than continuing |
 | 9 | Restart | Enter from the lost state begins a fresh game |
 | 10 | Attract mode | Leaving the title alone plays a visible demo behind it, in silence, and the invaders stay legible through the panel |
+| 10a | The shield | Shooting the saucer raises a dome over the cannon with a highlight running along it; it loses alternate blocks as it ages, then flashes, then goes |
 | 11 | The demo is competent | Over a minute or two it dodges bombs, shoots the saucer, and reaches roughly level four before losing |
 | 12 | `1` starts one player | One game, one score in the HUD |
 | 13 | `2` starts two players | Two scores in the HUD; losing a cannon hands over to the other player, whose game resumes where it was |

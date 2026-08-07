@@ -781,10 +781,23 @@ mod TestGame {
 
     @Test
     def testTheShieldFlashesBeforeItFails(): Unit \ Assert = {
-        // The blink must actually change the frame, or the warning is invisible.
-        let on = { shield = Rules.shieldWarningTicks() - 1 | start() };
-        let off = { shield = Rules.shieldWarningTicks() - 9 | start() };
-        assertTrue(rectCount(on) != rectCount(off))
+        // Counted against a frame with no shield at all, because `rectCount` sees the whole
+        // scene and the invaders never go away.
+        let bare = rectCount({ shield = 0 | start() });
+        let healthy = rectCount({ shield = Rules.shieldWarningTicks() + 40 | start() });
+        let thinning = rectCount({ shield = Rules.shieldWarningTicks() - 10 | start() });
+
+        assertTrueWithMsg(healthy > bare, "a live shield draws nothing");
+        assertTrueWithMsg(thinning < healthy and thinning > bare,
+            "the dome does not visibly thin: ${thinning} against ${healthy}, bare frame ${bare}");
+
+        // ...and in the last stretch what is left flashes, so some frames show no shield.
+        let critical = List.map(n -> rectCount({ shield = n | start() }),
+                                List.range(1, Rules.shieldCriticalTicks()));
+        assertTrueWithMsg(List.exists(count -> count == bare, critical),
+            "the dying shield never blanks a frame; the flash is invisible");
+        assertTrueWithMsg(List.exists(count -> count > bare, critical),
+            "the dying shield is never drawn at all")
     }
 
     // -- bonus lives -----------------------------------------------------------------

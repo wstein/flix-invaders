@@ -110,25 +110,61 @@ mod View {
         }
     }
 
+    /// How many blocks the dome is built from.
+    def shieldSegments(): Int32 = 7
+
+    /// How far the outer blocks sit below the crown, which is what makes it a dome.
+    def shieldRise(): Float32 = 5.0f32
+
+    /// How far the dome clears the cannon, and how far it overhangs at each side.
+    def shieldLift(): Float32 = 12.0f32
+    def shieldSpan(): Float32 = 7.0f32
+
     ///
-    /// The shield, as a bracket over the cannon.
+    /// The shield, as a dome of energy blocks over the cannon.
     ///
-    /// It flashes for the last stretch so its expiry is something you see coming rather than
-    /// discover by dying.
+    /// It was a plain bracket -- a bar and two posts -- which read as a piece of scenery rather
+    /// than something switched on. Three things change that, all of them cheap:
+    ///
+    /// - **A dome.** The blocks step down towards the edges, so the silhouette curves over the
+    ///   cannon instead of boxing it in.
+    /// - **Something running along it.** A bright pair of blocks travels the arc, driven off
+    ///   the world's own tick, so the shield looks powered rather than painted.
+    /// - **A visible decline.** It does not simply vanish: alternate blocks go dark first, so
+    ///   the dome thins while there is still time to do something about it, and only flashes
+    ///   in the last stretch. Dying to an expiry you never saw coming is the failure this is
+    ///   here to prevent.
     ///
     def drawShield(w: World): Unit \ Canvas =
         if (w#shield <= 0) ()
         else {
             let failing = w#shield < Rules.shieldWarningTicks();
-            let blink = Int32.remainder(w#shield / 8, 2) == 0;
-            if (failing and blink) ()
+            let critical = w#shield < Rules.shieldCriticalTicks();
+            if (critical and Int32.remainder(w#shield / 5, 2) == 0) ()
             else {
-                let half = Rules.playerSize()#x / 2.0f32 + 6.0f32;
-                let top = Rules.playerY() - Rules.playerSize()#y / 2.0f32 - 8.0f32;
-                Canvas.fill(Palette.invaderCyan());
-                Canvas.rect(w#playerX - half, top, half * 2.0f32, 3.0f32);
-                Canvas.rect(w#playerX - half, top, 3.0f32, 10.0f32);
-                Canvas.rect(w#playerX + half - 3.0f32, top, 3.0f32, 10.0f32)
+                let count = shieldSegments();
+                let half = Rules.playerSize()#x / 2.0f32 + shieldSpan();
+                let crown = Rules.playerY() - Rules.playerSize()#y / 2.0f32 - shieldLift();
+                let block = (half * 2.0f32) / Int32.toFloat32(count);
+                let middle = Int32.toFloat32(count - 1) / 2.0f32;
+                List.forEach(i -> {
+                    // Thinning: alternate blocks go out, so the dome loses substance before it
+                    // loses the player.
+                    if (failing and Int32.remainder(i, 2) == 1) ()
+                    else {
+                        let fromMiddle = (Int32.toFloat32(i) - middle) / middle;
+                        let dip = shieldRise() * fromMiddle * fromMiddle;
+                        let lit = Int32.remainder(i + w#tick / 3, count) < 2;
+                        Canvas.fillAlpha(Palette.invaderCyan(), if (lit) 255 else 150);
+                        Canvas.rect(w#playerX - half + Int32.toFloat32(i) * block,
+                                    crown + dip, block - 1.5f32, 4.0f32)
+                    }
+                }, List.range(0, count));
+                // Posts at each end, so the dome is anchored to the cannon rather than
+                // floating above it.
+                Canvas.fillAlpha(Palette.invaderCyan(), 150);
+                Canvas.rect(w#playerX - half, crown + shieldRise(), 3.0f32, 9.0f32);
+                Canvas.rect(w#playerX + half - 3.0f32, crown + shieldRise(), 3.0f32, 9.0f32)
             }
         }
 

@@ -27,7 +27,8 @@ bin/bench --recalc # search for better bot numbers and save them
 **Controls:** `1` or `2` at the title screen picks one or two players; arrows move, space
 fires, enter moves on. Two players alternate on each destroyed cannon, as the original did.
 Shelter behind the bunkers — they stop bombs but wear away. Shoot the saucer for points *and*
-a temporary shield. Every 2500 points buys a life. Clearing the formation starts a harder
+a temporary shield — a dome of energy blocks over the cannon, which thins and then flashes as
+it runs out, so you can see it going. Every 2500 points buys a life. Clearing the formation starts a harder
 level; there is no winning, only surviving longer.
 
 Leave it alone at the title and it plays itself, and it is meant to look like a person doing
