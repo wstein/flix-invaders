@@ -1,4 +1,25 @@
 ///
+/// The demo player's hand and attention.
+///
+/// State, because the things that make play look human are all things that persist. A person
+/// misjudges a shot and *commits* to the misjudgement for a beat; they do not re-misjudge
+/// sixty times a second. They keep pushing the stick the way it is already going. They look
+/// away for a third of a second, not for a single frame.
+///
+/// The first version of this bot had none of that -- it drew a fresh aim error every tick,
+/// which around the target swamped the 1.5px movement deadzone and reversed the cannon's
+/// direction about six times a second. Measured, that was 9-11 reversals per 100 moving
+/// ticks against 3 for the bot with no error at all: the shake was the jitter, not the game.
+///
+pub type alias Hand = {
+    rng = Rng,
+    error = Float32,
+    settled = Int32,
+    moving = Int32,
+    lapse = Int32
+}
+
+///
 /// A computer player.
 ///
 /// This is the same code in two jobs. `aim` is the bot the balance test drives to decide
@@ -12,11 +33,38 @@
 ///
 mod Demo {
 
+    ///
     /// How far the shaky bot's aim can be off, in pixels, either way.
-    def aimJitter(): Int32 = 14
+    ///
+    /// Smaller than it looks, because the error now *persists* for a stretch of ticks. Drawn
+    /// fresh every tick it was self-cancelling noise averaging to nothing; held, the same
+    /// number is a genuine bias the cannon acts on for half a second. Widening it back out
+    /// does not make the bot look more human, only worse at the game.
+    ///
+    def aimJitter(): Int32 = 8
 
-    /// Roughly one tick in this many, it does nothing at all.
-    def idleOneIn(): Int32 = 9
+    /// How long it sticks with one judgement of the shot, in ticks, and how much that varies.
+    def judgeFor(): Int32 = 18
+    def judgeSpread(): Int32 = 19
+
+    ///
+    /// Roughly one tick in this many it stops watching, and for how long when it does.
+    ///
+    /// A pause has to read as a hesitation rather than a freeze. Long lapses also cost lives
+    /// outright -- a fifth of a second of no input is survivable, a third of a second with a
+    /// bomb overhead is not.
+    ///
+    def lapseOneIn(): Int32 = 200
+    def lapseFor(): Int32 = 4
+    def lapseSpread(): Int32 = 9
+
+    /// How far off the mark it must be to start walking, and to turn round once walking.
+    ///
+    /// Turning costs more than starting. Without the gap the cannon chatters between left and
+    /// right whenever it sits near its target, because it moves 4px in a tick and the deadzone
+    /// is narrower than that.
+    def startAt(): Float32 = 1.5f32
+    def reverseAt(): Float32 = 6.0f32
 
     /// How close overhead a bomb has to be to count as a threat to a position.
     def dangerWidth(): Float32 = 30.0f32
@@ -123,9 +171,9 @@ mod Demo {
     /// time. Aiming at where a target *is* rather than where it will *be* misses nearly
     /// every shot.
     ///
-    def aimOffBy(error: Float32, w: World): Snapshot = {
+    def intent(error: Float32, w: World): Option[{ goal = Float32, fire = Bool }] = {
         match chooseTarget(w) {
-            case None => Input.empty()
+            case None => None
             case Some(p) => {
                 let living = Vector.count(inv -> inv#alive, w#invaders);
                 let flight = (Rules.playerY() - p#y) / Rules.bulletSpeed();
@@ -142,16 +190,23 @@ mod Demo {
                 // towards the best. Treating them separately made the bot oscillate between
                 // fleeing and lining up, and do neither well.
                 let aimX = w#playerX + dx;
-                let goal = bestSpot(aimX, w) - w#playerX;
-                let move =
-                    if (goal < -1.5f32) Key.Left :: Nil
-                    else if (goal > 1.5f32) Key.Right :: Nil
-                    else Nil;
-                let fire = if (worthFiring(dx, w)) Key.Space :: Nil else Nil;
-                Input.holding(List.append(move, fire))
+                Some({ goal = bestSpot(aimX, w) - w#playerX, fire = worthFiring(dx, w) })
             }
         }
     }
+
+    /// The keys for a committed direction and a decision to shoot.
+    def keysFor(moving: Int32, fire: Bool): Snapshot = {
+        let move =
+            if (moving < 0) Key.Left :: Nil
+            else if (moving > 0) Key.Right :: Nil
+            else Nil;
+        Input.holding(List.append(move, if (fire) Key.Space :: Nil else Nil))
+    }
+
+    /// Which way to walk, with no commitment to a previous direction.
+    def wants(goal: Float32): Int32 =
+        if (goal < -startAt()) -1 else if (goal > startAt()) 1 else 0
 
     ///
     /// A competent player: perfect aim, and it dodges.
@@ -159,7 +214,14 @@ mod Demo {
     /// Used by the balance test, where the point is to measure the *game* rather than the
     /// player. Its results are an optimistic bound -- a human misses.
     ///
-    pub def aim(w: World): Snapshot = aimOffBy(0.0f32, w)
+    pub def aim(w: World): Snapshot = match intent(0.0f32, w) {
+        case None => Input.empty()
+        case Some(i) => keysFor(wants(i#goal), i#fire)
+    }
+
+    /// A hand that has not played yet.
+    pub def fresh(seed: Int64): Hand =
+        { rng = Rng.fromSeed(seed), error = 0.0f32, settled = 0, moving = 0, lapse = 0 }
 
     ///
     /// A fallible player: the same aim, blurred, and occasionally not paying attention.
@@ -171,14 +233,54 @@ mod Demo {
     /// Returns the advanced generator, so the caller keeps the demo's randomness entirely
     /// separate from the world's.
     ///
-    pub def imperfect(w: World, rng: Rng): (Snapshot, Rng) = {
-        let (distracted, afterIdle) = Rng.chance(idleOneIn(), rng);
-        if (distracted) (Input.empty(), afterIdle)
+    pub def imperfect(w: World, hand: Hand): (Snapshot, Hand) =
+        if (hand#lapse > 0)
+            // Still looking away. Hands off the controls until it comes back.
+            (Input.empty(), { lapse = hand#lapse - 1, moving = 0 | hand })
         else {
-            let (drawn, afterJitter) = Rng.nextInt32Below(2 * aimJitter() + 1, afterIdle);
-            let error = Int32.toFloat32(drawn - aimJitter());
-            (aimOffBy(error, w), afterJitter)
+            let (lapsing, afterChance) = Rng.chance(lapseOneIn(), hand#rng);
+            if (lapsing) {
+                let (extra, next) = Rng.nextInt32Below(lapseSpread(), afterChance);
+                (Input.empty(), { rng = next, lapse = lapseFor() + extra, moving = 0 | hand })
+            } else {
+                let (error, settled, next) = judge(hand, afterChance);
+                match intent(error, w) {
+                    case None =>
+                        (Input.empty(), { rng = next, error = error, settled = settled, moving = 0 | hand })
+                    case Some(i) => {
+                        let moving = commit(hand#moving, i#goal);
+                        (keysFor(moving, i#fire),
+                         { rng = next, error = error, settled = settled, moving = moving | hand })
+                    }
+                }
+            }
         }
+
+    ///
+    /// The misjudgement it is working from, re-drawn only when the last one has gone stale.
+    ///
+    /// Holding it is the whole point. Re-drawing every tick is what made the cannon shake.
+    ///
+    def judge(hand: Hand, rng: Rng): (Float32, Int32, Rng) =
+        if (hand#settled > 0) (hand#error, hand#settled - 1, rng)
+        else {
+            let (drawn, afterError) = Rng.nextInt32Below(2 * aimJitter() + 1, rng);
+            let (extra, afterHold) = Rng.nextInt32Below(judgeSpread(), afterError);
+            (Int32.toFloat32(drawn - aimJitter()), judgeFor() + extra, afterHold)
+        }
+
+    ///
+    /// Which way to push, given which way it is already pushing.
+    ///
+    /// A hand already moving one way needs a real reason to go the other, so reversing takes a
+    /// wider miss than starting does. The cannon still corrects an overshoot -- it covers 4px
+    /// a tick, so it passes `reverseAt` within two ticks of going too far -- it just no longer
+    /// twitches when it is nearly right.
+    ///
+    def commit(moving: Int32, goal: Float32): Int32 = {
+        let wanted = wants(goal);
+        let reversing = wanted != 0 and moving != 0 and wanted != moving;
+        if (reversing and Float32.abs(goal) < reverseAt()) moving else wanted
     }
 
 }

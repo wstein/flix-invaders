@@ -25,7 +25,7 @@ pub type alias Session = {
     pending = List[Entry],
     typing = String,
     demo = World,
-    demoRng = Rng,
+    demoHand = Hand,
     seed = Int64
 }
 
@@ -56,7 +56,7 @@ mod Session {
           pending = Nil,
           typing = "",
           demo = Game.initial(demoSeed(seed)),
-          demoRng = Rng.fromSeed(demoSeed(seed)),
+          demoHand = Demo.fresh(demoSeed(seed)),
           seed = seed }
 
     /// Whether this player still has a game to play.
@@ -119,12 +119,12 @@ mod Session {
     /// never shows the same game twice.
     ///
     def attract(input: Snapshot, s: Session): Session = {
-        let (botInput, nextRng) = Demo.imperfect(s#demo, s#demoRng);
+        let (botInput, nextHand) = Demo.imperfect(s#demo, s#demoHand);
         let advanced = Sound.runWithNoOp(() -> Game.step(s#demo, botInput));
         let restarted =
             if (advanced#phase == Phase.Lost) Game.initial(demoSeed(s#seed) + Int32.toInt64(advanced#score) + 1i64)
             else advanced;
-        let waiting = { demo = restarted, demoRng = nextRng | s };
+        let waiting = { demo = restarted, demoHand = nextHand | s };
         match startRequest(input) {
             case Some(players) => begin(players, waiting)
             case None => waiting

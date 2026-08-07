@@ -29,15 +29,15 @@ mod TestDifficulty {
         Sound.runWithNoOp(() -> playRaw(budget, w))
 
     /// The same, driven by the shaky bot the attract screen actually runs.
-    def playShakyRaw(budget: Int32, w: World, rng: Rng): World \ Sound =
+    def playShakyRaw(budget: Int32, w: World, hand: Hand): World \ Sound =
         if (budget <= 0 or w#phase == Phase.Lost) w
         else {
-            let (input, next) = Demo.imperfect(w, rng);
+            let (input, next) = Demo.imperfect(w, hand);
             playShakyRaw(budget - 1, Game.step(w, input), next)
         }
 
     def playShaky(budget: Int32, seed: Int64): World =
-        Sound.runWithNoOp(() -> playShakyRaw(budget, Game.initial(seed), Rng.fromSeed(seed)))
+        Sound.runWithNoOp(() -> playShakyRaw(budget, Game.initial(seed), Demo.fresh(seed)))
 
     /// Long enough for a good run to end on its own rather than on the budget.
     def wholeGame(): Int32 = 30000

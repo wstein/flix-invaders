@@ -18,7 +18,7 @@ git clone https://github.com/wstein/flix-proc-invaders
 cd flix-proc-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 325 tests -- no window, no audio device, no filesystem
+bin/flix test      # 328 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
 ```
 
@@ -28,9 +28,11 @@ Shelter behind the bunkers — they stop bombs but wear away. Shoot the saucer f
 a temporary shield. Every 1000 points buys a life. Clearing the formation starts a harder
 level; there is no winning, only surviving longer.
 
-Leave it alone at the title and it plays itself. The demo is
-[an ordinary pure function](src/Invaders/Demo.flix) of the world, good enough to reach about
-level four, and the same function the balance test drives.
+Leave it alone at the title and it plays itself, and it is meant to look like a person doing
+it: [the bot](src/Invaders/Demo.flix) misjudges a shot and lives with the misjudgement for a
+beat, needs a real reason to turn the cannon round, and now and then stops watching. All of
+that is still pure -- it threads a `Hand` the way the game threads its `Rng` -- and it is the
+same code the balance test drives, good enough to reach about level four.
 
 A qualifying score asks for three initials and is kept in
 `~/.config/flix-invaders/scores.txt` (or `$XDG_CONFIG_HOME`). Delete it to start over; it is
@@ -232,7 +234,7 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Testing
 
-325 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+328 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |
@@ -242,7 +244,7 @@ all three with greps.
 | [TestAnimation](test/TestAnimation.flix) | 27 | elastic collisions; conservation of momentum and energy |
 | [TestBunkers](test/TestBunkers.flix) | 23 | damage, absorption, erosion |
 | [TestSprites](test/TestSprites.flix) | 19 | run-length decomposition of the pixel art |
-| [TestDemo](test/TestDemo.flix) | 17 | the computer player: aim, dodge, when to fire |
+| [TestDemo](test/TestDemo.flix) | 20 | the computer player: aim, dodge, when to fire, and not shaking |
 | [TestScores](test/TestScores.flix) | 16 | the table's format and ordering, with no handlers at all |
 | [TestCanvas](test/TestCanvas.flix) | 14 | the effect and its interpretations |
 | [TestContrast](test/TestContrast.flix) | 10 | WCAG contrast of every palette colour |

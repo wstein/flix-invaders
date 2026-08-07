@@ -38,38 +38,38 @@ mod TestDemo {
     // -- the shaky bot ----------------------------------------------------------------
 
     /// The inputs the imperfect bot produces over `n` ticks of a fixed world.
-    def shaky(n: Int32, w: World, rng: Rng): List[Snapshot] =
+    def shaky(n: Int32, w: World, hand: Hand): List[Snapshot] =
         if (n <= 0) Nil
         else {
-            let (snapshot, next) = Demo.imperfect(w, rng);
+            let (snapshot, next) = Demo.imperfect(w, hand);
             snapshot :: shaky(n - 1, w, next)
         }
 
     @Test
     def testTheShakyBotIsDeterministicGivenItsGenerator(): Unit \ Assert = {
         let w = midGame();
-        assertEq(expected = List.map(s -> s#held, shaky(40, w, Rng.fromSeed(5i64))),
-                 List.map(s -> s#held, shaky(40, w, Rng.fromSeed(5i64))))
+        assertEq(expected = List.map(s -> s#held, shaky(40, w, Demo.fresh(5i64))),
+                 List.map(s -> s#held, shaky(40, w, Demo.fresh(5i64))))
     }
 
     @Test
     def testADifferentGeneratorPlaysDifferently(): Unit \ Assert = {
         let w = midGame();
-        assertNeq(unexpected = List.map(s -> s#held, shaky(40, w, Rng.fromSeed(5i64))),
-                  List.map(s -> s#held, shaky(40, w, Rng.fromSeed(6i64))))
+        assertNeq(unexpected = List.map(s -> s#held, shaky(40, w, Demo.fresh(5i64))),
+                  List.map(s -> s#held, shaky(40, w, Demo.fresh(6i64))))
     }
 
     @Test
     def testTheShakyBotSometimesDoesNothing(): Unit \ Assert = {
         // Perfect play makes a dull demo. Some ticks it is simply not paying attention.
-        let idle = List.count(s -> Set.isEmpty(s#held), shaky(200, midGame(), Rng.fromSeed(3i64)));
+        let idle = List.count(s -> Set.isEmpty(s#held), shaky(200, midGame(), Demo.fresh(3i64)));
         assertTrueWithMsg(idle > 5, "expected some idle ticks, got ${idle}")
     }
 
     @Test
     def testTheShakyBotMostlyPlays(): Unit \ Assert = {
         // ...but it should still look like somebody playing, not somebody asleep.
-        let busy = List.count(s -> not Set.isEmpty(s#held), shaky(200, midGame(), Rng.fromSeed(3i64)));
+        let busy = List.count(s -> not Set.isEmpty(s#held), shaky(200, midGame(), Demo.fresh(3i64)));
         assertTrueWithMsg(busy > 120, "expected the bot to be active most ticks, got ${busy}")
     }
 
@@ -78,8 +78,89 @@ mod TestDemo {
         // Its aim wanders, so over a run it does not always agree with the perfect bot.
         let w = midGame();
         let perfect = Demo.aim(w)#held;
-        let differs = List.count(s -> s#held != perfect, shaky(200, w, Rng.fromSeed(11i64)));
+        let differs = List.count(s -> s#held != perfect, shaky(200, w, Demo.fresh(11i64)));
         assertTrueWithMsg(differs > 20, "the shaky bot never deviated: ${differs}")
+    }
+
+    // -- looking human ------------------------------------------------------------------
+
+    /// The direction a snapshot pushes: -1, 0 or +1.
+    def pushed(s: Snapshot): Int32 =
+        if (Set.memberOf(Key.Left, s#held)) -1
+        else if (Set.memberOf(Key.Right, s#held)) 1
+        else 0
+
+    ///
+    /// Plays for real, returning what the bot did each tick and whether the tick counted.
+    ///
+    /// A tick during the death pause does not count: the game is not accepting input, so the
+    /// bot doing nothing there says nothing about the bot.
+    ///
+    def played(n: Int32, seed: Int64): List[(Snapshot, Bool)] =
+        Sound.runWithNoOp(() -> {
+            def loop(k, w, hand, acc) =
+                if (k <= 0 or w#phase == Phase.Lost) List.reverse(acc)
+                else {
+                    let (input, next) = Demo.imperfect(w, hand);
+                    loop(k - 1, Game.step(w, input), next, (input, w#pause == 0) :: acc)
+                };
+            loop(n, Game.initial(seed), Demo.fresh(seed), Nil)
+        })
+
+    /// How often it turns round, per hundred ticks in which it was moving at all.
+    def reversalsPerHundred(ticks: List[(Snapshot, Bool)]): Int32 = {
+        let inputs = ticks |> List.filterMap(match (input, counts) -> if (counts) Some(input) else None);
+        let (_, flips, moves) = List.foldLeft((acc, input) -> {
+            let (previous, count, moving) = acc;
+            let now = pushed(input);
+            if (now == 0) (previous, count, moving)
+            else (now, count + (if (previous != 0 and now != previous) 1 else 0), moving + 1)
+        }, (0, 0, 0), inputs);
+        (flips * 100) / Int32.max(1, moves)
+    }
+
+    @Test
+    def testTheCannonDoesNotShake(): Unit \ Assert = {
+        // The bot used to draw a fresh aim error every tick, which around the target swamped
+        // the 1.5px deadzone and reversed the cannon about six times a second -- a visible
+        // vibration, and nothing a person does. Measured then: 9-11 reversals per 100 moving
+        // ticks, against 3 for the same bot with no error at all.
+        List.forEach(seed -> {
+            let rate = reversalsPerHundred(played(2000, seed));
+            assertTrueWithMsg(rate <= 5,
+                "seed ${seed}: ${rate} direction reversals per 100 moving ticks -- the cannon is shaking")
+        }, 2026i64 :: 7i64 :: 99i64 :: Nil)
+    }
+
+    @Test
+    def testItCommitsToAMisjudgement(): Unit \ Assert = {
+        // A person misjudges a shot and lives with it for a beat. Re-deciding every frame is
+        // what shakes. On a world held still, the same judgement should hold for many ticks.
+        let steady = shaky(60, midGame(), Demo.fresh(7i64))
+            |> List.map(s -> s#held)
+            |> List.foldLeft((acc, held) -> {
+                let (previous, longest, current) = acc;
+                if (Some(held) == previous) (Some(held), Int32.max(longest, current + 1), current + 1)
+                else (Some(held), longest, 0)
+            }, (None, 0, 0));
+        let (_, longest, _) = steady;
+        assertTrueWithMsg(longest >= 10,
+            "the bot changed its mind every ${longest} ticks; it is re-judging too often")
+    }
+
+    @Test
+    def testAPauseIsAHesitationNotAFreeze(): Unit \ Assert = {
+        // Lapses last a fraction of a second, not a single frame and not a second. A one-frame
+        // dropout is invisible; a long one reads as a hang, and cannot dodge a bomb.
+        let runs = played(2000, 42i64) |> List.foldLeft((acc, tick) -> {
+            let (longest, current) = acc;
+            let (input, counts) = tick;
+            if (counts and Set.isEmpty(input#held)) (Int32.max(longest, current + 1), current + 1)
+            else (longest, 0)
+        }, (0, 0));
+        let (longest, _) = runs;
+        assertTrueWithMsg(longest <= 60,
+            "the bot stopped playing for ${longest} ticks; that reads as a hang, not a hesitation")
     }
 
     // -- the property that matters ----------------------------------------------------
@@ -90,7 +171,7 @@ mod TestDemo {
         // `w#rng`, watching the attract screen would change what a replay means.
         let w = midGame();
         let before = w#rng;
-        let (_, _) = Demo.imperfect(w, Rng.fromSeed(99i64));
+        let (_, _) = Demo.imperfect(w, Demo.fresh(99i64));
         assertEq(expected = before, w#rng);
         // And the perfect bot is a pure function of the world alone.
         assertEq(expected = before, w#rng)
