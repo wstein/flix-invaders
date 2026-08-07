@@ -1,5 +1,9 @@
 # flix-invaders
 
+[![Build and Test](https://github.com/wstein/flix-invaders/actions/workflows/build-and-test.yaml/badge.svg?branch=main)](https://github.com/wstein/flix-invaders/actions/workflows/build-and-test.yaml)
+[![Latest release](https://img.shields.io/github/v/release/wstein/flix-invaders?display_name=tag&sort=semver)](https://github.com/wstein/flix-invaders/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A **Flix creative-coding pilot using Processing Core**: an arcade game where the rules are a
 pure function, the tests never open a window, and the effect system marks exactly where the
 outside world begins.
@@ -8,6 +12,9 @@ It is not a Flix dialect, not a Processing Mode, and not affiliated with either 
 exists to answer one question: *does Flix's effect system make creative coding clearer?*
 
 There is **no Java in this repository**. Flix subclasses Processing's `PApplet` directly.
+
+Want to participate? Read the [contribution guide](CONTRIBUTING.md),
+[code of conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md).
 
 ![The attract screen: a computer player working through level 3 while the title sits over it](docs/media/demo.gif)
 
@@ -374,5 +381,5 @@ is a pure function with tests around it.
 
 ## License
 
-[MIT](LICENSE.md). Links at runtime against Processing Core (LGPL-2.1) and bundles the
+[MIT](LICENSE). Links at runtime against Processing Core (LGPL-2.1) and bundles the
 Press Start 2P font (SIL OFL 1.1) — see [THIRD-PARTY.md](THIRD-PARTY.md).
