@@ -18,11 +18,24 @@ mod Demo {
     /// Roughly one tick in this many, it does nothing at all.
     def idleOneIn(): Int32 = 9
 
-    /// How close overhead a bomb has to be before the bot bothers to move.
-    def dodgeWidth(): Float32 = 24.0f32
+    /// How close overhead a bomb has to be to count as a threat to a position.
+    def dangerWidth(): Float32 = 30.0f32
 
-    /// How far it steps aside.
-    def dodgeStep(): Float32 = 40.0f32
+    /// The offsets from its current position that the bot considers standing at.
+    def options(): List[Float32] =
+        -96.0f32 :: -64.0f32 :: -36.0f32 :: -16.0f32 :: 0.0f32 ::
+        16.0f32 :: 36.0f32 :: 64.0f32 :: 96.0f32 :: Nil
+
+    /// What one unit of danger is worth, against being in position to shoot.
+    def selfPreservation(): Float32 = 4.0f32
+
+    ///
+    /// The distance, in pixels, that costs as much as one unit of danger.
+    ///
+    /// Sets the exchange rate between the two halves of the decision. Too high and the bot
+    /// never leaves a shot; too low and it dodges so eagerly that the formation lands on it.
+    ///
+    def urgency(): Float32 = 40.0f32
 
     ///
     /// What to shoot at.
@@ -43,39 +56,72 @@ mod Demo {
     }
 
     ///
-    /// The bomb most likely to land on the cannon, if one is close enough to worry about.
+    /// How dangerous it is to stand at `x`.
     ///
-    /// "Closest" means lowest, not nearest in x: a bomb directly overhead but still up by the
-    /// formation is less urgent than one about to arrive.
+    /// Every bomb still above the cannon contributes, weighted by how nearly overhead it is
+    /// and how close it has got. Scoring positions rather than reacting to a single bomb is
+    /// what stops the bot sidestepping out of one bomb's path and into another's -- which is
+    /// how it kept dying with lives to spare.
     ///
-    def incoming(w: World): Option[Vec2] =
-        List.foldLeft((best, b) ->
-            if (b#y > Rules.playerY()) best
-            else if (Float32.abs(b#x - w#playerX) > dodgeWidth()) best
-            else match best {
-                case None => Some(b)
-                case Some(p) => if (b#y > p#y) Some(b) else best
-            }, None, w#bombs)
+    def danger(x: Float32, w: World): Float32 =
+        List.foldLeft((total, b) ->
+            if (b#y > Rules.playerY()) total
+            else {
+                let across = Float32.abs(b#x - x);
+                if (across > dangerWidth()) total
+                else {
+                    // Near 0 up at the formation, near 1 just above the cannon: a bomb about
+                    // to land matters far more than one just dropped.
+                    let closeness = Float32.max(0.0f32, b#y) / Rules.playerY();
+                    total + (1.0f32 - across / dangerWidth()) * (0.3f32 + closeness)
+                }
+            }, 0.0f32, w#bombs)
 
-    ///
-    /// Where to stand to get out from under `bomb`, kept inside the field.
-    ///
-    def sidestep(bomb: Vec2, w: World): Float32 = {
+    /// `x` clamped to somewhere the cannon can actually stand.
+    def onField(x: Float32): Float32 = {
         let half = Rules.playerSize()#x / 2.0f32;
-        let away = if (bomb#x < w#playerX) w#playerX + dodgeStep() else w#playerX - dodgeStep();
-        if (away < half) w#playerX + dodgeStep()
-        else if (away > Rules.fieldWidth() - half) w#playerX - dodgeStep()
-        else away
+        if (x < half) half else if (x > Rules.fieldWidth() - half) Rules.fieldWidth() - half else x
     }
 
     ///
-    /// Where to shoot, given a horizontal error to add to the target.
+    /// Whether a shot fired now would hit something.
     ///
-    /// The lowest living invader is the target: it is the closest, and it is the one
-    /// dropping bombs. The aim leads it by the bullet's flight time, because a bullet takes
-    /// roughly forty ticks to reach the formation and the invaders move most of their own
-    /// width in that time -- aiming at where a target *is* rather than where it will *be*
-    /// misses nearly every shot.
+    /// Not just the chosen target: a shot that connects with any invader is a shot worth
+    /// taking. Firing only when lined up on the target wasted every tick the cannon spent
+    /// under some *other* column, and the formation landed while it was still being fussy.
+    ///
+    def worthFiring(dx: Float32, w: World): Bool = {
+        let reach = Rules.invaderSize()#x / 2.0f32;
+        Float32.abs(dx) < 6.0f32 or
+            Vector.exists(inv -> inv#alive and Float32.abs(inv#pos#x - w#playerX) < reach, w#invaders)
+    }
+
+    ///
+    /// The best place to stand: safe first, in position second.
+    ///
+    def bestSpot(aimX: Float32, w: World): Float32 = {
+        let scored = List.map(offset -> {
+            let x = onField(w#playerX + offset);
+            (x, danger(x, w) * selfPreservation() + Float32.abs(aimX - x) / urgency())
+        }, options());
+        List.foldLeft((best, candidate) -> {
+            let (x, score) = candidate;
+            match best {
+                case None => Some((x, score))
+                case Some((_, bestScore)) => if (score < bestScore) Some((x, score)) else best
+            }
+        }, None, scored)
+            |> Option.map(fst)
+            |> Option.getWithDefault(w#playerX)
+    }
+
+    ///
+    /// One tick of play, with `error` added to where the bot thinks the target is.
+    ///
+    /// The aim leads the target by the bullet's flight time: a bullet takes roughly forty
+    /// ticks to reach the formation, and the invaders move most of their own width in that
+    /// time. Aiming at where a target *is* rather than where it will *be* misses nearly
+    /// every shot.
     ///
     def aimOffBy(error: Float32, w: World): Snapshot = {
         match chooseTarget(w) {
@@ -91,28 +137,27 @@ mod Demo {
                 };
                 let dx = (p#x + drift * flight + error) - w#playerX;
 
-                // Staying alive beats lining up a shot: if something is about to land on the
-                // cannon, move out from under it and fire only if the aim happens to be good.
-                let goal = match incoming(w) {
-                    case Some(bomb) => sidestep(bomb, w) - w#playerX
-                    case None => dx
-                };
+                // Aiming and dodging are one decision, not two: score every place it could
+                // stand by how dangerous it is and how far it is from the shot, and walk
+                // towards the best. Treating them separately made the bot oscillate between
+                // fleeing and lining up, and do neither well.
+                let aimX = w#playerX + dx;
+                let goal = bestSpot(aimX, w) - w#playerX;
                 let move =
                     if (goal < -1.5f32) Key.Left :: Nil
                     else if (goal > 1.5f32) Key.Right :: Nil
                     else Nil;
-                let fire = if (Float32.abs(dx) < 6.0f32) Key.Space :: Nil else Nil;
+                let fire = if (worthFiring(dx, w)) Key.Space :: Nil else Nil;
                 Input.holding(List.append(move, fire))
             }
         }
     }
 
     ///
-    /// A competent player: perfect aim, no dodging.
+    /// A competent player: perfect aim, and it dodges.
     ///
     /// Used by the balance test, where the point is to measure the *game* rather than the
-    /// player. It does not dodge, so its results are a floor -- a human who also dodges does
-    /// better.
+    /// player. Its results are an optimistic bound -- a human misses.
     ///
     pub def aim(w: World): Snapshot = aimOffBy(0.0f32, w)
 

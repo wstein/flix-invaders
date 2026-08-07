@@ -2,6 +2,7 @@ mod TestDemo {
 
     use Assert.assertEq
     use Assert.assertTrue
+    use Assert.assertFalse
     use Assert.assertNeq
     use Assert.assertTrueWithMsg
 
@@ -127,6 +128,30 @@ mod TestDemo {
         let cornered = { playerX = Rules.playerSize()#x / 2.0f32 | w };
         let bomb = { bombs = { x = cornered#playerX, y = Rules.playerY() - 40.0f32 } :: Nil | cornered };
         assertTrue(Set.memberOf(Key.Right, Demo.aim(bomb)#held))
+    }
+
+    @Test
+    def testTheBotShootsWhateverIsOverhead(): Unit \ Assert = {
+        // Not only its chosen target. Firing solely when lined up on the target wasted every
+        // tick the cannon spent under some other column, and the formation landed.
+        let w = { bombs = Nil | midGame() };
+        let overhead = Vector.mapWithIndex((i, inv) ->
+            if (i == 0) { pos = { x = w#playerX, y = 200.0f32 }, alive = true | inv }
+            else { alive = false | inv }, w#invaders);
+        // The saucer is the target, far away -- so the bot is not aimed at the invader.
+        let distracted = { invaders = overhead, mystery = Some({ x = 20.0f32, dir = -1.0f32 }) | w };
+        assertTrueWithMsg(Set.memberOf(Key.Space, Demo.aim(distracted)#held),
+            "the bot walked past an invader directly overhead without firing")
+    }
+
+    @Test
+    def testTheBotHoldsFireOverEmptySky(): Unit \ Assert = {
+        // The other half: it should not fire at a column it has already cleared.
+        let w = { bombs = Nil, playerX = 40.0f32 | midGame() };
+        let farRight = Vector.mapWithIndex((i, inv) ->
+            if (i == 0) { pos = { x = 600.0f32, y = 200.0f32 }, alive = true | inv }
+            else { alive = false | inv }, w#invaders);
+        assertFalse(Set.memberOf(Key.Space, Demo.aim({ invaders = farRight | w })#held))
     }
 
     @Test
