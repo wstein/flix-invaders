@@ -18,14 +18,14 @@ git clone https://github.com/wstein/flix-proc-invaders
 cd flix-proc-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 328 tests -- no window, no audio device, no filesystem
+bin/flix test      # 331 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
 ```
 
 **Controls:** `1` or `2` at the title screen picks one or two players; arrows move, space
 fires, enter moves on. Two players alternate on each destroyed cannon, as the original did.
 Shelter behind the bunkers — they stop bombs but wear away. Shoot the saucer for points *and*
-a temporary shield. Every 1000 points buys a life. Clearing the formation starts a harder
+a temporary shield. Every 2500 points buys a life. Clearing the formation starts a harder
 level; there is no winning, only surviving longer.
 
 Leave it alone at the title and it plays itself, and it is meant to look like a person doing
@@ -234,7 +234,7 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Testing
 
-328 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+331 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |
@@ -244,7 +244,7 @@ all three with greps.
 | [TestAnimation](test/TestAnimation.flix) | 27 | elastic collisions; conservation of momentum and energy |
 | [TestBunkers](test/TestBunkers.flix) | 23 | damage, absorption, erosion |
 | [TestSprites](test/TestSprites.flix) | 19 | run-length decomposition of the pixel art |
-| [TestDemo](test/TestDemo.flix) | 20 | the computer player: aim, dodge, when to fire, and not shaking |
+| [TestDemo](test/TestDemo.flix) | 23 | the computer player: aim, dodge, when to fire, and not shaking |
 | [TestScores](test/TestScores.flix) | 16 | the table's format and ordering, with no handlers at all |
 | [TestCanvas](test/TestCanvas.flix) | 14 | the effect and its interpretations |
 | [TestContrast](test/TestContrast.flix) | 10 | WCAG contrast of every palette colour |

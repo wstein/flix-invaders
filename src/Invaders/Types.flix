@@ -283,7 +283,7 @@ mod Rules {
     /// never ends, so a single award would stop mattering by the third level; instead the
     /// bonus repeats at every multiple, capped so lives cannot be farmed indefinitely.
     ///
-    pub def bonusLifeScore(): Int32 = 1000
+    pub def bonusLifeScore(): Int32 = 2500
 
     pub def maxLives(): Int32 = 6
 

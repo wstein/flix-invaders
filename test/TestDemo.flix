@@ -82,6 +82,45 @@ mod TestDemo {
         assertTrueWithMsg(differs > 20, "the shaky bot never deviated: ${differs}")
     }
 
+    // -- its own bunkers ------------------------------------------------------------------
+
+    /// An x directly under standing blocks of the first bunker.
+    def underShelter(): Float32 =
+        Rules.bunkerLeft(0) + (Int32.toFloat32(Rules.bunkerColumns()) * Rules.bunkerCell()) / 2.0f32
+
+    @Test
+    def testItDoesNotShootThroughItsOwnBunker(): Unit \ Assert = {
+        // The rules allow it, and carving a slit is a tactic in the arcade original -- but a
+        // bot doing it by accident spends shots demolishing its own cover.
+        let w = { playerX = underShelter(), bombs = Nil | midGame() };
+        assertTrueWithMsg(Bunkers.blocks(w#bunkers, w#playerX),
+            "the fixture is not actually standing under a bunker");
+        assertFalse(Set.memberOf(Key.Space, Demo.aim(w)#held))
+    }
+
+    @Test
+    def testItStillShootsOnceTheBunkerAboveIsGone(): Unit \ Assert = {
+        // The rule is "not through my own cover", not "never from here".
+        let bare = { bunkers = Vector.map(b -> { cells = Vector.map(_ -> false, b#cells) | b },
+                                          midGame()#bunkers) | midGame() };
+        let w = { playerX = underShelter(), bombs = Nil | bare };
+        assertTrue(Set.memberOf(Key.Space, Demo.aim(w)#held))
+    }
+
+    @Test
+    def testItCountsABunkerOverheadAsShelter(): Unit \ Assert = {
+        // Standing under a bunker is safer than standing beside one, because the bomb hits the
+        // shelter first. Given a bomb overhead, the bot should be less eager to flee cover.
+        let w = midGame();
+        let sheltered = { playerX = underShelter() | w };
+        let bomb = { bombs = { x = sheltered#playerX, y = Rules.playerY() - 60.0f32 } :: Nil | sheltered };
+        let exposed = { bunkers = Vector.map(b -> { cells = Vector.map(_ -> false, b#cells) | b },
+                                             bomb#bunkers) | bomb };
+        let staysPut = Set.isEmpty(Demo.aim(bomb)#held) or not Set.isEmpty(Demo.aim(exposed)#held);
+        assertTrueWithMsg(staysPut,
+            "the bot treated cover and open ground as equally dangerous")
+    }
+
     // -- looking human ------------------------------------------------------------------
 
     /// The direction a snapshot pushes: -1, 0 or +1.

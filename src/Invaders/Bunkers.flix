@@ -95,6 +95,28 @@ mod Bunkers {
         List.reverse(eachRow(0, Nil))
     }
 
+    ///
+    /// Whether any standing block sits directly above `x`.
+    ///
+    /// A shot fired from here hits the shelter rather than anything above it. The rules do
+    /// not care -- carving a slit through your own bunker is legal, and in the arcade original
+    /// it is a tactic -- but a player who is not doing it deliberately is destroying their own
+    /// cover and wasting the shot.
+    ///
+    pub def blocks(bunkers: Vector[Bunker], x: Float32): Bool =
+        Vector.exists(bunker -> {
+            let offset = (x - bunker#origin#x) / Rules.bunkerCell();
+            match Float32.tryToInt32(Float32.floor(offset)) {
+                case None => false
+                case Some(column) =>
+                    if (column < 0 or column >= Rules.bunkerColumns()) false
+                    else Vector.exists(row ->
+                        Vector.nth(row * Rules.bunkerColumns() + column, bunker#cells)
+                            |> Option.getWithDefault(false),
+                        Vector.range(0, Rules.bunkerRows()))
+            }
+        }, bunkers)
+
     pub def remaining(bunker: Bunker): Int32 =
         Vector.count(alive -> alive, bunker#cells)
 

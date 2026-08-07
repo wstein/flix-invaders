@@ -75,7 +75,7 @@ mod Demo {
         16.0f32 :: 36.0f32 :: 64.0f32 :: 96.0f32 :: Nil
 
     /// What one unit of danger is worth, against being in position to shoot.
-    def selfPreservation(): Float32 = 4.0f32
+    def selfPreservation(): Float32 = 6.0f32
 
     ///
     /// The distance, in pixels, that costs as much as one unit of danger.
@@ -112,6 +112,26 @@ mod Demo {
     /// how it kept dying with lives to spare.
     ///
     def danger(x: Float32, w: World): Float32 =
+        // A standing bunker overhead stops the bomb before it arrives, which is what bunkers
+        // are for. Shelter is not total -- blocks are being eaten all game, and the bot should
+        // not treat a two-block stub as a roof -- but it is worth most of a dodge.
+        if (Bunkers.blocks(w#bunkers, x)) shelterRelief() * rawDanger(x, w)
+        else rawDanger(x, w)
+
+    /// How much of a bomb's threat a bunker overhead removes.
+    def shelterRelief(): Float32 = 0.25f32
+
+    ///
+    /// What it costs to stand somewhere it cannot shoot from.
+    ///
+    /// Shelter that is never left is a stalemate: under a bunker the bot is safe, so a purely
+    /// danger-driven chooser parks there, and since it will not fire through its own cover it
+    /// clears nothing and is eventually invaded. Standing in cover has to cost something, or
+    /// the safest game is the one it loses.
+    ///
+    def blockedCost(): Float32 = 2.0f32
+
+    def rawDanger(x: Float32, w: World): Float32 =
         List.foldLeft((total, b) ->
             if (b#y > Rules.playerY()) total
             else {
@@ -138,11 +158,16 @@ mod Demo {
     /// taking. Firing only when lined up on the target wasted every tick the cannon spent
     /// under some *other* column, and the formation landed while it was still being fussy.
     ///
-    def worthFiring(dx: Float32, w: World): Bool = {
-        let reach = Rules.invaderSize()#x / 2.0f32;
-        Float32.abs(dx) < 6.0f32 or
-            Vector.exists(inv -> inv#alive and Float32.abs(inv#pos#x - w#playerX) < reach, w#invaders)
-    }
+    def worthFiring(dx: Float32, w: World): Bool =
+        // Never through its own shelter. The rules allow it -- carving a slit is legal, and in
+        // the arcade original it is a tactic -- but a bot doing it by accident is spending
+        // shots to demolish its own cover.
+        if (Bunkers.blocks(w#bunkers, w#playerX)) false
+        else {
+            let reach = Rules.invaderSize()#x / 2.0f32;
+            Float32.abs(dx) < 6.0f32 or
+                Vector.exists(inv -> inv#alive and Float32.abs(inv#pos#x - w#playerX) < reach, w#invaders)
+        }
 
     ///
     /// The best place to stand: safe first, in position second.
@@ -150,7 +175,9 @@ mod Demo {
     def bestSpot(aimX: Float32, w: World): Float32 = {
         let scored = List.map(offset -> {
             let x = onField(w#playerX + offset);
-            (x, danger(x, w) * selfPreservation() + Float32.abs(aimX - x) / urgency())
+            (x, danger(x, w) * selfPreservation()
+                + Float32.abs(aimX - x) / urgency()
+                + (if (Bunkers.blocks(w#bunkers, x)) blockedCost() else 0.0f32))
         }, options());
         List.foldLeft((best, candidate) -> {
             let (x, score) = candidate;
