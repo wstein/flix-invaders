@@ -89,13 +89,31 @@ fetch() {
     mv "$into.part" "$into"
 }
 
+# Makes sure $2 is present and is what it should be, fetching it if it is neither.
+#
+# The digest is checked on every run, not only after downloading. A cache can be truncated by
+# a full disk, a killed download or an interrupted machine, and an unverified one turns that
+# into `NoClassDefFoundError` from somewhere inside the JVM -- which tells the player nothing
+# and looks like the game is broken. Hashing a few megabytes costs a few milliseconds.
+ensure() {
+    url=$1; path=$2; want=$3; what=$4
+    if [ -f "$path" ] && [ -n "$want" ]; then
+        have=$(digest "$path")
+        if [ -n "$have" ] && [ "$have" != "$want" ]; then
+            echo "invaders: cached $what is damaged; fetching it again." >&2
+            rm -f "$path"
+        fi
+    fi
+    [ -f "$path" ] || fetch "$url" "$path" "$want" "$what"
+}
+
 need_java
-[ -f "$core" ] || fetch "$CORE_URL" "$core" "$CORE_SHA1" "Processing Core ${CORE_VERSION} (LGPL-2.1)"
-[ -f "$game" ] || fetch "$GAME_URL" "$game" "$GAME_SHA1" "Flix Invaders ${VERSION}"
+ensure "$CORE_URL" "$core" "$CORE_SHA1" "Processing Core ${CORE_VERSION} (LGPL-2.1)"
+ensure "$GAME_URL" "$game" "$GAME_SHA1" "Flix Invaders ${VERSION}"
 
 # The game reads its font from a path relative to the working directory, so the assets
 # are unpacked once beside the jar and everything runs from there.
-if [ ! -d "$room/assets" ]; then
+if [ ! -f "$room/assets/PressStart2P-Regular.ttf" ]; then
     (cd "$room" && unzip -qo "$game" 'assets/*') 2>/dev/null \
         || echo "invaders: could not unpack the font; the game will use a default one." >&2
 fi
