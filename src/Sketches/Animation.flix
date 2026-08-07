@@ -241,9 +241,8 @@ mod Animation {
               hz = 60,
               maxFrames = limit, fontPath = None },
             initial,
-            step,
-            view,
-            _world -> Nil)
+            Sound.silent(step),
+            view)
     }
 
 }

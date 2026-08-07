@@ -69,7 +69,6 @@ pub enum Phase with Eq, ToString {
 /// - `pause` is ticks remaining in a non-playing phase, used for the between-levels beat.
 /// - `shield` is ticks of invulnerability remaining, earned by shooting the mystery ship.
 /// - `nextBonusAt` is the score at which the next extra life is awarded.
-/// - `sounds` holds only what happened during the tick just taken; it is cleared each step.
 /// - `marchNote` and `marchedSince` drive the bassline: notes are spaced by *distance*
 ///   marched, not by time, so the tempo tracks the formation's speed for free.
 ///
@@ -95,7 +94,6 @@ pub type alias World = {
     mysteryTimer = Int32,
     shield = Int32,
     nextBonusAt = Int32,
-    sounds = List[SoundCmd],
     marchNote = Int32,
     marchedSince = Float32
 }

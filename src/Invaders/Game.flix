@@ -50,16 +50,14 @@ mod Game {
           mysteryTimer = Rules.mysteryInterval(),
           shield = 0,
           nextBonusAt = Rules.bonusLifeScore(),
-          sounds = Nil,
           marchNote = 0,
           marchedSince = 0.0f32 }
 
     def clampTo(lo: Float32, hi: Float32, v: Float32): Float32 =
         if (v < lo) lo else if (v > hi) hi else v
 
-    /// Records a sound for this tick.
-    def emit(cmd: SoundCmd, w: World): World =
-        { sounds = cmd :: w#sounds | w }
+    /// Plays `cmd` and returns `w` unchanged, so it drops into a pipeline stage.
+    def emit(cmd: SoundCmd, w: World): World \ Sound = { Sound.play(cmd); w }
 
     // -- pipeline stages --------------------------------------------------------------
 
@@ -72,7 +70,7 @@ mod Game {
     }
 
     /// Space fires, subject to the cooldown. Holding it down fires at a fixed rate.
-    def fire(input: Snapshot, w: World): World =
+    def fire(input: Snapshot, w: World): World \ Sound =
         if (w#cooldown > 0) { cooldown = w#cooldown - 1 | w }
         else if (not Set.memberOf(Key.Space, input#held)) w
         else {
@@ -108,7 +106,7 @@ mod Game {
     /// The bounds come from the *living* invaders only, so clearing a whole outer column
     /// lets the rest march further, exactly as the arcade original does.
     ///
-    def marchInvaders(w: World): World = {
+    def marchInvaders(w: World): World \ Sound = {
         let half = Rules.invaderSize()#x / 2.0f32;
         match liveBounds(w#invaders) {
             case None => w
@@ -133,7 +131,7 @@ mod Game {
     ///
     /// Advances the marching bassline by `distance`, sounding a note when one is due.
     ///
-    def beat(distance: Float32, w: World): World = {
+    def beat(distance: Float32, w: World): World \ Sound = {
         let total = w#marchedSince + distance;
         if (total < Rules.marchNoteDistance()) { marchedSince = total | w }
         else
@@ -190,7 +188,7 @@ mod Game {
     ///
     /// A bullet is spent on the first invader it hits, so one shot can never clear two.
     ///
-    def resolveBullets(w: World): World = {
+    def resolveBullets(w: World): World \ Sound = {
         def loop(remaining, invaders, kept, score, blasts) = match remaining {
             case Nil => (List.reverse(kept), invaders, score, blasts)
             case bullet :: rest => match hitIndex(bullet, invaders) {
@@ -208,9 +206,9 @@ mod Game {
         };
         let (bullets, invaders, score, blasts) = loop(w#bullets, w#invaders, Nil, w#score, w#blasts);
         let killed = List.length(blasts) - List.length(w#blasts);
-        let noises = List.repeat(killed, SoundCmd.InvaderDies);
-        { bullets = bullets, invaders = invaders, score = score, blasts = blasts,
-          sounds = List.append(noises, w#sounds) | w }
+        // One noise per kill: two bullets landing in one tick must be heard twice.
+        List.forEach(_ -> Sound.play(SoundCmd.InvaderDies), List.range(0, killed));
+        { bullets = bullets, invaders = invaders, score = score, blasts = blasts | w }
     }
 
     ///
@@ -220,7 +218,7 @@ mod Game {
     /// game for a beat -- being blown up should be something you watch, not something you
     /// only notice from the life counter.
     ///
-    def resolveBombs(w: World): World = {
+    def resolveBombs(w: World): World \ Sound = {
         let player = { x = w#playerX, y = Rules.playerY() };
         let hit = List.exists(b -> Collide.overlaps(aPos = b, aSize = Rules.bombSize(),
                                                     bPos = player, bSize = Rules.playerSize()), w#bombs);
@@ -245,7 +243,7 @@ mod Game {
     ///
     /// Flies the mystery ship across, or counts down to the next one.
     ///
-    def moveMystery(w: World): World = match w#mystery {
+    def moveMystery(w: World): World \ Sound = match w#mystery {
         case Some(m) => {
             let x = m#x + m#dir * Rules.mysterySpeed();
             if (x < -mysteryMargin() or x > Rules.fieldWidth() + mysteryMargin())
@@ -276,7 +274,7 @@ mod Game {
     /// Runs after the invaders have been resolved: the ship flies above the formation, so a
     /// bullet has already had its chance at everything below it.
     ///
-    def resolveMystery(w: World): World = match w#mystery {
+    def resolveMystery(w: World): World \ Sound = match w#mystery {
         case None => w
         case Some(m) => {
             let pos = { x = m#x, y = Rules.mysteryY() };
@@ -305,7 +303,7 @@ mod Game {
     /// shooting the mystery ship for 300 while already near the line, say -- and skipping
     /// one would be a silent loss.
     ///
-    def awardBonusLife(w: World): World =
+    def awardBonusLife(w: World): World \ Sound =
         if (w#score < w#nextBonusAt) w
         else {
             let raised = { nextBonusAt = w#nextBonusAt + Rules.bonusLifeScore() | w };
@@ -406,8 +404,7 @@ mod Game {
             case None => "|u-${w#mysteryTimer}"
             case Some(m) => "|u(${m#x},${m#dir})"
         };
-        let heard = List.foldLeft((acc, c) -> acc + "|s${c}", "", w#sounds);
-        header + shots + drops + formation + shelters + debris + ufo + heard
+        header + shots + drops + formation + shelters + debris + ufo
     }
 
     // -- the step ---------------------------------------------------------------------
@@ -417,9 +414,7 @@ mod Game {
     ///
     /// Pure. Given the same world and the same input, always the same result.
     ///
-    pub def step(world: World, input: Snapshot): World = {
-        // Sounds describe the tick just taken, so each step starts from silence.
-        let w = { sounds = Nil | world };
+    pub def step(w: World, input: Snapshot): World \ Sound = {
         match w#phase {
         case Phase.Playing =>
             // Everything freezes while the cannon burns, except the wreckage itself.

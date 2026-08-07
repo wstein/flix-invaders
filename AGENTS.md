@@ -45,6 +45,8 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   `mod Foo { ... }`; you get `Undefined type`, which looks like a classpath problem and is not.
 - **Never name a receiver `_this`.** The leading underscore makes it a *hidden* variable
   (`E6956`) that the body cannot use. This project names it `app`.
+- **Flix does not widen a pure function into an effectful one.** Passing a pure `step` where
+  `\ Sound` is expected fails. Widen explicitly with `checked_ecast` — see `Sound.silent`.
 - **A *concrete* effect on the frame callback is fine; a polymorphic one is not.**
   `Sketch.start` cannot be generic over effect variables (`E6469`) because the anonymous
   `PApplet` subclass compiles `draw` to a fixed JVM method. But `step: ((s, i) -> s \ Sound)`

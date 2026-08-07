@@ -113,6 +113,10 @@ mod TestBunkers {
 
     def start(): World = Game.initial(2026i64)
 
+    /// One step, discarding sound: none of these tests are about it.
+    def stepped(w: World, input: Snapshot): World =
+        Sound.runWithNoOp(() -> Game.step(w, input))
+
     @Test
     def testAGameStartsWithIntactBunkers(): Unit \ Assert =
         assertEq(expected = Bunkers.totalRemaining(Bunkers.initial()),
@@ -120,7 +124,7 @@ mod TestBunkers {
 
     @Test
     def testAPlayerBulletIsStoppedByABunker(): Unit \ Assert = {
-        let w = Game.step({ bullets = solidSpot() :: Nil | start() }, Input.empty());
+        let w = stepped({ bullets = solidSpot() :: Nil | start() }, Input.empty());
         assertEq(expected = 0, List.length(w#bullets));
         assertTrue(Bunkers.totalRemaining(w#bunkers) < Bunkers.totalRemaining(start()#bunkers))
     }
@@ -130,7 +134,7 @@ mod TestBunkers {
         // The bomb is placed just above the bunker so that one step's fall lands it inside.
         let spot = { x = solidSpot()#x, y = solidSpot()#y - Rules.bombSpeed() };
         let before = List.length(start()#bombs);
-        let w = Game.step({ bombs = spot :: Nil | start() }, Input.empty());
+        let w = stepped({ bombs = spot :: Nil | start() }, Input.empty());
         assertEq(expected = before, List.length(w#bombs));
         assertTrue(Bunkers.totalRemaining(w#bunkers) < Bunkers.totalRemaining(start()#bunkers))
     }
@@ -143,7 +147,7 @@ mod TestBunkers {
         let base = start();
         let bunkerX = Vector.get(0, base#bunkers)#origin#x + 24.0f32;
         let bomb = { x = bunkerX, y = Rules.bunkerTop() - Rules.bombSpeed() + 2.0f32 };
-        let w = Game.step({ playerX = bunkerX, bombs = bomb :: Nil | base }, Input.empty());
+        let w = stepped({ playerX = bunkerX, bombs = bomb :: Nil | base }, Input.empty());
         assertEq(expected = Rules.startingLives(), w#lives);
         assertTrue(Bunkers.totalRemaining(w#bunkers) < Bunkers.totalRemaining(base#bunkers))
     }
@@ -166,7 +170,7 @@ mod TestBunkers {
     def testBunkerDamageShowsUpInTheDigest(): Unit \ Assert = {
         // The digest backs the replay tests, so it has to notice bunker damage.
         let base = start();
-        let damaged = Game.step({ bullets = solidSpot() :: Nil | base }, Input.empty());
+        let damaged = stepped({ bullets = solidSpot() :: Nil | base }, Input.empty());
         Assert.assertNeq(unexpected = Game.digest(base), Game.digest(damaged))
     }
 
@@ -180,7 +184,7 @@ mod TestBunkers {
             total + length
         }, 0, Bunkers.runs(bunker));
         let base = start();
-        let damaged = Game.step({ bullets = solidSpot() :: Nil | base }, Input.empty());
+        let damaged = stepped({ bullets = solidSpot() :: Nil | base }, Input.empty());
         assertTrue(covered(Vector.get(0, damaged#bunkers)) < covered(Vector.get(0, base#bunkers)))
     }
 
@@ -246,8 +250,8 @@ mod TestBunkers {
         let x = Vector.get(0, base#bunkers)#origin#x + 24.0f32;
         def fly(n, w) =
             if (n <= 0 or List.isEmpty(w#bullets)) w
-            else fly(n - 1, Game.step(w, Input.empty()));
-        let fired = Game.step({ playerX = x | base }, Input.holding(Key.Space :: Nil));
+            else fly(n - 1, stepped(w, Input.empty()));
+        let fired = stepped({ playerX = x | base }, Input.holding(Key.Space :: Nil));
         let after = fly(20, fired);
         assertTrueWithMsg(
             Bunkers.totalRemaining(after#bunkers) < Bunkers.totalRemaining(base#bunkers),

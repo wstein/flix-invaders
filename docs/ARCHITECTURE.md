@@ -93,9 +93,10 @@ Two effects and one data type:
 |---|---|---|
 | `Canvas` | effect | Drawing reads naturally as a sequence of commands, and several interpretations are genuinely useful |
 | `Input` | effect | A `poll` that returns the same frozen snapshot all step |
-| `SoundCmd` | **data** | Sounds are produced by `step`, which is pure — so they must be values, not operations |
+| `Sound` | effect | The rules say what should be heard; three interpretations decide how |
 
-The asymmetry is deliberate and is explained under *Sound* below.
+`Rng` is the one thing that stayed data — see *Sound: data or effect?* below for why the two
+went different ways.
 
 ### 3. Touching Java (`Runtime/Sketch`, `Runtime/Audio`)
 
@@ -206,18 +207,17 @@ structural rather than dependent on which handler someone installed.
 
 ```mermaid
 flowchart LR
-    ST["step stage<br>e.g. fire"] --> SC["World.sounds<br>List of SoundCmd"]
-    SC --> RT["Sketch collects<br>per step, not per frame"]
-    RT --> AU["Audio.playAll"]
-    AU --> CL["Clip pool<br>first idle voice wins"]
+    ST["step stage<br>e.g. fire"] --> SP["Sound.play(cmd)"]
+    SP --> H1["runWithClips<br>in the frame callback"]
+    SP --> H2["runWithCollector<br>tests"]
+    SP --> H3["runWithNoOp<br>no device"]
+    H1 --> CL["Clip pool<br>first idle voice wins"]
 ```
 
 Consequences:
 
-- Tests assert on sound with **no audio device** — they read `World.sounds`.
+- Tests assert on sound with **no audio device** — they install a collector.
 - A machine with no sound card runs the identical simulation.
-- Sounds are collected **per step**, not per frame: a frame may advance the simulation five
-  times, and a shot fired in the first must still be heard.
 - The march bassline is spaced by *distance marched*, not by a timer, so its tempo tracks the
   formation's speed-up with no extra state.
 

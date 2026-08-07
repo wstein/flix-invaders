@@ -18,7 +18,7 @@ git clone https://github.com/wstein/flix-proc-invaders
 cd flix-proc-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 236 tests -- no window, no audio device
+bin/flix test      # 239 tests -- no window, no audio device
 bin/flix run       # play
 ```
 
@@ -174,7 +174,8 @@ stateDiagram-v2
 ## One effect, three interpretations
 
 This is the idea the whole project exists to demonstrate. `View.render` says *what* to draw
-and never learns *where*.
+and never learns *where*. `Sound` works the same way: `runWithClips`, `runWithCollector`,
+`runWithNoOp`.
 
 ```mermaid
 flowchart LR
@@ -183,7 +184,7 @@ flowchart LR
     R --> H2["runWithCollector"]
     R --> H3["runWithNoOp"]
     H1 --> O1["a Processing window"]
-    H2 --> O2["List of DrawCmd<br/>236 headless tests"]
+    H2 --> O2["List of DrawCmd<br/>headless tests"]
     H3 --> O3["nothing<br/>benchmarks"]
 ```
 
@@ -194,14 +195,13 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Design notes
 
-- **Randomness and sound are data, not effects.** An `Rng` and a `List[SoundCmd]` thread
-  through `step` like any other part of the world, so `Game.step` has *no effect row at all*
-  and `TestReplay` can fold it directly. A machine with no sound card runs the identical
-  simulation.
-
-  This is a choice, not a constraint. A concrete `Sound` effect handled inside the frame
-  callback compiles perfectly well — see [ARCHITECTURE.md](docs/ARCHITECTURE.md#sound-data-or-effect)
-  for the trade-off, which is genuinely close and arguably lands the other way.
+- **Sound is an effect, like drawing.** `Game.step` says *what* should be heard;
+  the runtime plays it onto a clip pool, the tests collect it into a list, and a machine with
+  no sound card discards it — all three running the identical simulation.
+- **Randomness is data, not an effect.** An `Rng` threads through `step` like any other part
+  of the world, so determinism is structural rather than depending on which handler someone
+  installed. See [ARCHITECTURE.md](docs/ARCHITECTURE.md#sound-data-or-effect) for why sound
+  went the other way.
 - **Pixel art, no image files.** Sprites are rows of `#` and `.` in
   [Sprites.flix](src/Invaders/Sprites.flix), collapsed into horizontal runs so that 55
   invaders and four bunkers cost about 1.1 ms a frame.
@@ -215,7 +215,7 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Testing
 
-236 tests, none of which open a window or an audio device — CI enforces that with a grep.
+239 tests, none of which open a window or an audio device — CI enforces that with a grep.
 
 | Area | Tests | What it pins down |
 | --- | --- | --- |
@@ -227,7 +227,7 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 | [TestContrast](test/TestContrast.flix) | 10 | WCAG contrast of every palette colour |
 | [TestRng](test/TestRng.flix) | 10 | determinism, range, distribution |
 | [TestCollide](test/TestCollide.flix) + [TestInput](test/TestInput.flix) | 18 | overlap convention, input edges |
-| [TestReplay](test/TestReplay.flix) | 8 | identical input replays to an identical world |
+| [TestReplay](test/TestReplay.flix) | 11 | identical input replays to an identical world *and* an identical soundtrack |
 | [TestDifficulty](test/TestDifficulty.flix) | 4 | the game is winnable and not trivial |
 
 ## Non-goals

@@ -107,19 +107,19 @@ mod Sketch {
     /// Opens one window and runs the simulation until it closes.
     ///
     /// `init` builds the starting world from `cfg`'s seed, `step` advances it by exactly one
-    /// logical tick, `view` describes what to draw, and `sounds` reports what the last tick
-    /// wanted heard. `init`, `step` and `sounds` are completely pure; `view` may use only
-    /// `Canvas`. None of them can reach `IO` -- that is the whole point of the boundary, and
-    /// it is enforced by these types rather than by convention.
+    /// logical tick, and `view` describes what to draw. `step` may use only `Sound` and
+    /// `view` only `Canvas`; neither can reach `IO`. That is the whole point of the
+    /// boundary, and it is enforced by these types rather than by convention.
+    ///
+    /// A step with nothing to play is lifted with `Sound.silent`.
     ///
     /// The simulation advances on a fixed timestep, so behaviour does not depend on frame
     /// rate or machine speed. That is what makes a recorded input script replay exactly.
     ///
     pub def start(cfg: Config,
                   init: (Int64 -> s),
-                  step: ((s, Snapshot) -> s),
-                  view: (s -> Unit \ Canvas),
-                  sounds: (s -> List[SoundCmd])
+                  step: ((s, Snapshot) -> s \ Sound),
+                  view: (s -> Unit \ Canvas)
     ): Unit \ IO = region rc {
 
         let stepNs = 1000000000i64 / Int32.toInt64(cfg#hz);
@@ -132,9 +132,6 @@ mod Sketch {
         let prevNs = Ref.fresh(rc, 0i64);
         let frames = Ref.fresh(rc, 0);
         let done = Ref.fresh(rc, false);
-        // Sounds are collected per *step*, not per frame: a frame may advance the simulation
-        // several times, and a shot fired in the first of them must still be heard.
-        let pending = Ref.fresh(rc, (Nil: List[SoundCmd]));
 
         // Opened once. An empty pool means the machine has no usable audio device, and every
         // Audio call then does nothing.
@@ -183,11 +180,8 @@ mod Sketch {
                                           mouseX = app.mouseX, mouseY = app.mouseY);
                 Ref.put(current, heldPrev);
 
-                advance(step, sounds, world, pending, accNs, stepNs, snapshot, maxCatchUpSteps());
-
-                // Clip.start() returns immediately, so this does not stall the frame.
-                Audio.playAll(voices, Ref.get(pending));
-                Ref.put(Nil, pending);
+                runWithClips(voices, () ->
+                    advance(step, world, accNs, stepNs, snapshot, maxCatchUpSteps()));
 
                 // Installed here, inside the callback, on purpose: handlers are stack-scoped
                 // and `draw` runs on Processing's Animation Thread, so a handler installed
@@ -232,6 +226,20 @@ mod Sketch {
     }
 
     ///
+    /// Interprets `Sound` by triggering clips.
+    ///
+    /// The counterpart to `Sound.runWithCollector`, and the only interpretation that needs a
+    /// device -- which is why it lives here rather than in `Sound`. `Clip.start()` returns
+    /// immediately, so a frame is never held up waiting for audio.
+    ///
+    def runWithClips(voices: Audio.Voices, f: Unit -> a \ ef): a \ (ef - Sound) + IO =
+        run {
+            f()
+        } with handler Sound {
+            def play(cmd, k) = { Audio.play(voices, cmd); k() }
+        }
+
+    ///
     /// Interprets `Canvas` by painting onto a live sketch.
     ///
     /// The counterpart to `Canvas.runWithCollector`, and the only interpretation that needs
@@ -257,21 +265,17 @@ mod Sketch {
     /// amount of simulated time, so the result depends only on the inputs -- never on how
     /// long the frame took.
     ///
-    def advance(step: ((s, Snapshot) -> s),
-                sounds: (s -> List[SoundCmd]),
+    def advance(step: ((s, Snapshot) -> s \ Sound),
                 world: Ref[s, r],
-                pending: Ref[List[SoundCmd], r],
                 accNs: Ref[Int64, r],
                 stepNs: Int64,
                 snapshot: Snapshot,
-                budget: Int32): Unit \ r =
+                budget: Int32): Unit \ Sound + r =
         if (budget <= 0 or Ref.get(accNs) < stepNs) ()
         else {
-            let next = step(Ref.get(world), snapshot);
-            Ref.put(next, world);
-            Ref.put(List.append(Ref.get(pending), sounds(next)), pending);
+            Ref.put(step(Ref.get(world), snapshot), world);
             Ref.put(Ref.get(accNs) - stepNs, accNs);
-            advance(step, sounds, world, pending, accNs, stepNs, snapshot, budget - 1)
+            advance(step, world, accNs, stepNs, snapshot, budget - 1)
         }
 
     ///

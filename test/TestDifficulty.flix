@@ -49,16 +49,19 @@ mod TestDifficulty {
         }
     }
 
-    def play(budget: Int32, w: World): World =
+    def playRaw(budget: Int32, w: World): World \ Sound =
         if (budget <= 0 or w#phase == Phase.Lost) w
-        else play(budget - 1, Game.step(w, aim(w)))
+        else playRaw(budget - 1, Game.step(w, aim(w)))
+
+    def play(budget: Int32, w: World): World =
+        Sound.runWithNoOp(() -> playRaw(budget, w))
 
     /// How long the formation takes to land if nothing shoots it and bombs are ignored.
     def descentTicks(): Int32 = {
         def loop(n, w) =
             if (n <= 0 or w#phase == Phase.Lost) n
             else loop(n - 1, Game.step({ lives = 99, bombs = Nil | w }, Input.empty()));
-        20000 - loop(20000, Game.initial(1i64))
+        20000 - Sound.runWithNoOp(() -> loop(20000, Game.initial(1i64)))
     }
 
     @Test

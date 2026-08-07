@@ -61,9 +61,8 @@ mod Still {
         Sketch.start(
             {title = "Static", width = 640, height = 480, seed = 0i64, hz = 60, maxFrames = limit, fontPath = None},
             _seed -> (),
-            (world, _snapshot) -> world,
-            _world -> scene(),
-            _world -> Nil)
+            Sound.silent((world, _snapshot) -> world),
+            _world -> scene())
     }
 
 }

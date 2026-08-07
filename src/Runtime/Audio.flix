@@ -179,10 +179,6 @@ mod Audio {
             case _: Exception => ()
         }
 
-    /// Plays a whole tick's worth of sounds.
-    pub def playAll(voices: Voices, cmds: List[SoundCmd]): Unit \ IO =
-        List.forEach(cmd -> play(voices, cmd), cmds)
-
     /// Releases every line. Safe to call when audio never opened.
     pub def close(voices: Voices): Unit \ IO =
         try {

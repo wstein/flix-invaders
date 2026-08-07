@@ -20,6 +20,5 @@ def main(): Unit \ IO = {
           fontPath = Some("assets/PressStart2P-Regular.ttf") },
         Game.initial,
         Game.step,
-        View.render,
-        w -> w#sounds)
+        View.render)
 }

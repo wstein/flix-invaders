@@ -28,7 +28,11 @@ mod TestReplay {
     def demoScript(n: Int32): List[Snapshot] = script(n, Rng.fromSeed(99i64))
 
     def play(w: World, inputs: List[Snapshot]): World =
-        List.foldLeft(Game.step, w, inputs)
+        Sound.runWithNoOp(() -> List.foldLeft(Game.step, w, inputs))
+
+    /// The same run, keeping what it played instead of discarding it.
+    def playedBy(w: World, inputs: List[Snapshot]): List[SoundCmd] =
+        Sound.played(() -> List.foldLeft(Game.step, w, inputs))
 
     @Test
     def testTheSameSeedAndScriptReplayIdentically(): Unit \ Assert = {
@@ -96,5 +100,32 @@ mod TestReplay {
         assertEq(expected = Canvas.commands((640, 480), () -> View.render(a)),
                  Canvas.commands((640, 480), () -> View.render(b)))
     }
+
+    @Test
+    def testTheSoundtrackReplaysIdentically(): Unit \ Assert = {
+        // Sounds used to live on the world and so were covered by the digest. Now that they
+        // are an effect, determinism of what is *heard* needs asserting directly -- and this
+        // is the stronger check, because it compares the whole ordered sequence.
+        let inputs = demoScript(600);
+        assertEq(expected = playedBy(Game.initial(42i64), inputs),
+                 playedBy(Game.initial(42i64), inputs))
+    }
+
+    @Test
+    def testADifferentSeedEventuallySoundsDifferent(): Unit \ Assert = {
+        // Needs a long run, and the reason is worth knowing: most of the soundtrack is
+        // decided by the *input*, not the generator. Shots, march notes and kills all follow
+        // from the script and the deterministic march. The generator only drives bomb drops,
+        // which are silent, and saucer timing -- and no saucer appears inside the first few
+        // hundred ticks. A 600-step comparison finds two identical soundtracks.
+        let inputs = demoScript(3000);
+        assertNeq(unexpected = playedBy(Game.initial(42i64), inputs),
+                  playedBy(Game.initial(43i64), inputs))
+    }
+
+    @Test
+    def testTheSoundtrackIsNotEmpty(): Unit \ Assert =
+        // Guards the two tests above from passing vacuously on two empty lists.
+        Assert.assertTrue(List.length(playedBy(Game.initial(42i64), demoScript(600))) > 10)
 
 }
