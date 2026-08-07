@@ -37,7 +37,7 @@ git clone https://github.com/wstein/flix-invaders
 cd flix-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 405 tests -- no window, no audio device, no filesystem
+bin/flix test      # 407 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
 bin/bench          # measure the demo bot over ten seeds
 bin/bench --recalc # search for better bot numbers and save them
@@ -258,13 +258,13 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 
 ## Testing
 
-405 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+407 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |
 | --- | --- | --- |
 | [TestGame](test/TestGame.flix) | 107 | every rule, hit boxes, levels, shield, bonus lives |
-| [TestSession](test/TestSession.flix) | 53 | screens, taking turns, typed initials |
+| [TestSession](test/TestSession.flix) | 55 | screens, taking turns, typed initials |
 | [TestAnimation](test/TestAnimation.flix) | 27 | elastic collisions; conservation of momentum and energy |
 | [TestBunkers](test/TestBunkers.flix) | 25 | damage, absorption, erosion, camping behind a drilled slit |
 | [TestSprites](test/TestSprites.flix) | 19 | run-length decomposition of the pixel art |

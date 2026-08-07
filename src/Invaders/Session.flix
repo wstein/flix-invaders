@@ -114,7 +114,7 @@ mod Session {
         let other =
             if (s#players < 2) 0
             else Vector.get(Int32.remainder(s#current + 1, Vector.length(s#worlds)), s#worlds)#score;
-        { player = s#current + 1, players = s#players, otherScore = other, ownEnding = false }
+        { player = s#current + 1, players = s#players, otherScore = other, ownGameOver = false }
     }
 
     /// The world whose turn it is.

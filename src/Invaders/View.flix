@@ -16,17 +16,21 @@
 ///
 /// What a single game needs to know about the machine around it.
 ///
-/// `ownEnding` is whether `View` should announce the end of the game itself. Standing alone
-/// it must -- there is nobody else to do it, and Enter really does start a new game. Inside
-/// the cabinet the session owns what happens next, so it draws its own and this is false;
-/// otherwise the screen carries two GAME OVERs and an invitation to press a key that the
-/// cabinet has already taken charge of.
+/// `ownGameOver` is whether `View` should announce the *end of the game* itself. Standing
+/// alone it must -- there is nobody else to do it, and Enter really does start a new game.
+/// Inside the cabinet the session owns what happens next, so it draws its own and this is
+/// false; otherwise the screen carries two GAME OVERs and an invitation to press a key that
+/// the cabinet has already taken charge of.
 ///
-pub type alias Cabinet = { player = Int32, players = Int32, otherScore = Int32, ownEnding = Bool }
+/// It says nothing about the banner between waves. That one belongs to the game either way --
+/// gating both on one flag is what made the level banner disappear from the cabinet and left
+/// a silent three-second pause where it used to be.
+///
+pub type alias Cabinet = { player = Int32, players = Int32, otherScore = Int32, ownGameOver = Bool }
 
 mod Cabinet {
     /// A single player with nobody to contrast against.
-    pub def solo(): Cabinet = { player = 1, players = 1, otherScore = 0, ownEnding = true }
+    pub def solo(): Cabinet = { player = 1, players = 1, otherScore = 0, ownGameOver = true }
 }
 
 mod View {
@@ -296,7 +300,7 @@ mod View {
         Int32.min(Rules.countdownSteps(), (pause + each - 1) / each)
     }
 
-    def drawEndMessage(w: World): Unit \ Canvas = match w#phase {
+    def drawEndMessage(w: World, c: Cabinet): Unit \ Canvas = match w#phase {
         case Phase.Playing => ()
         case Phase.Cleared => {
             let message = "LEVEL ${w#level + 1}";
@@ -314,7 +318,8 @@ mod View {
                 Canvas.text(digit, centredX(digit, countdownSize()), countdownY())
             }
         }
-        case Phase.Lost => banner("GAME OVER")
+        // ...but who announces the end of the *game* depends on what is around it.
+        case Phase.Lost => if (c#ownGameOver) banner("GAME OVER") else ()
     }
 
     def banner(message: String): Unit \ Canvas = {
@@ -346,7 +351,7 @@ mod View {
         drawBlasts(w);
         drawHud(w, c);
         drawCabinet(w, c);
-        if (c#ownEnding) drawEndMessage(w) else ()
+        drawEndMessage(w, c)
     }
 
 }

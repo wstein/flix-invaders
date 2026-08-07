@@ -400,6 +400,35 @@ mod TestSession {
     }
 
     @Test
+    def testTheLevelBannerSurvivesTheCabinet(): Unit \ Assert = {
+        // Through `Screens.render`, not `View.render`. `TestView` checks the banner via the
+        // latter, which uses a solo cabinet -- so when the cabinet started suppressing its own
+        // endings and took the between-waves banner with it, every test still passed and the
+        // game showed a silent three-second pause between levels.
+        let s = twoPlayer();
+        let cleared = { worlds = Vector.update(s#current,
+                            { phase = Phase.Cleared, pause = Rules.levelPauseTicks(), level = 2
+                            | Session.active(s) }, s#worlds) | s };
+        let shown = texts(cleared);
+        assertTrueWithMsg(List.memberOf("LEVEL 3", shown),
+            "the cabinet does not show which level is starting: ${shown}");
+        assertTrueWithMsg(List.memberOf("${Rules.countdownSteps()}", shown),
+            "the cabinet does not count the player in: ${shown}")
+    }
+
+    @Test
+    def testTheCabinetStillOwnsItsOwnGameOver(): Unit \ Assert = {
+        // The other half. A lost world inside the cabinet must not draw `View`'s ending, or
+        // the screen carries two GAME OVERs and an offer to press a key the cabinet handles.
+        let s = twoPlayer();
+        let lost = { worlds = Vector.update(s#current, { phase = Phase.Lost | Session.active(s) },
+                                            s#worlds) | s };
+        let shown = texts(lost);
+        assertTrueWithMsg(not List.exists(t -> String.contains(substr = "PLAY AGAIN", t), shown),
+            "the cabinet is offering View's restart hint: ${shown}")
+    }
+
+    @Test
     def testAGameEndsOnItsOwnScreen(): Unit \ Assert = {
         // Without a beat here, a player's game ended on one frame and whatever came next
         // started on the following one, so nobody ever saw how their own game finished.
