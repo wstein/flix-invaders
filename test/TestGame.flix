@@ -784,20 +784,30 @@ mod TestGame {
         // Counted against a frame with no shield at all, because `rectCount` sees the whole
         // scene and the invaders never go away.
         let bare = rectCount({ shield = 0 | start() });
-        let healthy = rectCount({ shield = Rules.shieldWarningTicks() + 40 | start() });
-        let thinning = rectCount({ shield = Rules.shieldWarningTicks() - 10 | start() });
+        assertTrueWithMsg(rectCount({ shield = Rules.shieldWarningTicks() + 40 | start() }) > bare,
+            "a live shield draws nothing");
 
-        assertTrueWithMsg(healthy > bare, "a live shield draws nothing");
-        assertTrueWithMsg(thinning < healthy and thinning > bare,
-            "the dome does not visibly thin: ${thinning} against ${healthy}, bare frame ${bare}");
-
-        // ...and in the last stretch what is left flashes, so some frames show no shield.
-        let critical = List.map(n -> rectCount({ shield = n | start() }),
-                                List.range(1, Rules.shieldCriticalTicks()));
-        assertTrueWithMsg(List.exists(count -> count == bare, critical),
+        // In the last stretch it flashes: some frames show the dome, some show none of it.
+        let dying = List.map(n -> rectCount({ shield = n | start() }),
+                             List.range(1, Rules.shieldWarningTicks()));
+        assertTrueWithMsg(List.exists(count -> count == bare, dying),
             "the dying shield never blanks a frame; the flash is invisible");
-        assertTrueWithMsg(List.exists(count -> count > bare, critical),
+        assertTrueWithMsg(List.exists(count -> count > bare, dying),
             "the dying shield is never drawn at all")
+    }
+
+    @Test
+    def testTheShieldIsNeverDrawnInPieces(): Unit \ Assert = {
+        // It is either up or it is not. Dimming alternate blocks to show it running low read
+        // on screen as a broken thing scattered above the cannon, so every frame that draws
+        // the dome at all draws the whole of it.
+        let whole = rectCount({ shield = Rules.shieldWarningTicks() + 40 | start() });
+        let bare = rectCount({ shield = 0 | start() });
+        let partial = List.range(1, Rules.shieldWarningTicks())
+            |> List.map(n -> rectCount({ shield = n | start() }))
+            |> List.filter(count -> count != bare and count != whole);
+        assertTrueWithMsg(List.isEmpty(partial),
+            "the shield was drawn half-complete on some frames: ${partial}")
     }
 
     // -- bonus lives -----------------------------------------------------------------

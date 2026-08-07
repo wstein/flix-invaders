@@ -316,14 +316,6 @@ mod Rules {
     pub def shieldWarningTicks(): Int32 = 150
 
     ///
-    /// When the shield stops merely thinning and starts flashing.
-    ///
-    /// Two stages, because one is not enough warning to act on: the dome loses alternate
-    /// blocks first, which you notice, and only flashes at the very end, which you cannot miss.
-    ///
-    pub def shieldCriticalTicks(): Int32 = 45
-
-    ///
     /// What the mystery ship is worth.
     ///
     /// The original's value depended on how many shots you had fired, which players
