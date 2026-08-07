@@ -247,13 +247,31 @@ mod Screens {
     }
 
     ///
+    /// The beat after a game ends, before anything replaces it.
+    ///
+    /// On the same dimmed panel as the title and the hand-over. It names the player in a
+    /// two-player game for the same reason the initials prompt does: two people finish one
+    /// after the other, and an unlabelled GAME OVER between them says nothing about whose.
+    ///
+    def gameOver(s: Session): Unit \ Canvas = {
+        View.renderWith(Session.active(s), Session.cabinet(s));
+        let whose =
+            if (s#players < 2) Nil
+            else caption("PLAYER ${s#current + 1}", View.hudSize(), Palette.invaderGreen()) :: Nil;
+        let captions = List.append(whose,
+            caption("GAME OVER", View.bannerSize(), Palette.ink()) :: Nil);
+        block(captions, View.bannerY() - View.bannerSize())
+    }
+
+    ///
     /// One frame of whatever the cabinet is showing.
     ///
     pub def render(s: Session, telemetry: Stats): Unit \ Canvas = {
         match s#screen {
             case Screen.Attract => attract(s)
             case Screen.Playing =>
-                if (s#handover > 0) handover(s)
+                if (s#over > 0) gameOver(s)
+                else if (s#handover > 0) handover(s)
                 else View.renderWith(Session.active(s), Session.cabinet(s))
             case Screen.Entering => entering(s)
             case Screen.Table => table(s)

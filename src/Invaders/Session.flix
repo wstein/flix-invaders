@@ -38,6 +38,7 @@ pub type alias Session = {
     tuning = Tuning,
     nerds = Bool,
     handover = Int32,
+    over = Int32,
     seed = Int64
 }
 
@@ -82,6 +83,7 @@ mod Session {
           tuning = tuning,
           nerds = false,
           handover = 0,
+          over = 0,
           seed = seed }
 
     /// Whether this player still has a game to play.
@@ -107,11 +109,12 @@ mod Session {
     }
 
     /// What the HUD needs to know about the other player.
+    /// The cabinet draws its own endings, so `View` must not draw one too.
     pub def cabinet(s: Session): Cabinet = {
         let other =
             if (s#players < 2) 0
             else Vector.get(Int32.remainder(s#current + 1, Vector.length(s#worlds)), s#worlds)#score;
-        { player = s#current + 1, players = s#players, otherScore = other }
+        { player = s#current + 1, players = s#players, otherScore = other, ownEnding = false }
     }
 
     /// The world whose turn it is.
@@ -196,9 +199,14 @@ mod Session {
     }
 
     def playing(input: Snapshot, s: Session): Session \ Sound = {
-        // Waiting for the next player to be ready. The game is frozen -- their first life must
-        // not start while they are still reading the last player's score.
-        if (s#handover > 0) checked_ecast({ handover = s#handover - 1 | s })
+        // Holding GAME OVER for the player whose game just ended. Nothing moves, and the
+        // hand-over does not begin until it has run: switching players first would put the
+        // incoming player's field behind the outgoing player's ending.
+        if (s#over > 0) {
+            let counted = { over = s#over - 1 | s };
+            checked_ecast(if (counted#over > 0) counted else afterGameOver(counted))
+        }
+        else if (s#handover > 0) checked_ecast({ handover = s#handover - 1 | s })
         else if (allDone(s)) finish(s)
         else {
             let stepped = Game.step(active(s), input);
@@ -213,11 +221,19 @@ mod Session {
             // keeps both players watching and neither able to hold a run together, and this
             // way round trades the second for the first.
             if (stepped#phase != Phase.Lost) advanced
-            else match nextPlayer(s#current, advanced) {
-                case Some(next) => { current = next, handover = Rules.handoverTicks() | advanced }
-                case None => advanced   // nobody left; the game-over screen holds
-            }
+            else { over = Rules.gameOverTicks() | advanced }
         }
+    }
+
+    ///
+    /// What follows the GAME OVER beat: the next player, or the end of the session.
+    ///
+    /// With nobody left this returns the session untouched and `allDone` picks it up on the
+    /// following tick, which is where the score table and the initials prompt are decided.
+    ///
+    def afterGameOver(s: Session): Session = match nextPlayer(s#current, s) {
+        case Some(next) => { current = next, handover = Rules.handoverTicks() | s }
+        case None => s
     }
 
     ///

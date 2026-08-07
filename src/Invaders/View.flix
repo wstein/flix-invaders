@@ -13,11 +13,20 @@
 /// bit of cabinet context the HUD needs in order to fill in the other score and show whose
 /// turn it is.
 ///
-pub type alias Cabinet = { player = Int32, players = Int32, otherScore = Int32 }
+///
+/// What a single game needs to know about the machine around it.
+///
+/// `ownEnding` is whether `View` should announce the end of the game itself. Standing alone
+/// it must -- there is nobody else to do it, and Enter really does start a new game. Inside
+/// the cabinet the session owns what happens next, so it draws its own and this is false;
+/// otherwise the screen carries two GAME OVERs and an invitation to press a key that the
+/// cabinet has already taken charge of.
+///
+pub type alias Cabinet = { player = Int32, players = Int32, otherScore = Int32, ownEnding = Bool }
 
 mod Cabinet {
     /// A single player with nobody to contrast against.
-    pub def solo(): Cabinet = { player = 1, players = 1, otherScore = 0 }
+    pub def solo(): Cabinet = { player = 1, players = 1, otherScore = 0, ownEnding = true }
 }
 
 mod View {
@@ -337,7 +346,7 @@ mod View {
         drawBlasts(w);
         drawHud(w, c);
         drawCabinet(w, c);
-        drawEndMessage(w)
+        if (c#ownEnding) drawEndMessage(w) else ()
     }
 
 }

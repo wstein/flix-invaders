@@ -209,7 +209,9 @@ mod TestSession {
         let s = twoPlayer();
         let onLastLife = { worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) },
                                                   s#worlds) | s };
-        let after = ticks(Rules.deathPauseTicks() + 3, aboutToDie(onLastLife), Input.empty());
+        // Past the death pause *and* the GAME OVER beat, which now comes between the two.
+        let after = ticks(Rules.deathPauseTicks() + Rules.gameOverTicks() + 3,
+                          aboutToDie(onLastLife), Input.empty());
         assertEq(expected = 1, after#current)
     }
 
@@ -398,13 +400,53 @@ mod TestSession {
     }
 
     @Test
+    def testAGameEndsOnItsOwnScreen(): Unit \ Assert = {
+        // Without a beat here, a player's game ended on one frame and whatever came next
+        // started on the following one, so nobody ever saw how their own game finished.
+        let s = twoPlayer();
+        let onLastLife = { worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) },
+                                                  s#worlds) | s };
+        let ended = ticks(Rules.deathPauseTicks() + 2, aboutToDie(onLastLife), Input.empty());
+        assertTrueWithMsg(ended#over > 0, "the game ended without a GAME OVER screen");
+        assertTrueWithMsg(List.memberOf("GAME OVER", texts(ended)),
+            "the game-over screen does not say so: ${texts(ended)}");
+
+        // It belongs to the player who just lost, not the one about to start.
+        assertEq(expected = 0, ended#current);
+        assertEq(expected = 0, ended#handover)
+    }
+
+    @Test
+    def testNothingMovesWhileTheEndingIsOnScreen(): Unit \ Assert = {
+        let waiting = { over = Rules.gameOverTicks(), screen = Screen.Playing | twoPlayer() };
+        let before = Session.active(waiting)#tick;
+        let later = ticks(30, waiting, Input.holding(Key.Space :: Key.Enter :: Nil));
+        assertEq(expected = before, Session.active(later)#tick);
+        assertEq(expected = Rules.gameOverTicks() - 30, later#over)
+    }
+
+    @Test
+    def testTheEndingIsAnnouncedOnlyOnce(): Unit \ Assert = {
+        // `View` announces the end of a game when it stands alone, because there is nobody
+        // else to do it. In the cabinet the session draws its own, and both drawing it put
+        // two GAME OVERs on the screen with an invitation to press a key the cabinet had
+        // already taken charge of.
+        let waiting = { over = Rules.gameOverTicks(), screen = Screen.Playing | twoPlayer() };
+        let shown = texts(waiting);
+        assertEq(expected = 1, List.count(t -> t == "GAME OVER", shown));
+        assertTrueWithMsg(not List.exists(t -> String.contains(substr = "PLAY AGAIN", t), shown),
+            "the cabinet is telling the player to press enter to play again: ${shown}")
+    }
+
+    @Test
     def testPlayerTwoGetsABeatBeforeTheirGameStarts(): Unit \ Assert = {
         // Handing straight over meant player two's first life began while they were still
         // reading player one's score.
         let s = twoPlayer();
         let onLastLife = { worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) },
                                                   s#worlds) | s };
-        let handedOver = ticks(Rules.deathPauseTicks() + 3, aboutToDie(onLastLife), Input.empty());
+        let handedOver = ticks(Rules.deathPauseTicks() + Rules.gameOverTicks() + 3,
+                               aboutToDie(onLastLife), Input.empty());
         assertEq(expected = 1, handedOver#current);
         assertTrueWithMsg(handedOver#handover > 0,
             "player two's game started the instant player one's ended")

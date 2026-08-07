@@ -291,6 +291,15 @@ mod Rules {
     ///
     pub def handoverTicks(): Int32 = countdownSteps() * ticksPerSecond()
 
+    ///
+    /// How long GAME OVER is held before the cabinet moves on.
+    ///
+    /// Long enough to read and take in, short enough not to be waiting for it. Without a beat
+    /// here a player's game ended on one frame and the next player's count started on the
+    /// next, so nobody ever saw how their own game finished.
+    ///
+    pub def gameOverTicks(): Int32 = 2 * ticksPerSecond()
+
     // -- the mystery ship -------------------------------------------------------------
 
     /// The saucer is stretched horizontally: three times the width, unchanged height.
