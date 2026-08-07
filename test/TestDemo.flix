@@ -39,12 +39,16 @@ mod TestDemo {
     // -- the shaky bot ----------------------------------------------------------------
 
     /// The inputs the imperfect bot produces over `n` ticks of a fixed world.
-    def shaky(n: Int32, w: World, hand: Hand): List[Snapshot] =
-        if (n <= 0) Nil
-        else {
-            let (snapshot, next) = Demo.imperfect(Demo.defaults(), w, hand);
-            snapshot :: shaky(n - 1, w, next)
-        }
+    /// Accumulated rather than consed onto the recursive call -- see `TestReplay.script`.
+    def shaky(n: Int32, w: World, hand: Hand): List[Snapshot] = {
+        def loop(remaining, h, acc) =
+            if (remaining <= 0) List.reverse(acc)
+            else {
+                let (snapshot, next) = Demo.imperfect(Demo.defaults(), w, h);
+                loop(remaining - 1, next, snapshot :: acc)
+            };
+        loop(n, hand, Nil)
+    }
 
     @Test
     def testTheShakyBotIsDeterministicGivenItsGenerator(): Unit \ Assert = {

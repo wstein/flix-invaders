@@ -11,19 +11,30 @@ mod TestReplay {
     /// into `Game.step`, these tests would stop compiling rather than start flaking.
     ///
 
+    ///
     /// Builds a deterministic input script -- a stand-in for a recorded play session.
-    def script(n: Int32, rng: Rng): List[Snapshot] =
-        if (n <= 0) Nil
-        else {
-            let (choice, next) = Rng.nextInt32Below(5, rng);
-            let keys =
-                if (choice == 0) Key.Left :: Nil
-                else if (choice == 1) Key.Right :: Nil
-                else if (choice == 2) Key.Space :: Nil
-                else if (choice == 3) Key.Left :: Key.Space :: Nil
-                else Nil;
-            Input.holding(keys) :: script(n - 1, next)
-        }
+    ///
+    /// Accumulated and reversed rather than consed onto the recursive call. Consing afterwards
+    /// puts the `::` outside the call, so it is not a tail call and every element costs a stack
+    /// frame: a four-thousand-tick script overflowed on CI's Linux runner while passing on a
+    /// macOS machine with a larger default stack. The lengths here are chosen by what the test
+    /// needs to prove, so they must not be limited by how the list is built.
+    ///
+    def script(n: Int32, rng: Rng): List[Snapshot] = {
+        def loop(remaining, generator, acc) =
+            if (remaining <= 0) List.reverse(acc)
+            else {
+                let (choice, next) = Rng.nextInt32Below(5, generator);
+                let keys =
+                    if (choice == 0) Key.Left :: Nil
+                    else if (choice == 1) Key.Right :: Nil
+                    else if (choice == 2) Key.Space :: Nil
+                    else if (choice == 3) Key.Left :: Key.Space :: Nil
+                    else Nil;
+                loop(remaining - 1, next, Input.holding(keys) :: acc)
+            };
+        loop(n, rng, Nil)
+    }
 
     def demoScript(n: Int32): List[Snapshot] = script(n, Rng.fromSeed(99i64))
 
