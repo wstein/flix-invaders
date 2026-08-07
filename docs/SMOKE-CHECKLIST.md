@@ -35,6 +35,8 @@ Steps 4 to 17 apply to `invaders`; the rest apply to all three.
 | 11 | The demo is competent | Over a minute or two it dodges bombs, shoots the saucer, and reaches roughly level four before losing |
 | 12 | `1` starts one player | One game, one score in the HUD |
 | 13 | `2` starts two players | Two scores in the HUD; losing a cannon costs a life and play continues, and only running out of lives hands over to player two |
+| 13a | The hand-over | Player one's last life is followed by PLAYER 2 / GET READY and a 3, 2, 1; the controls do nothing until it finishes |
+| 14a | The initials prompt | The field behind it is the game that just ended, with that player's score in the HUD — not the attract demo's |
 | 14 | Initials | A qualifying score asks for three letters; typing fills them, backspace deletes, enter accepts |
 | 15 | The table | The new entry appears in the right place in the high-score list |
 | 16 | Scores persist | Quit, run again: the table is still there, and the HUD's HI reflects it |

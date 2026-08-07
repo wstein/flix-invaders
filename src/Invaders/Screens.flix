@@ -212,12 +212,42 @@ mod Screens {
     }
 
     ///
+    /// The beat between one player's game ending and the next player's starting.
+    ///
+    /// Their own fresh field is already behind it, so what they are about to play is visible
+    /// while they get a hand back on the controls. Same position and same count as the pause
+    /// between waves -- it is the same idea, and two different countdowns would be two things
+    /// to learn.
+    ///
+    def handover(s: Session): Unit \ Canvas = {
+        View.renderWith(Session.active(s), Session.cabinet(s));
+        let who = "PLAYER ${s#current + 1}";
+        let ready = "GET READY";
+        Canvas.fill(Palette.ink());
+        Canvas.textSize(View.bannerSize());
+        Canvas.text(who, View.centredX(who, View.bannerSize()), View.bannerY());
+        Canvas.fill(Palette.invaderCyan());
+        Canvas.textSize(View.hudSize());
+        Canvas.text(ready, View.centredX(ready, View.hudSize()), View.bannerY() + 22.0f32);
+        let count = View.countdown(s#handover);
+        if (count <= 0) ()
+        else {
+            let digit = "${count}";
+            Canvas.fill(Palette.sun());
+            Canvas.textSize(View.countdownSize());
+            Canvas.text(digit, View.centredX(digit, View.countdownSize()), View.countdownY())
+        }
+    }
+
+    ///
     /// One frame of whatever the cabinet is showing.
     ///
     pub def render(s: Session, telemetry: Stats): Unit \ Canvas = {
         match s#screen {
             case Screen.Attract => attract(s)
-            case Screen.Playing => View.renderWith(Session.active(s), Session.cabinet(s))
+            case Screen.Playing =>
+                if (s#handover > 0) handover(s)
+                else View.renderWith(Session.active(s), Session.cabinet(s))
             case Screen.Entering => entering(s)
             case Screen.Table => table(s)
         };

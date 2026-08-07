@@ -28,6 +28,7 @@ pub type alias Session = {
     demoHand = Hand,
     tuning = Tuning,
     nerds = Bool,
+    handover = Int32,
     seed = Int64
 }
 
@@ -71,6 +72,7 @@ mod Session {
           demoHand = Demo.fresh(demoSeed(seed)),
           tuning = tuning,
           nerds = false,
+          handover = 0,
           seed = seed }
 
     /// Whether this player still has a game to play.
@@ -183,7 +185,10 @@ mod Session {
     }
 
     def playing(input: Snapshot, s: Session): Session \ Sound = {
-        if (allDone(s)) finish(s)
+        // Waiting for the next player to be ready. The game is frozen -- their first life must
+        // not start while they are still reading the last player's score.
+        if (s#handover > 0) checked_ecast({ handover = s#handover - 1 | s })
+        else if (allDone(s)) finish(s)
         else {
             let stepped = Game.step(active(s), input);
             let worlds = Vector.update(s#current, stepped, s#worlds);
@@ -198,7 +203,7 @@ mod Session {
             // way round trades the second for the first.
             if (stepped#phase != Phase.Lost) advanced
             else match nextPlayer(s#current, advanced) {
-                case Some(next) => { current = next | advanced }
+                case Some(next) => { current = next, handover = Rules.handoverTicks() | advanced }
                 case None => advanced   // nobody left; the game-over screen holds
             }
         }

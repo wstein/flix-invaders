@@ -269,6 +269,16 @@ mod Rules {
     ///
     pub def levelPauseTicks(): Int32 = countdownSteps() * ticksPerSecond()
 
+    ///
+    /// The beat between one player's game ending and the next player's starting.
+    ///
+    /// The same length and the same count as the pause between waves, because it is the same
+    /// idea: a moment to notice what happened and get a hand back on the controls. Handing
+    /// straight over meant the incoming player's first life began while they were still
+    /// reading the last one's score.
+    ///
+    pub def handoverTicks(): Int32 = countdownSteps() * ticksPerSecond()
+
     // -- the mystery ship -------------------------------------------------------------
 
     /// The saucer is stretched horizontally: three times the width, unchanged height.

@@ -274,7 +274,7 @@ mod View {
     pub def bannerY(): Float32 = 140.0f32
     def bannerHintY(): Float32 = 168.0f32
     pub def countdownY(): Float32 = 182.0f32
-    def countdownSize(): Float32 = 30.0f32
+    pub def countdownSize(): Float32 = 30.0f32
 
     ///
     /// Which number the countdown is showing, given how much of the pause is left.

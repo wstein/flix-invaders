@@ -397,6 +397,43 @@ mod TestSession {
     }
 
     @Test
+    def testPlayerTwoGetsABeatBeforeTheirGameStarts(): Unit \ Assert = {
+        // Handing straight over meant player two's first life began while they were still
+        // reading player one's score.
+        let s = twoPlayer();
+        let onLastLife = { worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) },
+                                                  s#worlds) | s };
+        let handedOver = ticks(Rules.deathPauseTicks() + 3, aboutToDie(onLastLife), Input.empty());
+        assertEq(expected = 1, handedOver#current);
+        assertTrueWithMsg(handedOver#handover > 0,
+            "player two's game started the instant player one's ended")
+    }
+
+    @Test
+    def testTheGameIsFrozenWhileTheNextPlayerGetsReady(): Unit \ Assert = {
+        // Whatever they do with the controls during the count must not reach the game.
+        let waiting = { handover = Rules.handoverTicks(), screen = Screen.Playing | twoPlayer() };
+        let before = Session.active(waiting)#tick;
+        let later = ticks(30, waiting, Input.holding(Key.Space :: Key.Left :: Nil));
+        assertEq(expected = before, Session.active(later)#tick);
+        assertEq(expected = Rules.handoverTicks() - 30, later#handover)
+    }
+
+    @Test
+    def testTheCountdownRunsThenPlayBegins(): Unit \ Assert = {
+        let waiting = { handover = Rules.handoverTicks(), current = 1,
+                        screen = Screen.Playing | twoPlayer() };
+        let shown = texts(waiting);
+        assertTrueWithMsg(List.memberOf("PLAYER 2", shown), "the incoming player is not named: ${shown}");
+        assertTrueWithMsg(List.memberOf("${Rules.countdownSteps()}", shown),
+            "no countdown on the hand-over screen: ${shown}");
+        // ...and once it runs out the game is live again.
+        let live = ticks(Rules.handoverTicks() + 2, waiting, Input.empty());
+        assertEq(expected = 0, live#handover);
+        assertTrue(Session.active(live)#tick > Session.active(waiting)#tick)
+    }
+
+    @Test
     def testTheInitialsPromptShowsThePlayersGameNotTheDemo(): Unit \ Assert = {
         // Reported from a screenshot: the HUD read 0090 while the banner above it announced a
         // new high score in the thousands. Both numbers were real -- the banner was the
