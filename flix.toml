@@ -1,5 +1,5 @@
 [package]
-name        = "flix-proc-invaders"
+name        = "flix-invaders"
 description = "A Flix creative-coding pilot using Processing Core."
 version     = "0.1.0"
 flix        = "0.75.1"
