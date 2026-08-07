@@ -75,12 +75,17 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y xvfb
 
       - name: Check the jar runs
+        env:
+          # Set here rather than wrapped in `env` on the command line: `xvfb-run` takes the
+          # rest of the line as the program to run, and an `env` in front of it is enough to
+          # stop the frame limit reaching the game -- which then plays until the job times out.
+          FLIX_SKETCH_MAX_FRAMES: 120
         run: |
           # Headless, bounded, and against Processing as a separate jar -- which is how it
           # is meant to be run and what THIRD-PARTY.md commits to.
           core=$(find lib -name 'processing-core*.jar' | head -1)
-          xvfb-run -a env FLIX_SKETCH_MAX_FRAMES=120 \
-            java -cp "artifact/flix-invaders.jar:$core" Main
+          # A hang has to fail rather than run the job to its limit.
+          timeout 180 xvfb-run -a java -cp "artifact/flix-invaders.jar:$core" Main
           echo "the jar opened a window, drew 120 frames and exited cleanly"
 
       - name: Stamp the launcher
