@@ -49,9 +49,11 @@ jobs:
         run: |
           rm -rf build artifact
           bin/flix build-jar
-          # Flix names the artifact after the directory rather than the package.
+          # Flix names the artifact after the checkout directory rather than the package, so
+          # this depends on what the clone is called: on a runner it is already right, in a
+          # working copy named anything else it is not.
           built=$(ls artifact/*.jar | head -1)
-          mv "$built" artifact/flix-invaders.jar
+          [ "$built" = "artifact/flix-invaders.jar" ] || mv "$built" artifact/flix-invaders.jar
           # Flix compiles test/ as part of the project, so the artifact arrives carrying a
           # compiled copy of the whole suite -- half its size and none of its purpose.
           zip -q -d artifact/flix-invaders.jar 'Test*' || true
