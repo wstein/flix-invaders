@@ -183,7 +183,24 @@ mod Rules {
     ///
     /// A single block per hit looks like a pinprick; a small crater reads as damage.
     ///
-    pub def blastRadius(): Float32 = 6.0f32
+    ///
+    /// The crater the cannon's own shot leaves in a bunker.
+    ///
+    /// Narrow on purpose -- narrower than a bomb is wide. That is what makes the arcade's
+    /// oldest trick work: drill a slit through your shelter, then stand in it and shoot out
+    /// while their bombs still break on the blocks either side. A wider crater cannot do it,
+    /// because the hole you make is then a hole they can drop through.
+    ///
+    pub def bulletCrater(): Float32 = 2.0f32
+
+    ///
+    /// The crater an invader's bomb leaves.
+    ///
+    /// Much bigger, and deliberately not symmetric with the cannon's. The enemy erodes your
+    /// shelter faster than you can carve it, so camping is a tactic with a clock on it rather
+    /// than a place to live.
+    ///
+    pub def bombCrater(): Float32 = 6.0f32
 
     /// The formation's speed on level 1 with every invader still alive.
     pub def baseMarchSpeed(): Float32 = 0.65f32

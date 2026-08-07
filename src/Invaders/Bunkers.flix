@@ -186,7 +186,7 @@ mod Bunkers {
     /// shot is removed by the caller, which is what makes a bunker actually protect the
     /// player rather than merely look like it does.
     ///
-    pub def absorb(bunkers: Vector[Bunker], pos: Vec2, size: Vec2): (Vector[Bunker], Bool) = {
+    pub def absorb(bunkers: Vector[Bunker], pos: Vec2, size: Vec2, crater: Float32): (Vector[Bunker], Bool) = {
         def loop(i, acc) =
             if (i >= Vector.length(acc)) (acc, false)
             else {
@@ -197,7 +197,7 @@ mod Bunkers {
                         // The crater is centred on the block that was struck, so an absorbed
                         // shot always destroys at least that block.
                         let at = cellCentre(bunker, index);
-                        (Vector.update(i, damage(bunker, at, Rules.blastRadius()), acc), true)
+                        (Vector.update(i, damage(bunker, at, crater), acc), true)
                     }
                 }
             };
@@ -209,11 +209,11 @@ mod Bunkers {
     ///
     /// Returns the damaged bunkers and the shots that got through.
     ///
-    pub def absorbAll(bunkers: Vector[Bunker], shots: List[Vec2], size: Vec2): (Vector[Bunker], List[Vec2]) = {
+    pub def absorbAll(bunkers: Vector[Bunker], shots: List[Vec2], size: Vec2, crater: Float32): (Vector[Bunker], List[Vec2]) = {
         def loop(remainingShots, acc, kept) = match remainingShots {
             case Nil => (acc, List.reverse(kept))
             case shot :: rest => {
-                let (damaged, wasHit) = absorb(acc, shot, size);
+                let (damaged, wasHit) = absorb(acc, shot, size, crater);
                 loop(rest, damaged, if (wasHit) kept else shot :: kept)
             }
         };

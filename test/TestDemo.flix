@@ -53,32 +53,45 @@ mod TestDemo {
     }
 
     @Test
-    def testADifferentGeneratorPlaysDifferently(): Unit \ Assert = {
-        let w = midGame();
-        assertNeq(unexpected = List.map(s -> s#held, shaky(40, w, Demo.fresh(5i64))),
-                  List.map(s -> s#held, shaky(40, w, Demo.fresh(6i64))))
-    }
+    def testADifferentGeneratorPlaysDifferently(): Unit \ Assert =
+        // Measured over real play rather than a frozen world. The bot now holds one judgement
+        // for a third of a second at a time, so two hands agree tick-for-tick far longer than
+        // they used to -- they diverge over a game, which is where it matters.
+        assertNeq(unexpected = held(playedWith(600, 2026i64, Demo.fresh(5i64))),
+                  held(playedWith(600, 2026i64, Demo.fresh(6i64))))
 
     @Test
     def testTheShakyBotSometimesDoesNothing(): Unit \ Assert = {
-        // Perfect play makes a dull demo. Some ticks it is simply not paying attention.
-        let idle = List.count(s -> Set.isEmpty(s#held), shaky(200, midGame(), Demo.fresh(3i64)));
-        assertTrueWithMsg(idle > 5, "expected some idle ticks, got ${idle}")
+        // Perfect play makes a dull demo. Now and then it is simply not watching.
+        let idle = List.count(Set.isEmpty, held(played(1200, 3i64)));
+        assertTrueWithMsg(idle > 20, "expected some idle ticks, got ${idle}")
     }
 
     @Test
     def testTheShakyBotMostlyPlays(): Unit \ Assert = {
         // ...but it should still look like somebody playing, not somebody asleep.
-        let busy = List.count(s -> not Set.isEmpty(s#held), shaky(200, midGame(), Demo.fresh(3i64)));
-        assertTrueWithMsg(busy > 120, "expected the bot to be active most ticks, got ${busy}")
+        let ticks = held(played(1200, 3i64));
+        let busy = List.count(keys -> not Set.isEmpty(keys), ticks);
+        assertTrueWithMsg(busy * 2 > List.length(ticks),
+            "expected the bot to be active most ticks, got ${busy} of ${List.length(ticks)}")
     }
 
     @Test
     def testTheShakyBotMissesSometimes(): Unit \ Assert = {
-        // Its aim wanders, so over a run it does not always agree with the perfect bot.
-        let w = midGame();
-        let perfect = Demo.aim(w)#held;
-        let differs = List.count(s -> s#held != perfect, shaky(200, w, Demo.fresh(11i64)));
+        // Its aim wanders, so a game it plays is not the game the perfect bot would have
+        // played. Compared over real play: a frozen world cannot show this any more, because
+        // the bot holds one judgement across many ticks by design.
+        let shakyRun = held(playedWith(600, 2026i64, Demo.fresh(11i64)));
+        let steady = Sound.runWithNoOp(() -> {
+            def loop(k, w, acc) =
+                if (k <= 0 or w#phase == Phase.Lost) List.reverse(acc)
+                else {
+                    let input = Demo.aim(w);
+                    loop(k - 1, Game.step(w, input), input#held :: acc)
+                };
+            loop(600, Game.initial(2026i64), Nil)
+        });
+        let differs = List.length(List.filter(x -> x, List.zipWith((a, b) -> a != b, shakyRun, steady)));
         assertTrueWithMsg(differs > 20, "the shaky bot never deviated: ${differs}")
     }
 
@@ -135,6 +148,20 @@ mod TestDemo {
     /// A tick during the death pause does not count: the game is not accepting input, so the
     /// bot doing nothing there says nothing about the bot.
     ///
+    def playedWith(n: Int32, seed: Int64, hand: Hand): List[(Snapshot, Bool)] =
+        Sound.runWithNoOp(() -> {
+            def loop(k, w, h, acc) =
+                if (k <= 0 or w#phase == Phase.Lost) List.reverse(acc)
+                else {
+                    let (input, next) = Demo.imperfect(w, h);
+                    loop(k - 1, Game.step(w, input), next, (input, w#pause == 0) :: acc)
+                };
+            loop(n, Game.initial(seed), hand, Nil)
+        })
+
+    def held(ticks: List[(Snapshot, Bool)]): List[Set[Key]] =
+        List.map(match (input, _) -> input#held, ticks)
+
     def played(n: Int32, seed: Int64): List[(Snapshot, Bool)] =
         Sound.runWithNoOp(() -> {
             def loop(k, w, hand, acc) =

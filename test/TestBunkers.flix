@@ -4,6 +4,7 @@ mod TestBunkers {
     use Assert.assertTrue
     use Assert.assertFalse
     use Assert.assertTrueWithMsg
+    use Assert.assertFalseWithMsg
 
     def first(): Bunker = Vector.get(0, Bunkers.initial())
 
@@ -50,20 +51,20 @@ mod TestBunkers {
 
     @Test
     def testAShotThatHitsIsAbsorbed(): Unit \ Assert = {
-        let (_, hit) = Bunkers.absorb(Bunkers.initial(), solidSpot(), Rules.bulletSize());
+        let (_, hit) = Bunkers.absorb(Bunkers.initial(), solidSpot(), Rules.bulletSize(), Rules.bulletCrater());
         assertTrue(hit)
     }
 
     @Test
     def testAShotThatHitsDestroysBlocks(): Unit \ Assert = {
-        let (damaged, _) = Bunkers.absorb(Bunkers.initial(), solidSpot(), Rules.bulletSize());
+        let (damaged, _) = Bunkers.absorb(Bunkers.initial(), solidSpot(), Rules.bulletSize(), Rules.bulletCrater());
         assertTrue(Bunkers.totalRemaining(damaged) < Bunkers.totalRemaining(Bunkers.initial()))
     }
 
     @Test
     def testAShotThatMissesChangesNothing(): Unit \ Assert = {
         let far = { x = 5.0f32, y = 5.0f32 };
-        let (untouched, hit) = Bunkers.absorb(Bunkers.initial(), far, Rules.bulletSize());
+        let (untouched, hit) = Bunkers.absorb(Bunkers.initial(), far, Rules.bulletSize(), Rules.bulletCrater());
         assertFalse(hit);
         assertEq(expected = Bunkers.totalRemaining(Bunkers.initial()), Bunkers.totalRemaining(untouched))
     }
@@ -72,7 +73,7 @@ mod TestBunkers {
     def testDamageIsLocal(): Unit \ Assert = {
         // A hit on one bunker must not touch the others, and must leave most of its own
         // bunker standing -- a blast radius bug would show up as the whole thing vanishing.
-        let (damaged, _) = Bunkers.absorb(Bunkers.initial(), solidSpot(), Rules.bulletSize());
+        let (damaged, _) = Bunkers.absorb(Bunkers.initial(), solidSpot(), Rules.bulletSize(), Rules.bulletCrater());
         assertEq(expected = Bunkers.remaining(Vector.get(1, Bunkers.initial())),
                  Bunkers.remaining(Vector.get(1, damaged)));
         assertTrue(Bunkers.remaining(Vector.get(0, damaged)) > Bunkers.remaining(first()) / 2)
@@ -84,19 +85,19 @@ mod TestBunkers {
         def hammer(n, bunkers) =
             if (n <= 0) bunkers
             else {
-                let (damaged, _) = Bunkers.absorb(bunkers, solidSpot(), Rules.bulletSize());
+                let (damaged, _) = Bunkers.absorb(bunkers, solidSpot(), Rules.bulletSize(), Rules.bulletCrater());
                 hammer(n - 1, damaged)
             };
         let worn = hammer(20, Bunkers.initial());
-        let (_, stillHits) = Bunkers.absorb(worn, solidSpot(), Rules.bulletSize());
+        let (_, stillHits) = Bunkers.absorb(worn, solidSpot(), Rules.bulletSize(), Rules.bulletCrater());
         assertFalse(stillHits)
     }
 
     @Test
     def testDamageNeverRepairsItself(): Unit \ Assert = {
-        let (once, _) = Bunkers.absorb(Bunkers.initial(), solidSpot(), Rules.bulletSize());
+        let (once, _) = Bunkers.absorb(Bunkers.initial(), solidSpot(), Rules.bulletSize(), Rules.bulletCrater());
         let elsewhere = { x = solidSpot()#x + 24.0f32, y = solidSpot()#y };
-        let (twice, _) = Bunkers.absorb(once, elsewhere, Rules.bulletSize());
+        let (twice, _) = Bunkers.absorb(once, elsewhere, Rules.bulletSize(), Rules.bulletCrater());
         assertTrue(Bunkers.totalRemaining(twice) <= Bunkers.totalRemaining(once))
     }
 
@@ -104,7 +105,7 @@ mod TestBunkers {
     def testAbsorbAllKeepsOnlyTheShotsThatGotThrough(): Unit \ Assert = {
         let hits = solidSpot();
         let misses = { x = 5.0f32, y = 5.0f32 };
-        let (_, survivors) = Bunkers.absorbAll(Bunkers.initial(), hits :: misses :: Nil, Rules.bulletSize());
+        let (_, survivors) = Bunkers.absorbAll(Bunkers.initial(), hits :: misses :: Nil, Rules.bulletSize(), Rules.bulletCrater());
         assertEq(expected = 1, List.length(survivors));
         assertEq(expected = misses#x :: Nil, List.map(shot -> shot#x, survivors))
     }
@@ -194,7 +195,7 @@ mod TestBunkers {
             let (_, _, length) = segment;
             total + length
         }, 0, Bunkers.runs(bunker));
-        let (damaged, _) = Bunkers.absorb(Bunkers.initial(), solidSpot(), Rules.bulletSize());
+        let (damaged, _) = Bunkers.absorb(Bunkers.initial(), solidSpot(), Rules.bulletSize(), Rules.bulletCrater());
         Vector.forEach(bunker ->
             assertEq(expected = Bunkers.remaining(bunker), covered(bunker)), damaged)
     }
@@ -212,7 +213,7 @@ mod TestBunkers {
             else if (ix > 52) sweep(-2, iy + 2)
             else {
                 let at = { x = b#origin#x + Int32.toFloat32(ix), y = b#origin#y + Int32.toFloat32(iy) };
-                let (after, hit) = Bunkers.absorb(bunkers, at, Rules.bulletSize());
+                let (after, hit) = Bunkers.absorb(bunkers, at, Rules.bulletSize(), Rules.bulletCrater());
                 if (hit)
                     assertTrueWithMsg(Bunkers.totalRemaining(after) < Bunkers.totalRemaining(bunkers),
                         "a shot at (${at#x}, ${at#y}) was absorbed but destroyed nothing")
@@ -232,7 +233,7 @@ mod TestBunkers {
             else if (ix > 52) sweep(-2, iy + 2)
             else {
                 let at = { x = b#origin#x + Int32.toFloat32(ix), y = b#origin#y + Int32.toFloat32(iy) };
-                let (after, hit) = Bunkers.absorb(bunkers, at, Rules.bombSize());
+                let (after, hit) = Bunkers.absorb(bunkers, at, Rules.bombSize(), Rules.bombCrater());
                 if (hit)
                     assertTrueWithMsg(Bunkers.totalRemaining(after) < Bunkers.totalRemaining(bunkers),
                         "a bomb at (${at#x}, ${at#y}) was absorbed but destroyed nothing")
@@ -257,5 +258,70 @@ mod TestBunkers {
             Bunkers.totalRemaining(after#bunkers) < Bunkers.totalRemaining(base#bunkers),
             "the bullet vanished without damaging the bunker")
     }
+
+
+    // -- camping behind a slit --------------------------------------------------------------
+
+    ///
+    /// The arcade's oldest trick: drill a narrow channel through your own shelter, then stand
+    /// in it and shoot out while their bombs still break on the blocks either side.
+    ///
+    /// It works only because the two craters differ. The cannon's is 2px, so the channel it
+    /// leaves is about one block wide; a bomb is 6px, wider than the channel, so it always
+    /// clips a standing block on one side. Make the cannon's crater as wide as a bomb and the
+    /// trick dies -- the hole you make becomes a hole they can drop through, which is exactly
+    /// what happened when both used a single shared radius.
+    ///
+    @Test
+    def testASlitLetsYouShootOutButNotThemIn(): Unit \ Assert = {
+        // Lined up on the *centre* of a block column, not the seam between two. A shot on the
+        // seam straddles both and drills a channel twice as wide -- wide enough for a bomb, so
+        // the trick quietly stops working. Alignment is part of the tactic, for the bot and for
+        // a player at the cabinet alike.
+        let column = 6;
+        let x = first()#origin#x + (Int32.toFloat32(column) + 0.5f32) * Rules.bunkerCell();
+        let lane = { x = x, y = Rules.bunkerTop() + 2.0f32 };
+
+        // One shot, rising from under the bunker until it meets a block -- which is what a
+        // bullet does. Absorbing at a fixed height would only ever chip one row.
+        let floor = Rules.bunkerTop() + Int32.toFloat32(Rules.bunkerRows()) * Rules.bunkerCell();
+        def shoot(bunkers) = {
+            def rise(y, acc) =
+                if (y < Rules.bunkerTop() - Rules.bulletSize()#y) acc
+                else {
+                    let (damaged, hit) =
+                        Bunkers.absorb(acc, { x = x, y = y }, Rules.bulletSize(), Rules.bulletCrater());
+                    if (hit) damaged else rise(y - 2.0f32, acc)
+                };
+            rise(floor, bunkers)
+        };
+        def drill(n, bunkers) =
+            if (n <= 0 or not Bunkers.blocks(bunkers, x)) bunkers
+            else drill(n - 1, shoot(bunkers));
+        let drilled = drill(60, Bunkers.initial());
+
+        assertTrueWithMsg(not Bunkers.blocks(drilled, x),
+            "60 shots did not open a channel; the cannon cannot drill at all");
+
+        // The cannon's own shots now pass straight through, at every height.
+        let ownShotStopped = List.exists(row -> {
+            let y = Rules.bunkerTop() + (Int32.toFloat32(row) + 0.5f32) * Rules.bunkerCell();
+            let (_, hit) = Bunkers.absorb(drilled, { x = x, y = y }, Rules.bulletSize(), Rules.bulletCrater());
+            hit
+        }, List.range(0, Rules.bunkerRows()));
+        assertFalseWithMsg(ownShotStopped, "the channel is open but still swallows the cannon's shots");
+
+        // Their bombs do not: 6px is wider than the channel, so one side always clips.
+        let (_, bombStopped) = Bunkers.absorb(drilled, lane, Rules.bombSize(), Rules.bombCrater());
+        assertTrueWithMsg(bombStopped,
+            "a bomb fell straight down the channel; the slit shelters nobody")
+    }
+
+    @Test
+    def testTheCannonsCraterIsNarrowerThanABomb(): Unit \ Assert =
+        // The inequality the whole tactic rests on. If this ever stops holding, the test above
+        // is the one that will fail, and this is the reason why.
+        assertTrueWithMsg(Rules.bulletCrater() * 2.0f32 < Rules.bombSize()#x,
+            "a ${Rules.bulletCrater()}px crater leaves a channel a ${Rules.bombSize()#x}px bomb fits through")
 
 }

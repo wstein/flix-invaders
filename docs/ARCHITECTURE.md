@@ -363,6 +363,36 @@ is not.**
 
 ---
 
+## Bunker camping
+
+The cannon's shots erode the bunkers, exactly as in the arcade original, and that is what makes
+the oldest trick in the game possible: drill a narrow channel through your own shelter, stand
+in it, and shoot out while their bombs still break on the blocks either side.
+
+It works here because the two craters differ:
+
+| | Width | Crater radius |
+|---|---|---|
+| Cannon's shot | 4px | **2px** |
+| Invader's bomb | 6px | 6px |
+
+A 2px crater removes only the block it struck, so the channel is one block — 4px — wide. Your
+own 4px shot fits; a 6px bomb always clips a standing block on one side. Measured across every
+column of a bunker: a lane opens after about 150 ticks for 5 to 13 blocks, and the bomb is
+stopped every time.
+
+Three consequences worth knowing:
+
+- **Alignment matters.** A shot on the *seam* between two columns straddles both and drills a
+  channel twice as wide, which a bomb fits through. Camping requires lining up.
+- **The clock is running.** `bombCrater` stays at 6px, so the enemy tears your shelter down
+  faster than you carve it. Camping is a tactic with a time limit, not a place to live.
+- **The bot does not do this.** It refuses to fire through its own cover at all, which costs
+  it nothing measurable — level 4.8 either way — and keeps its behaviour legible. Teaching it
+  to drill deliberately is open work.
+
+---
+
 ## Rejected alternatives
 
 Recorded because each looks obviously right and is not.
@@ -374,7 +404,7 @@ Recorded because each looks obviously right and is not.
 | `@DefaultHandler` on `Canvas` / `Input` | The only sensible default is a silent no-op, which would let a test that forgot to choose an interpretation compile and assert on a frame nobody drew. Leaving them undefaulted keeps that a type error. |
 | Datalog in the frame loop | All 25 stdlib examples are whole-relation fixpoints over static facts, and the engine re-stratifies per solve with no incremental API. Reasonable at level-load time; malpractice at 60 Hz. |
 | Scoring the bot's target instead of taking the lowest invader | Proposed as a strategic tradeoff — clear the lowest row, or narrow the block so the formation marches further before it turns. **The narrowing half is real and large**: `Game.liveBounds` measures the formation from its *living* invaders, so emptying an outer column genuinely widens the runway, and a bot weighted to do it cuts level 1 from 5-6 row drops per 1000 ticks to **3**. It still loses, at every weight tried, under two different scoring economies. Plain lowest-row averages level 4.5 at a 1000-point bonus life and 4.8 at 2500; fixed flank weights give 3.8-4.2 and 3.6-4.0 respectively, and weighting flanks toward the start of a level at best ties. Making bonus lives rarer was tried precisely to shift the economy from throughput toward survival, and **did not** make narrowing win. The reason it cannot: narrowing defends against *invasion*, and the bot does not die of invasion — deaths are unchanged (18 against 19 across six seeds), it dies to bombs, and levels are cleared by killing. Buying descent time buys nothing when the clock that runs out is lives. Two traps if anyone revisits it: the flank bonus must be divided by how many invaders are still stacked in the column, since killing one of five moves no edge and rewards a strategy that never completes; and an "invaders passed en route" bonus is catastrophic (level 1.1), because the most distant target has the most on the way to it and the cannon gets dragged across the field. |
-| Drilling a firing slit through a bunker, as a human does | The arcade tactic: carve a narrow hole, then shoot through it from cover. The sizes look perfect for it — a bullet is 4px, a bunker block is 4px, a bomb is 6px, so a one-block slit should pass your shot and still stop theirs. It does not work here, and the reason is `Rules.blastRadius() = 6.0`: every absorbed shot craters a **12px-wide** hole, twice the width of a bomb. Measured directly — after drilling, a bomb dropped down the lane left the blocks untouched at 245 and took a life, while the same bomb one column over destroyed 4 blocks and did nothing to the cannon. The channel shelters nobody. Making the tactic real is a rules change, not a bot change: the crater radius would have to come down to about half a block so a slit stays narrower than a bomb. |
+| A single blast radius for both shots | Was `blastRadius() = 6.0` for everything, and it quietly killed the arcade's oldest trick. Every absorbed shot cratered a 12px hole, twice a bomb's width, so a channel drilled through your own shelter was a channel a bomb could drop down — measured: a bomb down a freshly drilled lane left the blocks untouched at 245 and took a life. Now split into `bulletCrater = 2.0` and `bombCrater = 6.0`. The asymmetry is the point, not an accident of tuning: your shot drills, theirs demolishes. |
 | The Processing Sound library | Not on Maven Central; the JitPack artifact contains zero classes. Would require republishing LGPL and Apache jars from this repo. `javax.sound.sampled` gives the same arcade bleeps with no dependency. |
 | `flix build-fatjar` for release | It shades `processing-core.jar`, converting dynamic linking into static and triggering LGPL-2.1 §6's relinking obligation. See [THIRD-PARTY.md](../THIRD-PARTY.md). |
 

@@ -338,8 +338,8 @@ mod Game {
     /// merely being drawn in its way.
     ///
     def resolveBunkers(w: World): World = {
-        let (afterBullets, bullets) = Bunkers.absorbAll(w#bunkers, w#bullets, Rules.bulletSize());
-        let (afterBombs, bombs) = Bunkers.absorbAll(afterBullets, w#bombs, Rules.bombSize());
+        let (afterBullets, bullets) = Bunkers.absorbAll(w#bunkers, w#bullets, Rules.bulletSize(), Rules.bulletCrater());
+        let (afterBombs, bombs) = Bunkers.absorbAll(afterBullets, w#bombs, Rules.bombSize(), Rules.bombCrater());
         { bunkers = Bunkers.erode(afterBombs, w#invaders), bullets = bullets, bombs = bombs | w }
     }
 
