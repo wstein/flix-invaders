@@ -63,6 +63,20 @@ mod TestView {
     // -- the countdown -------------------------------------------------------------------------
 
     @Test
+    def testEachNumberIsShownForExactlyOneSecond(): Unit \ Assert = {
+        // The point of a countdown. Half-second steps still reach one at the right moment and
+        // still look like a countdown, which is why this needs saying out loud.
+        let held = List.range(1, Rules.levelPauseTicks() + 1)
+            |> List.map(View.countdown)
+            |> List.foldLeft((tally, n) -> Map.insertWith(a -> b -> a + b, n, 1, tally),
+                             (Map.empty(): Map[Int32, Int32]));
+        let wrong = Map.toList(held)
+            |> List.filter(match (_, ticks) -> ticks != Rules.ticksPerSecond());
+        assertTrueWithMsg(List.isEmpty(wrong),
+            "these numbers are not shown for a second: ${wrong}")
+    }
+
+    @Test
     def testTheCountdownRunsThreeTwoOne(): Unit \ Assert = {
         let seen = List.range(1, Rules.levelPauseTicks() + 1)
             |> List.map(View.countdown)
@@ -72,7 +86,7 @@ mod TestView {
 
     @Test
     def testTheCountdownStartsFullAndEndsAtOne(): Unit \ Assert = {
-        assertEq(expected = View.countdownSteps(), View.countdown(Rules.levelPauseTicks()));
+        assertEq(expected = Rules.countdownSteps(), View.countdown(Rules.levelPauseTicks()));
         assertEq(expected = 1, View.countdown(1))
     }
 
@@ -100,7 +114,7 @@ mod TestView {
     @Test
     def testTheCountdownIsDrawnWhileTheLevelIsChanging(): Unit \ Assert = {
         let cleared = { phase = Phase.Cleared, pause = Rules.levelPauseTicks() | start() };
-        assertTrueWithMsg(List.memberOf("${View.countdownSteps()}", texts(cleared)),
+        assertTrueWithMsg(List.memberOf("${Rules.countdownSteps()}", texts(cleared)),
             "no countdown digit on the cleared screen: ${texts(cleared)}")
     }
 

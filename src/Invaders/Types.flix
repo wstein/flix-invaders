@@ -248,7 +248,26 @@ mod Rules {
     def minBombChance(): Int32 = 15
 
     /// How long the game pauses between clearing a formation and the next one appearing.
-    pub def levelPauseTicks(): Int32 = 90
+    ///
+    /// The simulation's tick rate, which `Sketch.start` is configured to match.
+    ///
+    /// Here so that durations meant in seconds can say so. `shieldTicks` at 600 is ten
+    /// seconds of immunity and `deathPauseTicks` at 54 is a beat under a second, but neither
+    /// reads that way as a bare number.
+    ///
+    pub def ticksPerSecond(): Int32 = 60
+
+    /// How many numbers the between-levels countdown shows.
+    pub def countdownSteps(): Int32 = 3
+
+    ///
+    /// The pause between clearing a formation and the next one arriving.
+    ///
+    /// Exactly one second per counted number, so the countdown on screen is a real countdown
+    /// rather than a decoration that happens to reach one at about the right time. Derived
+    /// rather than written out, so the two cannot drift apart.
+    ///
+    pub def levelPauseTicks(): Int32 = countdownSteps() * ticksPerSecond()
 
     // -- the mystery ship -------------------------------------------------------------
 

@@ -277,16 +277,14 @@ mod View {
     def countdownSize(): Float32 = 30.0f32
 
     ///
-    /// How many steps the between-levels countdown has, and which one `pause` is showing.
+    /// Which number the countdown is showing, given how much of the pause is left.
     ///
-    /// Derived from `Rules.levelPauseTicks` rather than fixed, so retuning the pause cannot
-    /// leave the count finishing early or hanging on nought.
+    /// One second each, taken from the rules rather than from a constant here, so the digits
+    /// and the pause they divide up cannot drift apart.
     ///
-    pub def countdownSteps(): Int32 = 3
-
     pub def countdown(pause: Int32): Int32 = {
-        let each = Int32.max(1, Rules.levelPauseTicks() / countdownSteps());
-        Int32.min(countdownSteps(), (pause + each - 1) / each)
+        let each = Int32.max(1, Rules.ticksPerSecond());
+        Int32.min(Rules.countdownSteps(), (pause + each - 1) / each)
     }
 
     def drawEndMessage(w: World): Unit \ Canvas = match w#phase {

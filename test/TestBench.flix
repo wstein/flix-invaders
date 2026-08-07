@@ -37,13 +37,13 @@ mod TestBench {
 
     @Test
     def testRareEventsSurviveTheArithmetic(): Unit \ Assert = {
-        // Deaths run at well under one per thousand ticks. Rounded to whole numbers, the bot
-        // that dies 24 times and the bot that dies 4 times both report zero -- which is
-        // exactly the improvement this harness exists to detect.
-        let bad = Bench.rateTenths(24, 75000);
-        let good = Bench.rateTenths(4, 75000);
-        assertTrueWithMsg(bad > good,
-            "24 deaths and 4 deaths over the same play both reported as ${bad} and ${good}")
+        // The improvement this harness exists to detect. Per thousand ticks in tenths, four
+        // deaths across seventy-eight thousand ticks prints as 0.0 -- and so did twenty-four,
+        // before the scale was widened.
+        let bad = Bench.rateTenths(24, 78000);
+        let good = Bench.rateTenths(4, 78000);
+        assertTrueWithMsg(bad > good and good > 0,
+            "24 deaths and 4 deaths over the same play reported as ${bad} and ${good}")
     }
 
     @Test

@@ -113,18 +113,20 @@ mod Bench {
         List.foldLeft((total, r) -> total + r#ticks, 0, runs)
 
     ///
-    /// A count per thousand ticks of play, in tenths.
+    /// A count per ten thousand ticks of play, in tenths.
     ///
     /// Always compare rates. Two configurations that end their games at different times cannot
     /// be compared on totals, and the difference in when they end is usually the very thing
     /// being measured.
     ///
-    /// Tenths because whole numbers are not enough resolution for the rarest event that
-    /// matters: deaths run at well under one per thousand ticks, so rounding to units reports
-    /// the good bot and the bad bot alike as zero.
+    /// Per ten thousand rather than per thousand, and in tenths, because of the rarest event
+    /// that matters. Deaths run at about four across seventy-eight thousand ticks; per thousand
+    /// in tenths that prints as 0.0, which is what a bot dying twenty-four times also printed
+    /// before it was fixed. A scale that cannot show the improvement it was built to detect is
+    /// no better than no scale.
     ///
     pub def rateTenths(count: Int32, ticks: Int32): Int32 =
-        if (ticks <= 0) 0 else (count * 10000) / ticks
+        if (ticks <= 0) 0 else (count * 100000) / ticks
 
     /// A tenths value as `X.Y`.
     pub def showTenths(tenths: Int32): String =
@@ -263,9 +265,9 @@ mod Bench {
         println("");
         println("  mean level      ${showTenths(meanLevelTenths(runs))}"
               + "   (worst ${worstLevel(runs)}, best ${bestLevel(runs)})");
-        println("  deaths          ${deaths(runs)} = ${showTenths(rateTenths(deaths(runs), ticks))} per 1000 ticks");
-        println("  kills           ${kills(runs)} = ${showTenths(rateTenths(kills(runs), ticks))} per 1000 ticks");
-        println("  row drops       ${drops(runs)} = ${showTenths(rateTenths(drops(runs), ticks))} per 1000 ticks");
+        println("  deaths          ${deaths(runs)} = ${showTenths(rateTenths(deaths(runs), ticks))} per 10000 ticks");
+        println("  kills           ${kills(runs)} = ${showTenths(rateTenths(kills(runs), ticks))} per 10000 ticks");
+        println("  row drops       ${drops(runs)} = ${showTenths(rateTenths(drops(runs), ticks))} per 10000 ticks");
         println("  ended by        ${invasions(runs)} invaded, "
               + "${List.length(runs) - invasions(runs)} out of lives");
 

@@ -263,8 +263,12 @@ mod TestDemo {
         // the 1.5px deadzone and reversed the cannon about six times a second -- a visible
         // vibration, and nothing a person does. Measured then: 9-11 reversals per 100 moving
         // ticks, against 3 for the same bot with no error at all.
+        // Six thousand ticks, not two: at two the figure swings between 3 and 7 across seeds
+        // purely on sample size, and lengthening the between-levels pause was enough to tip a
+        // seed over the line without the bot moving any differently. From six thousand it
+        // settles at 3 to 4 and stays there.
         List.forEach(seed -> {
-            let rate = reversalsPerHundred(played(2000, seed));
+            let rate = reversalsPerHundred(played(6000, seed));
             assertTrueWithMsg(rate <= 5,
                 "seed ${seed}: ${rate} direction reversals per 100 moving ticks -- the cannon is shaking")
         }, 2026i64 :: 7i64 :: 99i64 :: Nil)

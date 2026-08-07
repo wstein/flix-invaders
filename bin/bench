@@ -9,7 +9,7 @@
 #   bin/bench --help
 #
 # Always compare the *rates*, never the totals: a change that ends games sooner posts
-# fewer deaths and fewer row drops while being strictly worse.
+# fewer deaths and fewer row drops while being strictly worse. Rates are per 10000 ticks.
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
