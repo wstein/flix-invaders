@@ -8,12 +8,18 @@
 ///
 mod Screens {
 
-    /// A dimming wash over the demo, so the title reads clearly on top of it.
+    ///
+    /// A translucent wash over the demo, so the title reads on top of it.
+    ///
+    /// Translucent rather than solid, and over the whole field rather than a band: a solid
+    /// band cut the formation in half, which rather defeats an attract screen whose job is
+    /// to show the game off.
+    ///
+    def veilAlpha(): Int32 = 170
+
     def veil(): Unit \ Canvas = {
-        Canvas.fill(Palette.background());
-        // Drawn as a band behind the text rather than the whole field, which would hide the
-        // game the attract screen exists to show off.
-        Canvas.rect(0.0f32, Rules.fieldHeight() / 2.0f32 - 64.0f32, Rules.fieldWidth(), 128.0f32)
+        Canvas.fillAlpha(Palette.background(), veilAlpha());
+        Canvas.rect(0.0f32, 0.0f32, Rules.fieldWidth(), Rules.fieldHeight())
     }
 
     def line(text: String, size: Float32, y: Float32, colour: Color): Unit \ Canvas = {

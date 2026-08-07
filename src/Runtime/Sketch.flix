@@ -251,6 +251,11 @@ mod Sketch {
         } with handler Canvas {
             def clear(c, k) = { let (r, g, b) = channels(c); app.background(r, g, b); k() }
             def fill(c, k) = { let (r, g, b) = channels(c); app.fill(r, g, b); k() }
+            def fillAlpha(c, a, k) = {
+                let (r, g, b) = channels(c);
+                app.fill(r, g, b, Int32.toFloat32(a));
+                k()
+            }
             def rect(x, y, w, h, k) = { app.rect(x, y, w, h); k() }
             def ellipse(x, y, w, h, k) = { app.ellipse(x, y, w, h); k() }
             def text(s, x, y, k) = { app.text(s, x, y); k() }

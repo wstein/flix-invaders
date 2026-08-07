@@ -15,6 +15,15 @@ pub eff Canvas {
     /// Sets the fill colour used by subsequent shapes and text.
     def fill(c: Color): Unit
 
+    ///
+    /// Sets a translucent fill, with `alpha` from 0 (invisible) to 255 (opaque).
+    ///
+    /// Exists so an overlay can dim what is behind it instead of hiding it -- the attract
+    /// screen draws its title over a live game, and a solid band would cut the formation in
+    /// half.
+    ///
+    def fillAlpha(c: Color, alpha: Int32): Unit
+
     /// Draws a rectangle with its top-left corner at `(x, y)`.
     def rect(x: Float32, y: Float32, w: Float32, h: Float32): Unit
 
@@ -44,6 +53,7 @@ mod Canvas {
         List.forEach(cmd -> match cmd {
             case DrawCmd.Clear(c)             => Canvas.clear(c)
             case DrawCmd.Fill(c)              => Canvas.fill(c)
+            case DrawCmd.FillAlpha(c, a)      => Canvas.fillAlpha(c, a)
             case DrawCmd.Rect(x, y, w, h)     => Canvas.rect(x, y, w, h)
             case DrawCmd.Ellipse(x, y, w, h)  => Canvas.ellipse(x, y, w, h)
             case DrawCmd.Text(s, x, y)        => Canvas.text(s, x, y)
@@ -71,6 +81,7 @@ mod Canvas {
             } with handler Canvas {
                 def clear(c, k)              = { emit(DrawCmd.Clear(c)); k() }
                 def fill(c, k)               = { emit(DrawCmd.Fill(c)); k() }
+                def fillAlpha(c, a, k)       = { emit(DrawCmd.FillAlpha(c, a)); k() }
                 def rect(x, y, w, h, k)      = { emit(DrawCmd.Rect(x, y, w, h)); k() }
                 def ellipse(x, y, w, h, k)   = { emit(DrawCmd.Ellipse(x, y, w, h)); k() }
                 def text(s, x, y, k)         = { emit(DrawCmd.Text(s, x, y)); k() }
@@ -100,6 +111,7 @@ mod Canvas {
         } with handler Canvas {
             def clear(_c, k) = k()
             def fill(_c, k) = k()
+            def fillAlpha(_c, _a, k) = k()
             def rect(_x, _y, _w, _h, k) = k()
             def ellipse(_x, _y, _w, _h, k) = k()
             def text(_s, _x, _y, k) = k()

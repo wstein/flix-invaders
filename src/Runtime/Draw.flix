@@ -77,6 +77,7 @@ mod Color {
 pub enum DrawCmd with Eq, ToString {
     case Clear(Color)
     case Fill(Color)
+    case FillAlpha(Color, Int32)
     case Rect(Float32, Float32, Float32, Float32)
     case Ellipse(Float32, Float32, Float32, Float32)
     case Text(String, Float32, Float32)

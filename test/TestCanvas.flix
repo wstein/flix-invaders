@@ -113,4 +113,28 @@ mod TestCanvas {
         assertTrue(one != two)
     }
 
+    @Test
+    def testTranslucentFillIsRecorded(): Unit \ Assert = {
+        let cmds = Canvas.commands((640, 480), () -> {
+            Canvas.fillAlpha(Color.black(), 170);
+            Canvas.rect(0.0f32, 0.0f32, 10.0f32, 10.0f32)
+        });
+        assertEq(expected = DrawCmd.FillAlpha(Color.Rgb(0, 0, 0), 170) ::
+                            DrawCmd.Rect(0.0f32, 0.0f32, 10.0f32, 10.0f32) :: Nil, cmds)
+    }
+
+    @Test
+    def testTranslucentFillIsDistinctFromOpaque(): Unit \ Assert = {
+        // An overlay that dims must not be recorded as one that hides.
+        let dimmed = Canvas.commands((10, 10), () -> Canvas.fillAlpha(Color.black(), 170));
+        let solid = Canvas.commands((10, 10), () -> Canvas.fill(Color.black()));
+        assertTrue(dimmed != solid)
+    }
+
+    @Test
+    def testPaintRoundTripsTranslucentFills(): Unit \ Assert = {
+        let cmds = DrawCmd.FillAlpha(Color.grey(30), 200) :: DrawCmd.Rect(1.0f32, 2.0f32, 3.0f32, 4.0f32) :: Nil;
+        assertEq(expected = cmds, Canvas.commands((640, 480), () -> Canvas.paint(cmds)))
+    }
+
 }
