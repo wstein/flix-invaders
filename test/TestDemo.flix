@@ -127,11 +127,26 @@ mod TestDemo {
     def underShelter(): Float32 =
         Rules.bunkerLeft(0) + (Int32.toFloat32(Rules.bunkerColumns()) * Rules.bunkerCell()) / 2.0f32
 
+    ///
+    /// Standing under bunker 0 with one invader directly overhead and nothing else alive.
+    ///
+    /// Spelled out rather than borrowed from `midGame`, so the two tests below turn only on
+    /// whether the shelter is standing. Leaving it to chance made the pair depend on which
+    /// invader the bot happened to be aiming at, which is not what either is about.
+    ///
+    def overheadAtShelter(): World = {
+        let w = { playerX = underShelter(), bombs = Nil, mystery = None | midGame() };
+        let one = Vector.mapWithIndex((i, inv) ->
+            if (i == 0) { pos = { x = w#playerX, y = 200.0f32 }, alive = true | inv }
+            else { alive = false | inv }, w#invaders);
+        { invaders = one | w }
+    }
+
     @Test
     def testItDoesNotShootThroughItsOwnBunker(): Unit \ Assert = {
         // The rules allow it, and carving a slit is a tactic in the arcade original -- but a
         // bot doing it by accident spends shots demolishing its own cover.
-        let w = { playerX = underShelter(), bombs = Nil | midGame() };
+        let w = overheadAtShelter();
         assertTrueWithMsg(Bunkers.blocks(w#bunkers, w#playerX),
             "the fixture is not actually standing under a bunker");
         assertFalse(Set.memberOf(Key.Space, Demo.aim(w)#held))
@@ -139,11 +154,12 @@ mod TestDemo {
 
     @Test
     def testItStillShootsOnceTheBunkerAboveIsGone(): Unit \ Assert = {
-        // The rule is "not through my own cover", not "never from here".
+        // The rule is "not through my own cover", not "never from here". Same world, same
+        // target directly overhead -- only the shelter is gone.
+        let w = overheadAtShelter();
         let bare = { bunkers = Vector.map(b -> { cells = Vector.map(_ -> false, b#cells) | b },
-                                          midGame()#bunkers) | midGame() };
-        let w = { playerX = underShelter(), bombs = Nil | bare };
-        assertTrue(Set.memberOf(Key.Space, Demo.aim(w)#held))
+                                          w#bunkers) | w };
+        assertTrue(Set.memberOf(Key.Space, Demo.aim(bare)#held))
     }
 
     @Test

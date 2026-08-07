@@ -11,6 +11,9 @@
 /// direction about six times a second. Measured, that was 9-11 reversals per 100 moving
 /// ticks against 3 for the bot with no error at all: the shake was the jitter, not the game.
 ///
+/// One occupied column of the formation: its lowest invader, and how deep it is.
+pub type alias Column = { x = Float32, y = Float32, depth = Int32 }
+
 pub type alias Hand = {
     rng = Rng,
     error = Float32,
@@ -102,14 +105,125 @@ mod Demo {
     ///
     def chooseTarget(w: World): Option[Vec2] = match w#mystery {
         case Some(m) => Some({ x = m#x, y = Rules.mysteryY() })
-        case None =>
-            Vector.foldLeft((best, inv) ->
-                if (not inv#alive) best
-                else match best {
-                    case None => Some(inv#pos)
-                    case Some(p) => if (inv#pos#y > p#y) Some(inv#pos) else best
-                }, None, w#invaders)
+        case None => bestColumn(w)
     }
+
+    ///
+    /// Every occupied column: its lowest invader, and how many are stacked in it.
+    ///
+    /// A shot rising through a column meets the lowest one in it first, so the lowest is the
+    /// only reachable target there. The depth matters separately, below.
+    ///
+    def columns(w: World): List[Column] =
+        Vector.foldLeft((acc, inv) ->
+            if (not inv#alive) acc
+            else Map.insertWith(arriving -> found -> {
+                    let (newY, newN) = arriving;
+                    let (oldY, oldN) = found;
+                    (Float32.max(newY, oldY), newN + oldN)
+                }, inv#pos#x, (inv#pos#y, 1), acc),
+            (Map.empty(): Map[Float32, (Float32, Int32)]), w#invaders)
+            |> Map.toList
+            |> List.map(match (x, found) -> {
+                let (y, depth) = found;
+                { x = x, y = y, depth = depth }
+            })
+
+    ///
+    /// Which column to shoot at.
+    ///
+    /// Lowest-first, with one exception: an outer column that is nearly empty is worth
+    /// finishing off first.
+    ///
+    /// `Game.liveBounds` measures the formation from its *living* invaders, so the last
+    /// invader in the leftmost or rightmost column is single-handedly holding the block at its
+    /// full width -- and the block's width is what decides how far it marches before it turns
+    /// and drops. Left to itself the bot never takes that shot: the survivor is high up, so it
+    /// scores badly on imminence, and the formation stays 400px wide from eleven columns down
+    /// to six. One shot buys a permanent reduction in the descent rate, which is the best
+    /// value on the board.
+    ///
+    /// Deliberately narrow. Chasing flanks in general is measurably worse -- it costs more kill
+    /// rate than it buys descent -- so this fires only when the job is nearly done.
+    ///
+    def bestColumn(w: World): Option[Vec2] = {
+        let candidates = columns(w);
+        let edges = List.foldLeft((acc, c) -> match acc {
+            case None => Some((c#x, c#x))
+            case Some((left, right)) => Some((Float32.min(left, c#x), Float32.max(right, c#x)))
+        }, None, candidates);
+        match edges {
+            case None => None
+            case Some((left, right)) =>
+                let looming = pressure(candidates);
+                List.foldLeft((best, c) -> {
+                    let score = columnWorth(c, left, right, looming);
+                    match best {
+                        case None => Some(({ x = c#x, y = c#y }, score))
+                        case Some((_, top)) =>
+                            if (score > top) Some(({ x = c#x, y = c#y }, score)) else best
+                    }
+                }, None, candidates)
+                    |> Option.map(fst)
+        }
+    }
+
+    def columnWorth(target: Column, left: Float32, right: Float32, looming: Float32): Float32 = {
+        // Near 0 at the top of the formation, near 1 on the invasion line.
+        let imminence = Float32.max(0.0f32, target#y) / Rules.playerY();
+        let onAFlank = target#x == left or target#x == right;
+        let nearlyDone = target#depth <= stragglers();
+        imminence + (if (onAFlank and nearlyDone) finishFlank() * composure(looming) else 0.0f32)
+    }
+
+    ///
+    /// How far down the formation has come: 0 at the top, 1 on the invasion line.
+    ///
+    def pressure(candidates: List[Column]): Float32 = {
+        let deepest = List.foldLeft((low, c) -> Float32.max(low, c#y), 0.0f32, candidates);
+        Float32.max(0.0f32, deepest) / Rules.invasionLine()
+    }
+
+    ///
+    /// How much appetite there is for tidying up the flanks, given how low they have got.
+    ///
+    /// Finishing an outer column is a long game -- it pays back over the rest of the level --
+    /// and there is no rest of the level once the front row is at the door. Past `calm()` the
+    /// bonus fades out, so the bot drops the housekeeping and clears the bottom row, which is
+    /// both the thing about to land on it and the thing dropping the bombs.
+    ///
+    def composure(looming: Float32): Float32 =
+        if (looming < calm()) 1.0f32
+        else Float32.max(0.0f32, (1.0f32 - looming) / (1.0f32 - calm()))
+
+    ///
+    /// How far down the formation may come before the bot stops tidying flanks.
+    ///
+    /// Low, and measured. Tidying only pays while there is a level left to spend the slower
+    /// descent on, so the window for it is the opening quarter; after that the bottom row is
+    /// both the thing about to land and the thing dropping the bombs. Letting the bot keep
+    /// tidying to three-quarters of the way down costs a whole level on the unlucky seeds --
+    /// worst case 3 rather than 4 -- for no extra narrowing at all.
+    ///
+    def calm(): Float32 = 0.25f32
+
+    ///
+    /// How few must remain in an outer column before finishing it takes priority.
+    ///
+    /// One. The case where the shot is unarguable: a single survivor on the flank is holding
+    /// the whole block at its width, and killing it is one shot for a permanent reduction in
+    /// the descent rate. Going to two is measurably worse -- mean level 3.9 against 4.3 --
+    /// because a column with two left is a detour rather than a finishing move.
+    ///
+    def stragglers(): Int32 = 1
+
+    ///
+    /// What finishing that column is worth.
+    ///
+    /// Just above 1.0, which is the most imminence can ever score, so a lone straggler on the
+    /// flank outranks anything -- but only just, and nothing else about flanks does.
+    ///
+    def finishFlank(): Float32 = 1.1f32
 
     ///
     /// How dangerous it is to stand at `x`.

@@ -393,6 +393,38 @@ Three consequences worth knowing:
 
 ---
 
+## Finishing a flank
+
+Left to shoot the lowest invader and nothing else, the bot digs a hole through the middle of
+the formation and leaves a single survivor in each outer column. Measured over level 1, the
+block stays **400px wide from eleven columns down to six** — the stragglers on the flanks hold
+it at full width, and width is what decides how far it marches before it turns and drops.
+
+It never takes those shots on its own, because a lone survivor on the flank is high up and so
+scores badly on imminence. `Demo.finishFlank` is the exception: an outer column with exactly
+one invader left outranks everything, because that is one shot for a permanent reduction in the
+descent rate — the best value on the board.
+
+It is deliberately the narrowest possible rule, and both bounds cost real levels:
+
+| Rule | Mean level | Block width at tick 900 |
+|---|---|---|
+| No flank rule at all | 4.9 | 360 |
+| **Finish when one remains** | **4.5** | **280** |
+| Finish when two remain | 3.9 | 200 |
+
+And it switches off as the formation descends (`composure`). Tidying up only pays while there
+is a level left to spend the slower descent on; once the front row is near the bottom, the
+lowest row is both the thing about to land and the thing dropping the bombs. Letting the bot
+keep tidying to three-quarters of the way down costs a whole level on the unlucky seeds — worst
+case 3 rather than 4 — for no extra narrowing.
+
+The half-level given up against pure lowest-first buys play that looks like a person's. For an
+attract screen that is the trade worth making; for a bot whose only job was to reach level 9 it
+would not be.
+
+---
+
 ## Rejected alternatives
 
 Recorded because each looks obviously right and is not.
@@ -403,7 +435,7 @@ Recorded because each looks obviously right and is not.
 | The stdlib `Random` effect instead of `Rng` data | Weaker than it first appears. `Sketch.start` cannot be polymorphic over effect variables, but a *concrete* effect on `step` compiles. The reason that survives: `handleWithSeed` builds a fresh generator per invocation, so installing it per frame restarts the sequence — you would have to write a handler over a persistent generator, and determinism would then depend on which handler was installed rather than on the types. |
 | `@DefaultHandler` on `Canvas` / `Input` | The only sensible default is a silent no-op, which would let a test that forgot to choose an interpretation compile and assert on a frame nobody drew. Leaving them undefaulted keeps that a type error. |
 | Datalog in the frame loop | All 25 stdlib examples are whole-relation fixpoints over static facts, and the engine re-stratifies per solve with no incremental API. Reasonable at level-load time; malpractice at 60 Hz. |
-| Scoring the bot's target instead of taking the lowest invader | Proposed as a strategic tradeoff — clear the lowest row, or narrow the block so the formation marches further before it turns. **The narrowing half is real and large**: `Game.liveBounds` measures the formation from its *living* invaders, so emptying an outer column genuinely widens the runway, and a bot weighted to do it cuts level 1 from 5-6 row drops per 1000 ticks to **3**. It still loses, at every weight tried, under three different conditions: a 1000-point bonus life (4.5 plain against 3.8-4.2 flanking), a 2500-point one (4.8 against 3.6-4.0), and after the dodging was fixed so the bot stops dying to bombs altogether (4.9 against 3.9-4.4). The first rejection blamed the wrong thing — that the bot died to bombs, so buying descent time bought nothing — and fixing the dodge disproved it: every game now ends by invasion with three to five lives spare, and flanking *still* loses. The reason that survives is simpler. Reaching level N means **clearing** N-1 formations, so the race is kill rate against descent rate, and chasing flanks costs more kill rate than it buys descent. Two traps if anyone revisits it: the flank bonus must be divided by how many invaders are still stacked in the column, since killing one of five moves no edge and rewards a strategy that never completes; and an "invaders passed en route" bonus is catastrophic (level 1.1), because the most distant target has the most on the way to it and the cannon gets dragged across the field. |
+| Chasing the formation's flanks in general | Narrowing the block is real and large — `Game.liveBounds` measures the formation from its *living* invaders, so emptying an outer column widens the runway and cuts level 1 from 5-6 row drops per 1000 ticks to 3. But weighting flanks *generally* loses under every condition tried: a 1000-point bonus life (4.5 plain against 3.8-4.2), a 2500-point one (4.8 against 3.6-4.0), and after the dodging was fixed so the bot stopped dying to bombs entirely (4.9 against 3.9-4.4). Reaching level N means **clearing** N-1 formations, so the race is kill rate against descent rate, and general flank-chasing costs more of the former than it buys of the latter. What *is* worth doing is the narrow case — see *Finishing a flank* below. An "invaders passed en route" bonus is separately catastrophic (level 1.1), because the most distant target has the most on the way to it and the cannon gets dragged across the field. |
 | Predicting where the cannon will be when a bomb lands | The dodge scores a destination as though the cannon teleported there, which is plainly wrong — 96px of travel is 24 ticks, and every bomb falls 72px in that time. Replacing it with a model that works out when each bomb reaches the cannon's line and where the cannon will have got to by then made things **worse** at every tuning: 32-35 deaths against 24, and level 4.0-4.3 against 4.8. The flaw is that `bestSpot` re-decides every tick, so "where I will be" assumes a commitment the bot never makes; being optimistic about its own future movement, it concluded it would have left already and stood still. The naive destination-scored model is pessimistic, and pessimism is what a re-planning agent needs. Widening `dangerWidth` from 30 to 60 — reacting earlier rather than predicting better — cut deaths from 24 to 4. |
 | A single blast radius for both shots | Was `blastRadius() = 6.0` for everything, and it quietly killed the arcade's oldest trick. Every absorbed shot cratered a 12px hole, twice a bomb's width, so a channel drilled through your own shelter was a channel a bomb could drop down — measured: a bomb down a freshly drilled lane left the blocks untouched at 245 and took a life. Now split into `bulletCrater = 2.0` and `bombCrater = 6.0`. The asymmetry is the point, not an accident of tuning: your shot drills, theirs demolishes. |
 | The Processing Sound library | Not on Maven Central; the JitPack artifact contains zero classes. Would require republishing LGPL and Apache jars from this repo. `javax.sound.sampled` gives the same arcade bleeps with no dependency. |
