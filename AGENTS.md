@@ -73,7 +73,11 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   Anywhere else they throw `IllegalStateException`.
 - **`exitActual` is Processing's only `System.exit(0)`**, and `flix run` does not fork a JVM.
   Override it so closing the window returns control to `main`. It can fire more than once,
-  so keep the exit path idempotent.
+  so keep the exit path idempotent. **The other half of that trade: nothing then exits the
+  JVM.** AWT's event thread is not a daemon, so returning from `main` leaves the process
+  alive. `bin/flix run` hides this because its launcher owns the JVM; a plain `java -cp ...
+  Main` hangs forever. `Main` therefore ends with `Sys.Exit.exit(0)`, after the scores are
+  written -- and the release workflow runs the bare jar precisely to keep that honest.
 - **Handlers must be installed inside the `draw` callback.** They are stack-scoped, and
   `draw` runs on Processing's Animation Thread — a handler installed around `runSketch` on
   the main thread is invisible there.

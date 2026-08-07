@@ -13,7 +13,7 @@
 ///
 /// Run it:   bin/flix run
 ///
-def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, IO } = {
+def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, Sys.Exit, IO } = {
     let limit = Sketch.maxFramesFromEnv();
     let saved = readScores();
     let tuning = readTuning();
@@ -31,7 +31,20 @@ def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, IO } = {
         Screens.render);
     // Only when somebody earned something. A session that changed nothing should not create
     // a config directory, and should not rewrite a file it merely read.
-    if (Scores.render(closed#scores) != Scores.render(saved)) writeScores(closed#scores) else ()
+    if (Scores.render(closed#scores) != Scores.render(saved)) writeScores(closed#scores) else ();
+
+    // And now stop, having finished.
+    //
+    // `Sketch` overrides `exitActual` so that closing the window returns control here instead
+    // of Processing calling `System.exit(0)` mid-frame -- which is what makes saving the
+    // scores possible at all. The cost is that nothing exits the JVM afterwards: AWT's event
+    // thread is not a daemon, so returning from `main` leaves it running and the process
+    // hangs. `bin/flix run` hides this because its launcher owns the JVM; a plain
+    // `java -jar` does not, and the released game would never terminate.
+    //
+    // So the exit is explicit, and it is here rather than in `Sketch` on purpose: it belongs
+    // after the last thing that must happen, not at the end of the window's life.
+    Sys.Exit.exit(0)
 }
 
 ///

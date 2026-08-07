@@ -76,17 +76,23 @@ jobs:
 
       - name: Check the jar runs
         env:
-          # Set here rather than wrapped in `env` on the command line: `xvfb-run` takes the
-          # rest of the line as the program to run, and an `env` in front of it is enough to
-          # stop the frame limit reaching the game -- which then plays until the job times out.
           FLIX_SKETCH_MAX_FRAMES: 120
         run: |
-          # Headless, bounded, and against Processing as a separate jar -- which is how it
-          # is meant to be run and what THIRD-PARTY.md commits to.
+          # Headless, bounded, and against Processing as a separate jar -- which is how it is
+          # meant to be run and what THIRD-PARTY.md commits to.
+          #
+          # This is a *natural exit* check. The jar has to stop by itself: `Sketch` overrides
+          # `exitActual` so closing the window returns to `main` to save the scores, which
+          # leaves AWT's non-daemon event thread running, and `main` exits explicitly once the
+          # saving is done. `bin/flix run` hides a failure here because its launcher owns the
+          # JVM -- so this step, on a plain `java`, is the only thing that tests it, and it
+          # caught the released game hanging forever.
+          #
+          # `timeout` is a backstop that turns a hang into a failure rather than a six-hour
+          # job. It is not what makes the check pass.
           core=$(find lib -name 'processing-core*.jar' | head -1)
-          # A hang has to fail rather than run the job to its limit.
           timeout 180 xvfb-run -a java -cp "artifact/flix-invaders.jar:$core" Main
-          echo "the jar opened a window, drew 120 frames and exited cleanly"
+          echo "the jar opened a window, drew 120 frames and exited by itself"
 
       - name: Stamp the launcher
         run: |
