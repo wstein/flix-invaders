@@ -102,11 +102,27 @@ mod TestDemo {
 
     // -- the shield -------------------------------------------------------------------------
 
+    ///
+    /// A world where the bot has no reason to walk: one invader directly overhead, and the
+    /// formation held still so the aim needs no lead.
+    ///
+    /// Built rather than played, because a fixture taken from `midGame` inherits whatever the
+    /// bot did for three hundred ticks -- so a change to the firing rule moves the cannon, and
+    /// a test about *dodging* fails for reasons that have nothing to do with dodging.
+    ///
+    def settled(): World = {
+        let w = { bombs = Nil, mystery = None, marchDir = 0.0f32 | midGame() };
+        let one = Vector.mapWithIndex((i, inv) ->
+            if (i == 0) { pos = { x = w#playerX, y = 260.0f32 }, alive = true | inv }
+            else { alive = false | inv }, w#invaders);
+        { invaders = one | w }
+    }
+
     @Test
     def testItDoesNotDodgeWhileShielded(): Unit \ Assert = {
         // Shooting the saucer buys ten seconds of immunity. Spending them dodging wastes the
         // prize -- that is time to stand under the formation and fire.
-        let w = { bombs = Nil, mystery = None | midGame() };
+        let w = settled();
         let overhead = { bombs = { x = w#playerX, y = Rules.playerY() - 60.0f32 } :: Nil | w };
         let shielded = { shield = Rules.shieldTicks() | overhead };
         assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), overhead)#held)
@@ -180,7 +196,7 @@ mod TestDemo {
     def testItDoesNotShootThroughItsOwnBunker(): Unit \ Assert = {
         // The rules allow it, and carving a slit is a tactic in the arcade original -- but a
         // bot doing it by accident spends shots demolishing its own cover.
-        let w = overheadAtShelter();
+        let w = { marchDir = 0.0f32 | overheadAtShelter() };
         assertTrueWithMsg(Bunkers.blocks(w#bunkers, w#playerX),
             "the fixture is not actually standing under a bunker");
         assertFalse(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), w)#held))
@@ -190,7 +206,7 @@ mod TestDemo {
     def testItStillShootsOnceTheBunkerAboveIsGone(): Unit \ Assert = {
         // The rule is "not through my own cover", not "never from here". Same world, same
         // target directly overhead -- only the shelter is gone.
-        let w = overheadAtShelter();
+        let w = { marchDir = 0.0f32 | overheadAtShelter() };
         let bare = { bunkers = Vector.map(b -> { cells = Vector.map(_ -> false, b#cells) | b },
                                           w#bunkers) | w };
         assertTrue(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), bare)#held))
@@ -358,17 +374,29 @@ mod TestDemo {
     }
 
     @Test
-    def testTheBotShootsWhateverIsOverhead(): Unit \ Assert = {
-        // Not only its chosen target. Firing solely when lined up on the target wasted every
-        // tick the cannon spent under some other column, and the formation landed.
-        let w = { bombs = Nil | midGame() };
-        let overhead = Vector.mapWithIndex((i, inv) ->
-            if (i == 0) { pos = { x = w#playerX, y = 200.0f32 }, alive = true | inv }
-            else { alive = false | inv }, w#invaders);
-        // The saucer is the target, far away -- so the bot is not aimed at the invader.
-        let distracted = { invaders = overhead, mystery = Some({ x = 20.0f32, dir = -1.0f32 }) | w };
+    def testItFiresWhenTheShotWillConnect(): Unit \ Assert = {
+        // Not only at its chosen target: any shot that will meet something is worth taking,
+        // whatever the bot is aiming at. Here the saucer is the target, far off to one side.
+        let w = settled();
+        let distracted = { mystery = Some({ x = 20.0f32, dir = -1.0f32 }) | w };
         assertTrueWithMsg(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), distracted)#held),
-            "the bot walked past an invader directly overhead without firing")
+            "the bot held fire on a shot that would have connected")
+    }
+
+    @Test
+    def testItHoldsFireOnAShotThatWouldMiss(): Unit \ Assert = {
+        // The rule that replaced "shoot whatever is overhead". A bullet takes forty ticks to
+        // reach the back rows and the formation moves the whole while, so an invader directly
+        // overhead is not a target -- it is where a target used to be. Firing at it spends the
+        // cooldown on a shot that arrives behind the invader.
+        let w = settled();
+        let marching = { marchDir = 1.0f32 | w };
+        let flight = (Rules.playerY() - 260.0f32) / Rules.bulletSpeed();
+        let drift = Rules.marchSpeedFor(1, marching#level) * flight;
+        assertTrueWithMsg(drift > Rules.invaderSize()#x,
+            "the fixture does not actually move the invader out of the way: ${drift} px");
+        assertFalseWithMsg(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), marching)#held),
+            "the bot fired at where the invader is rather than where the bullet will arrive")
     }
 
     @Test

@@ -44,7 +44,7 @@ git clone https://github.com/wstein/flix-invaders
 cd flix-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 418 tests -- no window, no audio device, no filesystem
+bin/flix test      # 419 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
 bin/bench          # measure the demo bot over ten seeds
 bin/bench --recalc # search for better bot numbers and save them
@@ -294,7 +294,7 @@ concrete `Sound` handler inside `draw`, where the JVM boundary permits it.
 
 ## Testing
 
-418 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+419 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |

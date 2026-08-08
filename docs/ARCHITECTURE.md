@@ -480,6 +480,18 @@ a record of intuition being wrong:
 | Weight the formation's flanks | slower descent, better play | slower descent, **lower** levels |
 | Ignore bombs the shield will stop | a little free time | mean level 4.5 → 4.8 |
 
+One change came from asking *why* instead of trying another weight. Throughput was falling
+from 46 kills per 1000 ticks with a full formation to 18 with a handful left, and the
+suspected cause was march speed. Bucketing by count *and* speed separately showed speed was
+innocent -- at 40+ invaders a fast march is slightly **better** -- and that the two had looked
+related only because `marchSpeedFor` rises as invaders die. The real fault was that the bot
+had no working aimed-fire mode at all: it sat 155px from its own aim point on average against
+a 6px firing window, so it lived on invaders drifting overhead, which stops happening exactly
+when the field empties. Firing on *will this shot connect* rather than *is something overhead*
+lifted every band and the mean level from 4.4 to 4.9. Four earlier attempts to fix the same
+symptom by choosing targets or aiming differently all failed; the one that worked changed when
+to pull the trigger.
+
 So the constants are measured rather than argued about. [`bin/bench`](../bin/bench) plays ten
 fixed seeds, reporting per-seed outcomes and aggregate rates. It runs `Game.step` under
 `Sound.runWithNoOp`; with that effect discharged, the bot and measurement are deterministic.

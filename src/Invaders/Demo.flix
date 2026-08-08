@@ -286,16 +286,32 @@ mod Demo {
     /// taking. Firing only when lined up on the target wasted every tick the cannon spent
     /// under some *other* column, and the formation landed while it was still being fussy.
     ///
+    def willConnect(w: World): Bool = {
+        // The formation's own drift, not the drift of whatever the bot happens to be aiming
+        // at. When the saucer is the target that number describes the saucer, and projecting
+        // the invaders by it answers a question about neither.
+        let living = Vector.count(inv -> inv#alive, w#invaders);
+        let drift = w#marchDir * Rules.marchSpeedFor(living, w#level);
+        let overlap = (Rules.invaderSize()#x + Rules.bulletSize()#x) / 2.0f32;
+        Vector.exists(inv -> {
+            if (not inv#alive) false
+            else {
+                let flight = (Rules.playerY() - inv#pos#y) / Rules.bulletSpeed();
+                if (flight <= 0.0f32) false
+                else Float32.abs(inv#pos#x + drift * flight - w#playerX) < overlap
+            }
+        }, w#invaders)
+    }
+
     def worthFiring(dx: Float32, w: World): Bool =
         // Never through its own shelter. The rules allow it -- carving a slit is legal, and in
         // the arcade original it is a tactic -- but a bot doing it by accident is spending
         // shots to demolish its own cover.
         if (Bunkers.blocks(w#bunkers, w#playerX)) false
-        else {
-            let reach = Rules.invaderSize()#x / 2.0f32;
-            Float32.abs(dx) < 6.0f32 or
-                Vector.exists(inv -> inv#alive and Float32.abs(inv#pos#x - w#playerX) < reach, w#invaders)
-        }
+        // The saucer crosses above the formation on its own path, so being lined up on it is
+        // its own reason to fire; the formation is judged separately and always.
+        else if (Option.isEmpty(w#mystery)) willConnect(w)
+        else Float32.abs(dx) < 6.0f32 or willConnect(w)
 
     ///
     /// The best place to stand: safe first, in position second.
