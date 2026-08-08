@@ -14,7 +14,7 @@ pub type alias Entry = { name = String, score = Int32, level = Int32 }
 mod Scores {
 
     /// How many places the table keeps.
-    pub def places(): Int32 = 8
+    pub def places(): Int32 = 12
 
     /// How many characters an entry's name may have.
     pub def nameLength(): Int32 = 3
