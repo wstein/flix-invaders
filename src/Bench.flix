@@ -55,6 +55,24 @@ mod Bench {
         31i64 :: 17i64 :: 404i64 :: 88i64 :: 5i64 :: Nil
 
     ///
+    /// Sixty seeds, for deciding rather than for iterating.
+    ///
+    /// Ten games separate things that differ by a level. They do not separate things that
+    /// differ by a third of one, which is the size of every honest improvement this bot has
+    /// had -- and on the ten above, the narrowing rule scores 4.6 against a 4.9 baseline while
+    /// on these it scores 4.95 against 4.52. A change adopted on ten seeds was adopted on a
+    /// coin toss.
+    ///
+    /// Two families rather than one long run of a single multiplier, so a result cannot be an
+    /// artifact of how the seeds were generated. They are deliberately not the ten above: the
+    /// recorded figures in `docs/ARCHITECTURE.md` are on those, and a sample that quietly
+    /// changed underneath them would make every number in that file incomparable.
+    ///
+    pub def wideSeeds(): List[Int64] =
+        (List.range(1, 31) |> List.map(n -> Int32.toInt64(n) * 7919i64)) :::
+        (List.range(1, 31) |> List.map(n -> Int32.toInt64(n) * 104729i64))
+
+    ///
     /// How long a game may run before it is cut short.
     ///
     /// Generous: a good game ends on its own in well under this, and a benchmark that stops
@@ -119,7 +137,9 @@ mod Bench {
     def invasionReached(w: World): Bool =
         Vector.exists(inv -> inv#alive and inv#pos#y >= Rules.invasionLine(), w#invaders)
 
-    pub def all(tuning: Tuning): List[Outcome] = List.map(one(tuning), seeds())
+    pub def all(tuning: Tuning): List[Outcome] = allOn(seeds(), tuning)
+
+    pub def allOn(which: List[Int64], tuning: Tuning): List[Outcome] = List.map(one(tuning), which)
 
     // -- reading the results ----------------------------------------------------------------
     //
@@ -335,6 +355,7 @@ mod Bench {
         case Recalc(Int32)
         case Config(String)
         case Defaults
+        case Wide
     }
 
     def defaultRounds(): Int32 = 3
@@ -362,7 +383,12 @@ mod Bench {
         { optionIds = 'd' :: Nil,
           optionNames = "defaults" :: Nil,
           argDescriptor = ArgDescr.NoArg(Flag.Defaults),
-          explanation = "ignore any config and use the tuning compiled in" } :: Nil
+          explanation = "ignore any config and use the tuning compiled in" } ::
+        { optionIds = 'w' :: Nil,
+          optionNames = "wide" :: Nil,
+          argDescriptor = ArgDescr.NoArg(Flag.Wide),
+          explanation = "play ${List.length(wideSeeds())} seeds instead of ${List.length(seeds())}; "
+              + "slower, and the only sample that can settle a close call" } :: Nil
 
     def usage(): String =
         usageInfo("usage: bin/bench [options]", switches())
@@ -408,9 +434,10 @@ mod Bench {
             println(provenance(flags, configFile));
             match roundsIn(flags) {
                 case None => {
-                    println("Bot benchmark -- ${List.length(seeds())} seeds, budget ${budget()} ticks");
+                    let playing = if (List.memberOf(Flag.Wide, flags)) wideSeeds() else seeds();
+                    println("Bot benchmark -- ${List.length(playing)} seeds, budget ${budget()} ticks");
                     println("");
-                    report(all(stored))
+                    report(allOn(playing, stored))
                 }
                 case Some(rounds) => {
                     let before = score(stored);

@@ -120,6 +120,33 @@ mod TestBench {
         assertEq(expected = List.length(seeds), Set.size(List.toSet(seeds)))
     }
 
+    @Test
+    def testTheWideSampleIsBigEnoughToSettleAClaim(): Unit \ Assert =
+        // Ten seeds separate things that differ by a level and not things that differ by a
+        // third of one, which is the size of every honest improvement this bot has had. The
+        // narrowing rule scores 4.6 against a 4.9 baseline on the ten and 4.95 against 4.52 on
+        // these, so this sample is not a nicety -- it is the difference between adopting a
+        // change and rejecting the same change.
+        assertTrueWithMsg(List.length(Bench.wideSeeds()) >= 50,
+            "only ${List.length(Bench.wideSeeds())} wide seeds; that cannot settle a close call")
+
+    @Test
+    def testTheWideSeedsAreDistinct(): Unit \ Assert = {
+        // Two families multiplied out can collide, and a repeated seed is a repeated game --
+        // it would narrow the sample while appearing to widen it.
+        let seeds = Bench.wideSeeds();
+        assertEq(expected = List.length(seeds), Set.size(List.toSet(seeds)))
+    }
+
+    @Test
+    def testTheWideSampleDoesNotQuietlyReplaceTheNarrowOne(): Unit \ Assert = {
+        // Every figure recorded in docs/ARCHITECTURE.md is on `seeds()`. If the wide sample
+        // ever became a superset of it, a later reader would compare numbers from two
+        // different samples without anything saying so.
+        let overlap = Set.intersection(List.toSet(Bench.seeds()), List.toSet(Bench.wideSeeds()));
+        assertTrueWithMsg(Set.isEmpty(overlap), "the two samples share ${overlap}")
+    }
+
     // -- the benchmark is reproducible ------------------------------------------------------
 
     @Test
