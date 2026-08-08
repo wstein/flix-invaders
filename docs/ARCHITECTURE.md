@@ -503,6 +503,60 @@ found here. Anything close is now settled on sixty.
 
 ---
 
+## The formation had outgrown the cannon
+
+The bot's shot rate falls away as a level empties, and the reason turned out to be in the rules
+rather than in the bot. `marchSpeedFor` multiplies a per-level growth by a thinning factor of up
+to three, and the cap that existed bounded only the growth — it was applied *before* the
+multiplication, so the real ceiling was `0.65 × 4.0 × 3.0` = **7.8 px/tick against a cannon that
+does 4.0**.
+
+What breaks is not overtaking, it is **closing**. A cannon gaining half a pixel a tick on a
+receding target is as much use as one that cannot gain at all. Measured over the endgame of
+each level, at eight invaders or fewer:
+
+| level | march | closing | shots/1000 ticks | kills/1000 |
+|---|---|---|---|---|
+| 1 | 1.85 | 2.15 | 48 | 31 |
+| 2 | 2.27 | 1.73 | 40 | 29 |
+| 3 | 2.76 | 1.24 | 31 | 24 |
+| **4** | 3.37 | **0.63** | **19** | 16 |
+| 5 | 4.03 | −0.03 | 17 | 12 |
+
+The collapse begins at **level 4**, not at level 5 where the formation finally overtakes the
+cannon — and the first cap tried, set just under the cannon's own speed, fixed the wrong end and
+left level 4 exactly as it was. Level 4 is also where the bot got stuck longest: 27 361 endgame
+ticks against 19 663 for level 3.
+
+Capping the *product* at three quarters of the cannon's speed leaves levels one to three
+untouched — their endgames run at 1.85, 2.27 and 2.76 — and restores level 4 to 30 shots and 25
+kills per 1000 ticks. Over sixty seeds the demo goes from mean level **4.9 to 5.5** and from
+**43.0 ticks per kill to 36.4**.
+
+**No bot-side rule fixes this, and three were tried.** Waiting for the formation instead of
+chasing it improves every local figure — walking falls from 3.66 px/tick to 0.86, shots rise
+from 17 to 23 per 1000, deaths fall from 59 to 43 — and still loses levels:
+
+| Bot rule | Mean level, 60 seeds |
+|---|---|
+| Chase always | **4.9** |
+| Hold when the target cannot be caught at all | 4.9 |
+| Hold when closing would take over a second | 4.8 |
+| Hold when the target moves at over 3.0 px/tick | 4.3 |
+
+The descent does not wait either, so standing still trades a position problem for a time
+problem. And chasing walks the cannon towards the wall the formation is about to turn at, which
+shortens the wait for the return sweep — it was never as pointless as the 96%-walking figure
+made it look.
+
+The cost is real and worth stating: from level 4 onwards every *endgame* saturates at the cap,
+so the compounding growth no longer separates the late levels once a formation has thinned out.
+What still rises is the speed of a full formation — 1.18 at level 4 against 2.60 at level 8 —
+and the bomb rate. A late game that is hard because it is quick and thick with bombs, rather
+than one that is impossible because the geometry forbids a hit.
+
+---
+
 ## Measuring the bot
 
 The demo player carries about a dozen interacting constants, and the record of tuning them is
@@ -515,6 +569,7 @@ a record of intuition being wrong:
 | Weight the formation's flanks | slower descent, better play | slower descent, **lower** levels |
 | The same, but stopping at 30% of the starting width | more of the same | **4.52 → 4.95** |
 | Ignore bombs the shield will stop | a little free time | mean level 4.5 → 4.8 |
+| Have the bot stop chasing what it cannot catch | fewer wasted ticks, more shots | all three of those, and **fewer levels** |
 
 One change came from asking *why* instead of trying another weight. Throughput was falling
 from 46 kills per 1000 ticks with a full formation to 18 with a handful left, and the

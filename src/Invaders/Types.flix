@@ -235,6 +235,49 @@ mod Rules {
     def maxLevelSpeedFactor(): Float32 = 4.0f32
 
     ///
+    /// The fastest the formation may ever march, as a fraction of the cannon's own speed.
+    ///
+    /// This is the cap the level growth above was supposed to be, and was not: that one bounds
+    /// only the per-level factor, and the thinning multiplier is applied *after* it, so the
+    /// real ceiling was 0.65 x 4.0 x 3.0 = 7.8 px/tick against a cannon that does 4.0.
+    ///
+    /// What breaks is not overtaking, it is *closing*. A cannon gaining half a pixel a tick on
+    /// a receding target is as much use as one that cannot gain at all, and the shot rate
+    /// tracks the closing speed all the way down. Measured over the endgame of each level, at
+    /// eight invaders or fewer, before this cap existed:
+    ///
+    /// | level | march | closing | shots/1000 ticks | kills/1000 |
+    /// |---|---|---|---|---|
+    /// | 1 | 1.85 | 2.15 | 48 | 31 |
+    /// | 2 | 2.27 | 1.73 | 40 | 29 |
+    /// | 3 | 2.76 | 1.24 | 31 | 24 |
+    /// | 4 | 3.37 | 0.63 | 19 | 16 |
+    /// | 5 | 4.03 | -0.03 | 17 | 12 |
+    ///
+    /// So the collapse begins at level 4, not at level 5 where the formation finally overtakes
+    /// the cannon -- and a cap set just under the cannon's speed would have fixed the wrong
+    /// end. Three quarters leaves levels one to three untouched, their endgames being 1.85,
+    /// 2.27 and 2.76, and restores level 4 to 30 shots and 25 kills per 1000 ticks. Over sixty
+    /// seeds the demo goes from mean level 4.9 to 5.5 and from 43.0 ticks per kill to 36.4.
+    ///
+    /// No bot-side rule fixes this, and three were tried. Waiting for the formation rather than
+    /// chasing it improves every local figure -- walking falls from 3.66 px/tick to 0.86, shots
+    /// rise, deaths fall -- and still loses levels, because the descent does not wait either.
+    /// Chasing also walks the cannon towards the wall the formation is about to turn at, which
+    /// shortens the wait for the return sweep, so it was never as pointless as it looked.
+    ///
+    /// The cost is that from level 4 onwards every *endgame* saturates here, so the compounding
+    /// growth stops separating the late levels once a formation has thinned out. What still
+    /// rises with the level is the speed of a full formation -- 1.18 at level 4 against 2.60 at
+    /// level 8 -- and the bomb rate. That is the trade: a late game that is hard because it is
+    /// quick and thick with bombs, rather than one that is impossible because the geometry
+    /// forbids a hit.
+    ///
+    pub def maxMarchSpeed(): Float32 = maxMarchFactor() * playerSpeed()
+
+    def maxMarchFactor(): Float32 = 0.75f32
+
+    ///
     /// The march speed for a given number of survivors on a given level.
     ///
     pub def marchSpeedFor(living: Int32, level: Int32): Float32 = {
@@ -243,7 +286,7 @@ mod Rules {
         let thinning = 1.0f32 + thinningSpeedUp() * cleared;
         let steps = Int32.toFloat32(Int32.max(0, level - 1));
         let byLevel = Float32.min(maxLevelSpeedFactor(), Float32.pow(base = levelGrowth(), steps));
-        baseMarchSpeed() * byLevel * thinning
+        Float32.min(maxMarchSpeed(), baseMarchSpeed() * byLevel * thinning)
     }
 
     ///

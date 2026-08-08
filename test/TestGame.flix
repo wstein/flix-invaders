@@ -274,6 +274,52 @@ mod TestGame {
     }
 
     @Test
+    def testTheFormationNeverOutrunsTheCannon(): Unit \ Assert = {
+        // The rule that makes the game a game. A formation moving away faster than the cannon
+        // can follow cannot be chased at all, and the shot rate collapses long before that:
+        // measured over the endgame of each level it falls 48, 40, 31, 19, 17 shots per 1000
+        // ticks as the closing speed falls 2.15, 1.73, 1.24, 0.63, -0.03 px/tick. It tracks the
+        // closing speed, not a threshold -- which is why the cap is well under the cannon's own
+        // speed rather than merely equal to it.
+        //
+        // No bot-side rule repairs this. Waiting for the formation instead of chasing it
+        // improves every local figure -- less walking, more shots, fewer deaths -- and still
+        // loses levels, because the descent does not wait either.
+        let worst = List.range(1, 30) |> List.map(level -> Rules.marchSpeedFor(1, level));
+        let fastest = List.foldLeft(Float32.max, 0.0f32, worst);
+        assertTrueWithMsg(fastest < Rules.playerSpeed(),
+            "the formation reaches ${fastest} px/tick against a cannon that does "
+            + "${Rules.playerSpeed()}; past that it cannot be chased")
+    }
+
+    @Test
+    def testTheCapLeavesTheFirstThreeLevelsAlone(): Unit \ Assert = {
+        // A speed cap is a difficulty change, and the cheapest way to get one wrong is to slow
+        // down parts of the game that were never broken. Levels one to three are quick but
+        // catchable at their worst -- the cap must not touch them, or every figure recorded for
+        // the early game silently means something else.
+        let untouched = List.range(1, 4) |> List.forEach(level -> {
+            let thinnest = Rules.marchSpeedFor(1, level);
+            assertTrueWithMsg(thinnest < Rules.maxMarchSpeed(),
+                "level ${level} reaches ${thinnest}, at or past the cap of "
+                + "${Rules.maxMarchSpeed()}; the early game is being slowed down")
+        });
+        untouched
+    }
+
+    @Test
+    def testTheCapBitesWhereTheGameWasUnplayable(): Unit \ Assert = {
+        // The other half: it has to actually bind on level four, which is where the shot rate
+        // was first reported to fall away and where the closing speed had dropped to 0.63.
+        let uncapped = Rules.baseMarchSpeed() * 3.0f32
+            * Float32.pow(base = 1.22f32, 3.0f32);
+        assertTrueWithMsg(uncapped > Rules.maxMarchSpeed(),
+            "level four's endgame would reach ${uncapped}, which the cap of "
+            + "${Rules.maxMarchSpeed()} no longer limits");
+        assertEq(expected = Rules.maxMarchSpeed(), Rules.marchSpeedFor(1, 4))
+    }
+
+    @Test
     def testSpeedIsSafeAtTheEdges(): Unit \ Assert = {
         // Guard the arithmetic rather than the gameplay: no negative or zero speeds.
         assertTrue(Rules.marchSpeedFor(0, 1) > 0.0f32);
