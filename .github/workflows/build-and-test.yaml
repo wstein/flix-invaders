@@ -62,6 +62,19 @@ jobs:
           done
           exit $status
 
+      # `flix.toml` had drifted three releases behind the tags before anything read it, and
+      # the game now states a version on screen -- so the two must be checked against each
+      # other or the attract screen will confidently announce the wrong build.
+      - name: Verify the version is stated once
+        run: |
+          declared=$(grep -oE '^version[[:space:]]*=[[:space:]]*"[^"]+"' flix.toml | sed 's/.*"\(.*\)"/\1/')
+          insource=$(grep -oE 'pub def version\(\): String = "[^"]+"' src/Meta.flix | sed 's/.*"\(.*\)"/\1/')
+          echo "flix.toml: $declared   Meta.version(): $insource"
+          if [ "$declared" != "$insource" ]; then
+            echo "::error::flix.toml says $declared but Meta.version() says $insource"
+            exit 1
+          fi
+
       - name: Verify formatting
         run: |
           bin/flix format

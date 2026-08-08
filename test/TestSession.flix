@@ -35,6 +35,13 @@ mod TestSession {
     // -- the attract loop --------------------------------------------------------------
 
     @Test
+    def testTheTitleScreenNamesTheBuild(): Unit \ Assert = {
+        // So a screenshot of a bug says which build produced it.
+        assertTrueWithMsg(List.memberOf(Meta.label(), texts(start())),
+            "the attract screen does not show a version: ${texts(start())}")
+    }
+
+    @Test
     def testTheCabinetStartsInAttract(): Unit \ Assert =
         assertEq(expected = Screen.Attract, start()#screen)
 
@@ -157,17 +164,25 @@ mod TestSession {
             case _ => false
         }, cmds);
         assertTrue(says("1 OR 2"));
-        assertTrue(says("DEMO"))
+        // The digit chooses how many players, which is not obvious from the key alone.
+        assertTrue(says("PLAYERS"));
+        assertTrue(says(Meta.label()))
     }
 
     @Test
     def testPlayingDrawsNoTitle(): Unit \ Assert = {
+        // Asserted against the title itself. This used to look for "- DEMO -", and when that
+        // caption was dropped the test kept passing while proving nothing -- no text anywhere
+        // contained the word, so its absence during play had stopped being evidence.
         let playing = tick(start(), digit(1));
         let cmds = Canvas.commands((640, 480), () -> Screens.render(playing, Stats.empty()));
-        assertTrue(not List.exists(cmd -> match cmd {
-            case DrawCmd.Text(t, _, _) => String.contains(substr = "DEMO", t)
+        let shows = needle -> List.exists(cmd -> match cmd {
+            case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
             case _ => false
-        }, cmds))
+        }, cmds);
+        assertTrueWithMsg(shows("SCORE"), "the fixture is not drawing a game at all");
+        assertFalseWithMsg(shows("FLIX INVADERS"), "the title is still up while playing");
+        assertFalseWithMsg(shows("PLAYERS"), "the start prompt is still up while playing")
     }
 
     // -- alternating play ---------------------------------------------------------------

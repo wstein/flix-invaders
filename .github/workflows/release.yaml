@@ -45,6 +45,20 @@ jobs:
       # earlier builds behind -- a working copy that has been built a few dozen times
       # accumulates gigabytes of them, and they all end up in the artifact. A runner
       # starts clean, so this is belt and braces rather than a fix.
+      # A release whose binary announces a different version than its tag is worse than one
+      # that announces nothing.
+      - name: Verify the tag matches the version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          insource=$(grep -oE 'pub def version\(\): String = "[^"]+"' src/Meta.flix | sed 's/.*"\(.*\)"/\1/')
+          declared=$(grep -oE '^version[[:space:]]*=[[:space:]]*"[^"]+"' flix.toml | sed 's/.*"\(.*\)"/\1/')
+          echo "tag: $tag   flix.toml: $declared   Meta.version(): $insource"
+          if [ "$tag" != "$insource" ] || [ "$tag" != "$declared" ]; then
+            echo "::error::tag $tag, flix.toml $declared, Meta.version() $insource -- all three must agree"
+            exit 1
+          fi
+
       - name: Build the jar
         run: |
           rm -rf build artifact

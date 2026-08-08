@@ -284,9 +284,9 @@ mod View {
     /// the centre and plays the demo behind it, so a level banner at the midpoint lands inside
     /// the panel and neither can be read. `TestView` keeps the two apart.
     ///
-    pub def bannerY(): Float32 = 140.0f32
-    def bannerHintY(): Float32 = 168.0f32
-    pub def countdownY(): Float32 = 182.0f32
+    pub def bannerY(): Float32 = 128.0f32
+    def bannerHintY(): Float32 = 156.0f32
+    pub def countdownY(): Float32 = 170.0f32
     pub def countdownSize(): Float32 = 30.0f32
 
     ///

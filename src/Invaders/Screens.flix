@@ -80,8 +80,8 @@ mod Screens {
 
     def attractCaptions(): List[Caption] =
         caption("FLIX INVADERS", View.bannerSize(), Palette.invaderGreen()) ::
-        caption("PRESS 1 OR 2 TO PLAY", View.hudSize(), Palette.ink()) ::
-        caption("- DEMO -", View.hudSize(), Palette.invaderCyan()) :: Nil
+        caption(Meta.label(), View.hudSize(), Palette.invaderGreen()) ::
+        caption("PRESS 1 OR 2 FOR PLAYERS TO PLAY", View.hudSize(), Palette.ink()) :: Nil
 
     ///
     /// The top edge of the attract screen's panel.
