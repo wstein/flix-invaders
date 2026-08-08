@@ -147,6 +147,28 @@ mod TestBench {
         assertTrueWithMsg(Set.isEmpty(overlap), "the two samples share ${overlap}")
     }
 
+    @Test
+    def testClearingALevelIsNotCountedAsFiftyFiveKillsLost(): Unit \ Assert = {
+        // A cleared formation is restored to 55, so the naive difference reads as -55 kills and
+        // the count comes out short by that much per level cleared. The configuration that got
+        // further then reported *fewer* kills than the one that did worse, which is the "never
+        // compare on totals" trap wearing a different hat.
+        let game = Bench.one(Demo.defaults(), 2026i64);
+        let cleared = game#level - 1;
+        assertTrueWithMsg(game#kills >= cleared * Rules.totalInvaders(),
+            "reached level ${game#level} on ${game#kills} kills, which is fewer than the "
+            + "${cleared * Rules.totalInvaders()} needed to clear ${cleared} formations")
+    }
+
+    @Test
+    def testAKillCountIsNeverNegative(): Unit \ Assert = {
+        // The cheapest possible statement of the same thing, and the one that would have caught
+        // it: no arrangement of levels and deaths can kill a negative number of invaders.
+        let runs = Bench.all(Demo.defaults());
+        let worst = List.foldLeft((low, r) -> Int32.min(low, r#kills), 0, runs);
+        assertTrueWithMsg(worst >= 0, "a game reported ${worst} kills")
+    }
+
     // -- the benchmark is reproducible ------------------------------------------------------
 
     @Test

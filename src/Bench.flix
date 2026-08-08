@@ -123,10 +123,17 @@ mod Bench {
             else {
                 let (input, next) = Demo.imperfect(tuning, w, hand);
                 let stepped = Game.step(w, input);
+                // Both counters ignore the tick a level changes on. Clearing a formation
+                // restores it from nought to 55, which reads as *minus* 55 kills, and resets
+                // the march direction, which reads as a row drop. Left alone the kill count
+                // came out 55 short per level cleared -- so the configuration that cleared more
+                // levels reported fewer kills, and every rate derived from it was backwards in
+                // exactly the cases worth comparing.
+                let sameLevel = stepped#level == w#level;
                 loop(left - 1, stepped, next,
                      deaths + (if (stepped#lives < w#lives) 1 else 0),
-                     kills + (alive(w) - alive(stepped)),
-                     drops + (if (stepped#marchDir != w#marchDir) 1 else 0),
+                     kills + (if (sameLevel) alive(w) - alive(stepped) else 0),
+                     drops + (if (sameLevel and stepped#marchDir != w#marchDir) 1 else 0),
                      ticks + 1,
                      observeEndgame(w, stepped, endgame))
             };
