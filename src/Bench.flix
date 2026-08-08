@@ -405,6 +405,7 @@ mod Bench {
                 case None => Tuning.path()
             };
             let stored = startingTuning(flags, configFile);
+            println(provenance(flags, configFile));
             match roundsIn(flags) {
                 case None => {
                     println("Bot benchmark -- ${List.length(seeds())} seeds, budget ${budget()} ticks");
@@ -425,6 +426,22 @@ mod Bench {
             }
         }
     }
+
+    ///
+    /// Where the numbers being measured came from.
+    ///
+    /// Said out loud on every run, because the alternative was silence. `bin/bench` picks up
+    /// `~/.config/flix-invaders/tuning.json` if it exists, so a config left behind by an
+    /// earlier `--recalc` quietly becomes the thing every later run measures -- and a
+    /// comparison against a `--defaults` run then differs in every field rather than the one
+    /// under test. That happened, and the numbers it produced ranked a change backwards.
+    ///
+    def provenance(flags: List[Flag], configFile: Option[String]): String =
+        if (List.memberOf(Flag.Defaults, flags)) "Tuning: the compiled-in defaults (--defaults)."
+        else match configFile {
+            case None => "Tuning: the compiled-in defaults; no config file was found."
+            case Some(file) => "Tuning: ${file} if it exists, otherwise the compiled-in defaults."
+        }
 
     ///
     /// The tuning to start from: the config, unless `--defaults` says otherwise.

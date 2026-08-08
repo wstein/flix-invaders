@@ -436,35 +436,70 @@ Three consequences worth knowing:
 
 ---
 
-## Finishing a flank
+## Narrowing the block
 
 Left to shoot the lowest invader and nothing else, the bot digs a hole through the middle of
-the formation and leaves a single survivor in each outer column. Measured over level 1, the
-block stays **400px wide from eleven columns down to six** — the stragglers on the flanks hold
-it at full width, and width is what decides how far it marches before it turns and drops.
+the formation and leaves the outer columns standing. Measured over level 1, the block stays
+**400px wide from eleven columns down to six** — and `Game.liveBounds` measures the formation
+from its *living* invaders, so those outer columns are single-handedly holding it at full
+width. Width decides how far the block marches before it turns and drops, which makes clearing
+a flank the only shot that permanently slows the descent.
 
-It never takes those shots on its own, because a lone survivor on the flank is high up and so
-scores badly on imminence. `Demo.finishFlank` is the exception: an outer column with exactly
-one invader left outranks everything, because that is one shot for a permanent reduction in the
-descent rate — the best value on the board.
+The bot never takes those shots on its own: an invader on the flank is high up and so scores
+badly on imminence. Two rules override that, and the difference between them is the whole
+story.
 
-It is deliberately the narrowest possible rule, and both bounds cost real levels:
+`finishFlank` is the narrow case — an outer column with exactly one invader left. `narrowing`
+is the same argument applied earlier and to the whole column, while the formation is still
+wider than `narrowTo` of its starting width. Below that cutoff it switches off and the bot goes
+back to shooting whatever is lowest.
 
-| Rule | Mean level | Block width at tick 900 |
+The cutoff is what makes it pay. Weighting flanks with *no* stopping point was tried three
+times and lost every time (see *Rejected alternatives*); the same rule that stops at 30% is the
+largest single improvement the bot has had:
+
+| Rule | Mean level, 60 seeds |
+|---|---|
+| Lowest-first, `finishFlank` only | 4.52 |
+| **`narrowing` = 2.0, cutoff at 30%** | **4.95** |
+
+It works by the mechanism it was supposed to. Row drops fall from **74 per 10 000 ticks to 58**,
+and the descent paid per invader killed falls **17%** — the bot buys time, which is the thing
+that was scarce. It costs kill rate, which is exactly why chasing flanks without a cutoff loses.
+
+Both constants sit on a plateau rather than a peak, which is the evidence that this is a real
+effect and not a number fitted to the sample. Every strength from 1.5 to 3.0 scores 4.90–4.95
+and every one of them beats not doing it. The cutoff is flatter still, and the shipped 30% is
+the best of the four tried:
+
+| Cutoff | 0.15 | **0.30** | 0.50 | 0.75 |
+|---|---|---|---|---|
+| Mean level | 4.93 | **4.95** | 4.88 | 4.90 |
+
+A late cutoff gives most of the gain back, for the same reason `composure` fades the rule out
+as the formation descends: the last few columns are where width is worth least and the invaders
+are lowest, and that is precisely when the bot should be shooting whatever is about to land.
+
+Two things this cost, both worth keeping:
+
+**Narrowing alone is worse.** At full strength it roughly doubles deaths (7 to 13 per ten
+games) — the cannon commits to long traverses out to the edges, away from cover. The obvious
+fix works: raising `selfPreservation` from 6 to 12 cuts deaths to **3**, better than not
+narrowing at all. But it is not needed, and the controlled 2×2 says why:
+
+| | `selfPreservation` 6 | `selfPreservation` 12 |
 |---|---|---|
-| No flank rule at all | 4.9 | 360 |
-| **Finish when one remains** | **4.5** | **280** |
-| Finish when two remain | 3.9 | 200 |
+| `narrowing` 0 | 4.53 | 4.50 |
+| `narrowing` 1.5 | **4.93** | 4.87 |
 
-And it switches off as the formation descends (`composure`). Tidying up only pays while there
-is a level left to spend the slower descent on; once the front row is near the bottom, the
-lowest row is both the thing about to land and the thing dropping the bombs. Letting the bot
-keep tidying to three-quarters of the way down costs a whole level on the unlucky seeds — worst
-case 3 rather than 4 — for no extra narrowing.
+Caution on its own does nothing. The whole gain is the narrowing, and paying for the deaths
+separately turns out to cost more than the deaths do.
 
-The half-level given up against pure lowest-first buys play that looks like a person's. For an
-attract screen that is the trade worth making; for a bot whose only job was to reach level 9 it
-would not be.
+**The ten-seed benchmark ranked this backwards.** `bin/bench` scored the adopted change at 4.6
+against a 4.9 baseline — a clear reject — where sixty seeds from two independent families give
+4.95 against 4.52. Ten games is enough to compare things that differ a lot and not enough to
+compare things that differ by a third of a level, which is the size of every honest improvement
+found here. Anything close is now settled on sixty.
 
 ---
 
@@ -478,6 +513,7 @@ a record of intuition being wrong:
 | Widen the threat corridor 30px → 60px | a small gain | **deaths 24 → 4** |
 | Predict where the cannon will be when each bomb lands | clearly better | *worse*, at every tuning |
 | Weight the formation's flanks | slower descent, better play | slower descent, **lower** levels |
+| The same, but stopping at 30% of the starting width | more of the same | **4.52 → 4.95** |
 | Ignore bombs the shield will stop | a little free time | mean level 4.5 → 4.8 |
 
 One change came from asking *why* instead of trying another weight. Throughput was falling
@@ -525,11 +561,17 @@ and the benchmark. Every field is optional and falls back to the compiled-in def
 naming one parameter is a valid file and a config from an older build still loads.
 
 **`stragglers` is excluded from the search, and from the config file entirely.** Setting it to
-zero switches off flank finishing, which is worth about half a level, so a search allowed to
-touch it deletes it every time. Excluding it from `knobs` was not enough: a config already
+zero switches off flank finishing, so a search allowed to touch it deletes it every time. Excluding it from `knobs` was not enough: a config already
 written with `stragglers: 0` was still being *read*, so the game silently stopped narrowing the
 formation and the demo looked wrong with nothing in the code to explain it. Measured on seed 1
 of level 1, the block held 400px the whole way instead of falling to 200.
+
+**`narrowing` and `narrowTo` are excluded for a different reason: the search cannot measure
+them.** Over the benchmark's ten seeds the adopted setting scores 4.6 against a 4.9 baseline,
+where sixty seeds give 4.95 against 4.52. A search optimising the ten would drive `narrowing` to
+zero, delete the largest gain the bot has, and report an improvement while doing it. Ten games
+separate things that differ by a level; they do not separate things that differ by a third of
+one, and every honest improvement found here has been that size.
 
 The rule that came out of it: **tuned numbers live in the config; decisions about how the demo
 behaves live in `Demo.defaults`, where changing them is a visible edit.** `Tuning.decode`
@@ -551,7 +593,10 @@ Recorded because each looks obviously right and is not.
 | Datalog in the frame loop | All 25 stdlib examples are whole-relation fixpoints over static facts, and the engine re-stratifies per solve with no incremental API. Reasonable at level-load time; malpractice at 60 Hz. |
 | Down-weighting targets the bot cannot easily reach | The follow-up to the aim-lead clamp, and a better-aimed one: rather than changing *where* the bot aims, change *which column it picks*, penalising targets by the time it would take to reach them. The asymmetry is real — a target receding at 60% of the cannon's speed closes at 1.6 px/tick against 6.4 for one approaching, so the same 100px gap costs 62 ticks one way and 16 the other — and `columnWorth` scores only imminence and flanks, with no notion of reach at all. Measured against criteria fixed beforehand, it did exactly half of what it promised: **px per kill fell from 139 to 130, and ticks per kill rose from 72 to 76**, with mean level dropping 4.4 to 4.0. Walking less without killing faster is not an improvement, and that outcome had been named in advance as the reject condition. It also broke three behavioural tests. What it confirms is the scarcity argument: with three invaders sweeping a 640px field a fixed point sees a crossing about every 23 ticks, and no amount of choosing better targets creates targets. Worth knowing that only **10% of endgame walking is against the march** — the bot is not chasing receding invaders so much as escorting a sweeping formation, which target selection cannot address. |
 | Clamping the bot's aim-lead when the formation outruns it | The proposal: past a certain speed the bot cannot catch what it is aiming at, so it should stop chasing and hold a line the invaders must cross. The supporting numbers looked strong — the march reaches 4.16 px/tick at level 5 with three left against a cannon of 4.0, and time per kill rises from **21 ticks with a full formation to 72 with eight or fewer left**, against a floor of 12 set by the fire cooldown. Both clamps failed. Clamping the lead to `playerSpeed * flight` is arithmetically a *no-op*: the flight time cancels, so it binds only when the march exceeds the cannon outright, and across six full games **0% of endgame ticks reach that** — the fastest march ever seen with eight or fewer alive is 3.95 against 4.0. Clamping instead by the *closing* speed does bind, and made it **worse**: 72 → 78 ticks per kill. The reason is already recorded above — aiming where a target *is* rather than where it will *be* misses nearly every shot, so the clamp trades a reachability problem for a worse accuracy problem. The 72 is not chasing at all; with three invaders sweeping a 640px field, a fixed point sees one crossing every ~23 ticks, so most of that number is **target scarcity** and irreducible by aiming. |
-| Chasing the formation's flanks in general | Narrowing the block is real and large — `Game.liveBounds` measures the formation from its *living* invaders, so emptying an outer column widens the runway and cuts level 1 from 5-6 row drops per 1000 ticks to 3. But weighting flanks *generally* loses under every condition tried: a 1000-point bonus life (4.5 plain against 3.8-4.2), a 2500-point one (4.8 against 3.6-4.0), and after the dodging was fixed so the bot stopped dying to bombs entirely (4.9 against 3.9-4.4). Reaching level N means **clearing** N-1 formations, so the race is kill rate against descent rate, and general flank-chasing costs more of the former than it buys of the latter. What *is* worth doing is the narrow case — see *Finishing a flank* below. An "invaders passed en route" bonus is separately catastrophic (level 1.1), because the most distant target has the most on the way to it and the cannon gets dragged across the field. |
+| Chasing the formation's flanks in general | Narrowing the block is real and large — `Game.liveBounds` measures the formation from its *living* invaders, so emptying an outer column widens the runway and cuts level 1 from 5-6 row drops per 1000 ticks to 3. But weighting flanks *generally* loses under every condition tried: a 1000-point bonus life (4.5 plain against 3.8-4.2), a 2500-point one (4.8 against 3.6-4.0), and after the dodging was fixed so the bot stopped dying to bombs entirely (4.9 against 3.9-4.4). Reaching level N means **clearing** N-1 formations, so the race is kill rate against descent rate, and general flank-chasing costs more of the former than it buys of the latter. What *is* worth doing is the same rule with a stopping point: a cutoff at 30% of the starting
+width turns this from a reject into the largest gain the bot has had — see *Narrowing the
+block*. The difference between the losing version and the winning one is entirely *when to
+stop*, not what to prefer. An "invaders passed en route" bonus is separately catastrophic (level 1.1), because the most distant target has the most on the way to it and the cannon gets dragged across the field. |
 | Predicting where the cannon will be when a bomb lands | The dodge scores a destination as though the cannon teleported there, which is plainly wrong — 96px of travel is 24 ticks, and every bomb falls 72px in that time. Replacing it with a model that works out when each bomb reaches the cannon's line and where the cannon will have got to by then made things **worse** at every tuning: 32-35 deaths against 24, and level 4.0-4.3 against 4.8. The flaw is that `bestSpot` re-decides every tick, so "where I will be" assumes a commitment the bot never makes; being optimistic about its own future movement, it concluded it would have left already and stood still. The naive destination-scored model is pessimistic, and pessimism is what a re-planning agent needs. Widening `dangerWidth` from 30 to 60 — reacting earlier rather than predicting better — cut deaths from 24 to 4. |
 | A single blast radius for both shots | Was `blastRadius() = 6.0` for everything, and it quietly killed the arcade's oldest trick. Every absorbed shot cratered a 12px hole, twice a bomb's width, so a channel drilled through your own shelter was a channel a bomb could drop down — measured: a bomb down a freshly drilled lane left the blocks untouched at 245 and took a life. Now split into `bulletCrater = 2.0` and `bombCrater = 6.0`. The asymmetry is the point, not an accident of tuning: your shot drills, theirs demolishes. |
 | The Processing Sound library | Not on Maven Central; the JitPack artifact contains zero classes. Would require republishing LGPL and Apache jars from this repo. `javax.sound.sampled` gives the same arcade bleeps with no dependency. |

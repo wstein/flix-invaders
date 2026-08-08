@@ -145,6 +145,89 @@ mod TestDemo {
             "the bot trusted a shield that expires before the bomb lands")
     }
 
+    // -- narrowing the formation ---------------------------------------------------------------
+
+    /// Which way the bot walks, if it walks at all.
+    def walks(t: Tuning, w: World): Option[Key] = {
+        let held = Demo.aim(t, w)#held;
+        if (Set.memberOf(Key.Left, held)) Some(Key.Left)
+        else if (Set.memberOf(Key.Right, held)) Some(Key.Right)
+        else None
+    }
+
+    ///
+    /// Three columns: a pair of outer ones `gap` either side of centre, and a lower single one
+    /// in the middle, with the cannon parked directly under the middle.
+    ///
+    /// Every part of this shape is load-bearing, and the obvious two-column version of it
+    /// silently tests nothing. With two columns alive *both* of them are the formation's edge,
+    /// so a rule about edges cannot prefer either. And a single invader in an outer column is
+    /// already covered by `finishFlank`, which would move the bot whether `narrowing` existed
+    /// or not -- so the outer columns are two deep, past `stragglers`, leaving `narrowing` as
+    /// the only thing that can pull the cannon off the middle.
+    ///
+    /// Built rather than played, positions and all. A fixture taken from three hundred ticks of
+    /// play inherits a formation that has already descended, and this rule fades out as the
+    /// formation descends -- so the tests would be measuring `composure` while claiming to
+    /// measure the cutoff. Everything sits high, which is the situation the rule exists for.
+    ///
+    /// Standing the cannon on the lowest-first answer is what makes these sharp: doing nothing
+    /// *is* lowest-first, so any walk at all is `narrowing` overruling it, and no bot that
+    /// merely leans one way can pass by accident.
+    ///
+    def threeColumns(gap: Int32): World = {
+        let at = col -> Rules.formationLeft() + Int32.toFloat32(col) * Rules.columnSpacing();
+        let up = 0.04f32 * Rules.invasionLine();
+        let edge = 0.08f32 * Rules.invasionLine();
+        let middle = 0.16f32 * Rules.invasionLine();
+        let placed = Vector.mapWithIndex((i, inv) -> match i {
+            case 0 => { pos = { x = at(5 - gap), y = up }, alive = true | inv }
+            case 1 => { pos = { x = at(5 - gap), y = edge }, alive = true | inv }
+            case 2 => { pos = { x = at(5 + gap), y = up }, alive = true | inv }
+            case 3 => { pos = { x = at(5 + gap), y = edge }, alive = true | inv }
+            case 4 => { pos = { x = at(5), y = middle }, alive = true | inv }
+            case _ => { alive = false | inv }
+        }, midGame()#invaders);
+        { invaders = placed, bombs = Nil, mystery = None, marchDir = 0.0f32,
+          playerX = at(5) | midGame() }
+    }
+
+    /// Half the starting width: wider than the cutoff, so the rule should fire.
+    def wideBlock(): World = threeColumns(5)
+
+    @Test
+    def testItClearsAFlankWhileTheBlockIsWide(): Unit \ Assert = {
+        // The whole strategy. The block's width decides how far it marches before it turns and
+        // drops, so an outer column is worth more than its position suggests -- it is the only
+        // shot that permanently slows the descent.
+        assertEq(expected = Some(Key.Left), walks(Demo.defaults(), wideBlock()))
+    }
+
+    @Test
+    def testWithoutTheRuleItWouldTakeTheLowerColumnInstead(): Unit \ Assert = {
+        // The other half of the same claim: the fixture is one where lowest-first genuinely
+        // disagrees. Without it this test would pass on a bot that always walks left.
+        let off = { narrowing = 0.0f32 | Demo.defaults() };
+        assertEq(expected = None, walks(off, wideBlock()))
+    }
+
+    @Test
+    def testItStopsNarrowingOnceTheBlockIsSmallEnough(): Unit \ Assert = {
+        // The cutoff is what makes the rule pay. Chasing flanks with no stopping point costs
+        // more kill rate than it buys descent, and by then the invaders are low enough that
+        // whatever is about to land matters more than the shape of what is left.
+        assertNeq(unexpected = Some(Key.Left), walks(Demo.defaults(), threeColumns(1)))
+    }
+
+    @Test
+    def testTheCutoffIsMeasuredAgainstTheStartingWidth(): Unit \ Assert = {
+        // A fraction of the *original* formation, not of whatever is left -- against the latter
+        // the outermost pair of columns is always 100% wide and the rule never switches off.
+        let wide = List.count(gap -> walks(Demo.defaults(), threeColumns(gap)) == Some(Key.Left),
+                              4 :: 5 :: Nil);
+        assertEq(expected = 2, wide)
+    }
+
     // -- staying alive ----------------------------------------------------------------------
 
     @Test

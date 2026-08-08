@@ -42,7 +42,9 @@ pub type alias Tuning = {
     blockedCost = Float32,
     calm = Float32,
     stragglers = Int32,
-    finishFlank = Float32
+    finishFlank = Float32,
+    narrowTo = Float32,
+    narrowing = Float32
 }
 
 pub type alias Hand = {
@@ -117,7 +119,26 @@ mod Demo {
         // Only a *finished* outer column moves the formation's edge, so one survivor is the
         // case worth taking. Extending to two drops the mean from 4.5 to 3.9.
         stragglers = 1,
-        finishFlank = 1.1f32
+        finishFlank = 1.1f32,
+
+        // Narrowing the block is the only thing that buys time early, so an outer column is
+        // worth taking for its own sake until the formation is down to `narrowTo` of its
+        // starting width -- not merely when it is nearly empty, which is what `finishFlank`
+        // covers. Over sixty seeds this is worth +0.4 levels (4.52 to 4.95), and it is the
+        // largest single improvement the bot has had.
+        //
+        // The block's width sets how far it marches before it turns and drops, so clearing a
+        // flank buys a permanently slower descent: 74 row drops per 10000 ticks becomes 58, and
+        // the descent paid per invader killed falls 17%. It costs kill rate, which is why
+        // chasing flanks *in general* measured worse -- the cutoff is what makes it pay.
+        //
+        // Both numbers are a plateau rather than a peak. Anything from 1.5 to 3.0 scores
+        // 4.90-4.95 and every one of them beats not doing it at all, so this is a real effect
+        // and not a value fitted to the sample. A cutoff of 0.50 or 0.75 gives most of it back:
+        // the last few columns are where the width is worth the least and the invaders are
+        // lowest, and that is exactly when the bot should be shooting whatever is about to land.
+        narrowTo = 0.30f32,
+        narrowing = 2.0f32
     }
 
     /// The offsets from its current position that the bot considers standing at.
@@ -161,8 +182,9 @@ mod Demo {
     ///
     /// Which column to shoot at.
     ///
-    /// Lowest-first, with one exception: an outer column that is nearly empty is worth
-    /// finishing off first.
+    /// Lowest-first, with two exceptions, both of which trade kill rate for a slower descent.
+    /// An outer column is worth taking while the formation is still wide, and worth finishing
+    /// once it is nearly empty.
     ///
     /// `Game.liveBounds` measures the formation from its *living* invaders, so the last
     /// invader in the leftmost or rightmost column is single-handedly holding the block at its
@@ -172,8 +194,11 @@ mod Demo {
     /// to six. One shot buys a permanent reduction in the descent rate, which is the best
     /// value on the board.
     ///
-    /// Deliberately narrow. Chasing flanks in general is measurably worse -- it costs more kill
-    /// rate than it buys descent -- so this fires only when the job is nearly done.
+    /// `narrowing` is the same argument applied earlier: the whole outer column, not just its
+    /// last survivor, while the block is still wider than `narrowTo`. Chasing flanks with no
+    /// cutoff is measurably worse -- it costs more kill rate than it buys descent -- so what
+    /// makes this pay is stopping. Below the cutoff the bonus goes away and the bot returns to
+    /// shooting whatever is lowest.
     ///
     def bestColumn(t: Tuning, w: World): Option[Vec2] = {
         let candidates = columns(w);
@@ -185,8 +210,9 @@ mod Demo {
             case None => None
             case Some((left, right)) =>
                 let looming = pressure(candidates);
+                let spread = (right - left) / fullWidth();
                 List.foldLeft((best, c) -> {
-                    let score = columnWorth(t, c, left, right, looming);
+                    let score = columnWorth(t, c, left, right, spread, looming);
                     match best {
                         case None => Some(({ x = c#x, y = c#y }, score))
                         case Some((_, top)) =>
@@ -197,12 +223,25 @@ mod Demo {
         }
     }
 
-    def columnWorth(t: Tuning, target: Column, left: Float32, right: Float32, looming: Float32): Float32 = {
+    ///
+    /// How wide the formation is when a level begins.
+    ///
+    /// Measured between the *centres* of the outer columns, which is what `liveBounds` reports,
+    /// so the two are comparable.
+    ///
+    def fullWidth(): Float32 =
+        Int32.toFloat32(Rules.columns() - 1) * Rules.columnSpacing()
+
+    def columnWorth(t: Tuning, target: Column, left: Float32, right: Float32,
+                    spread: Float32, looming: Float32): Float32 = {
         // Near 0 at the top of the formation, near 1 on the invasion line.
         let imminence = Float32.max(0.0f32, target#y) / Rules.playerY();
         let onAFlank = target#x == left or target#x == right;
         let nearlyDone = target#depth <= t#stragglers;
-        imminence + (if (onAFlank and nearlyDone) t#finishFlank * composure(t, looming) else 0.0f32)
+        let steady = composure(t, looming);
+        let narrowing = if (spread > t#narrowTo) t#narrowing * steady else 0.0f32;
+        let finishing = if (nearlyDone) t#finishFlank * steady else 0.0f32;
+        imminence + (if (onAFlank) narrowing + finishing else 0.0f32)
     }
 
     ///

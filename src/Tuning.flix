@@ -54,7 +54,9 @@ mod Tuning {
             "  \"blockedCost\":      ${t#blockedCost}," ::
             "" ::
             "  \"calm\":             ${t#calm}," ::
-            "  \"finishFlank\":      ${t#finishFlank}" ::
+            "  \"finishFlank\":      ${t#finishFlank}," ::
+            "  \"narrowTo\":         ${t#narrowTo}," ::
+            "  \"narrowing\":        ${t#narrowing}" ::
             "}" :: Nil)
 
     // -- reading -----------------------------------------------------------------------------
@@ -106,7 +108,9 @@ mod Tuning {
                 calm = number(members, "calm", base#calm),
                 // Not read from the file, and not written to it. See below.
                 stragglers = base#stragglers,
-                finishFlank = number(members, "finishFlank", base#finishFlank)
+                finishFlank = number(members, "finishFlank", base#finishFlank),
+                narrowTo = number(members, "narrowTo", base#narrowTo),
+                narrowing = number(members, "narrowing", base#narrowing)
             })
         }
 
@@ -139,7 +143,9 @@ mod Tuning {
         blockedCost = withinF(0.0f32, 100.0f32, t#blockedCost),
         calm = withinF(0.0f32, 1.0f32, t#calm),
         stragglers = within(0, 6, t#stragglers),
-        finishFlank = withinF(0.0f32, 20.0f32, t#finishFlank)
+        finishFlank = withinF(0.0f32, 20.0f32, t#finishFlank),
+        narrowTo = withinF(0.0f32, 1.0f32, t#narrowTo),
+        narrowing = withinF(0.0f32, 20.0f32, t#narrowing)
     }
 
     // -- where it lives ------------------------------------------------------------------------
