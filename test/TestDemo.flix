@@ -285,6 +285,49 @@ mod TestDemo {
         assertFalse(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), w)#held))
     }
 
+    ///
+    /// Just off the outer edge of bunker 0: the shot's centre misses it, its width does not.
+    ///
+    /// One pixel out, so the centre column is clear and the four-pixel bullet still overlaps
+    /// the first block. This is the only geometry that separates the two guards, and the first
+    /// version of this test did not have it -- it stepped one cell inwards, which is still
+    /// squarely on a 48px bunker, so it passed against the narrow guard too and proved nothing.
+    ///
+    def besideTheShelter(): World = {
+        let w = overheadAtShelter();
+        let edge = Rules.bunkerLeft(0) - 1.0f32;
+        let overhead = Vector.mapWithIndex((i, inv) ->
+            if (i == 0) { pos = { x = edge, y = 200.0f32 }, alive = true | inv } else inv,
+            w#invaders);
+        { playerX = edge, invaders = overhead, marchDir = 0.0f32 | w }
+    }
+
+    @Test
+    def testItDoesNotClipTheBunkerItIsStandingBeside(): Unit \ Assert = {
+        // Reported from watching it play: the bot was still demolishing its own cover. It was
+        // asking whether a *point* was clear, and a point is not what gets fired -- a bullet is
+        // four pixels wide and so is a bunker block. Measured over sixty games, one shot in
+        // seven struck a bunker the guard had called clear.
+        let w = besideTheShelter();
+        assertFalseWithMsg(Bunkers.blocks(w#bunkers, w#playerX),
+            "the fixture is squarely on the bunker, so it cannot tell the two guards apart");
+        assertTrueWithMsg(Bunkers.obstructs(w#bunkers, w#playerX, Rules.bulletSize()#x),
+            "the fixture does not put a bunker in the shot's path at all");
+        assertFalseWithMsg(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), w)#held),
+            "the bot fired a shot that would clip its own bunker")
+    }
+
+    @Test
+    def testItWouldOtherwiseTakeThatShot(): Unit \ Assert = {
+        // The control. Without it the test above passes on a bot that never fires at all, and
+        // the invader is deliberately overhead so that holding fire has exactly one cause.
+        let w = besideTheShelter();
+        let clear = { bunkers = Vector.map(b -> { cells = Vector.repeat(
+            Rules.bunkerColumns() * Rules.bunkerRows(), false) | b }, w#bunkers) | w };
+        assertTrueWithMsg(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), clear)#held),
+            "with the bunkers gone the bot still held fire; the fixture proves nothing")
+    }
+
     @Test
     def testItStillShootsOnceTheBunkerAboveIsGone(): Unit \ Assert = {
         // The rule is "not through my own cover", not "never from here". Same world, same

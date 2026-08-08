@@ -346,7 +346,7 @@ mod Demo {
         // Never through its own shelter. The rules allow it -- carving a slit is legal, and in
         // the arcade original it is a tactic -- but a bot doing it by accident is spending
         // shots to demolish its own cover.
-        if (Bunkers.blocks(w#bunkers, w#playerX)) false
+        if (Bunkers.obstructs(w#bunkers, w#playerX, Rules.bulletSize()#x)) false
         // The saucer crosses above the formation on its own path, so being lined up on it is
         // its own reason to fire; the formation is judged separately and always.
         else if (Option.isEmpty(w#mystery)) willConnect(w)
@@ -360,7 +360,7 @@ mod Demo {
             let x = onField(w#playerX + offset);
             (x, danger(t, x, w) * t#selfPreservation
                 + Float32.abs(aimX - x) / t#urgency
-                + (if (Bunkers.blocks(w#bunkers, x)) t#blockedCost else 0.0f32))
+                + (if (Bunkers.obstructs(w#bunkers, x, Rules.bulletSize()#x)) t#blockedCost else 0.0f32))
         }, options());
         List.foldLeft((best, candidate) -> {
             let (x, score) = candidate;

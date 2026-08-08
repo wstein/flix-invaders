@@ -103,6 +103,23 @@ mod Bunkers {
     /// it is a tactic -- but a player who is not doing it deliberately is destroying their own
     /// cover and wasting the shot.
     ///
+    ///
+    /// Whether a shot of width `width`, fired from `x`, would meet a bunker on its way up.
+    ///
+    /// `blocks` samples a single point, and a point is not what gets fired. A bullet is four
+    /// pixels wide and so is a bunker block, so a shot whose *centre* sits in a gap still
+    /// overlaps the block beside it -- `contact` tests the whole footprint, and rightly.
+    /// Asking the narrower question meant the bot cleared itself a slit, declared the way open,
+    /// and then demolished its own cover from below: one shot in seven struck a bunker the
+    /// guard had called clear.
+    ///
+    pub def obstructs(bunkers: Vector[Bunker], x: Float32, width: Float32): Bool = {
+        let half = width / 2.0f32;
+        // The centre too, not only the edges -- a shot narrower than a block can sit entirely
+        // inside one, and then neither edge is what strikes it.
+        blocks(bunkers, x - half) or blocks(bunkers, x) or blocks(bunkers, x + half)
+    }
+
     pub def blocks(bunkers: Vector[Bunker], x: Float32): Bool =
         Vector.exists(bunker -> {
             let offset = (x - bunker#origin#x) / Rules.bunkerCell();

@@ -303,6 +303,13 @@ mod TestBunkers {
         assertTrueWithMsg(not Bunkers.blocks(drilled, x),
             "60 shots did not open a channel; the cannon cannot drill at all");
 
+        // The channel is open to a *point* and not to a bullet. This is the gap the bot fell
+        // into: `blocks` samples the centre column, `absorb` tests the whole four-pixel
+        // footprint, so a shot fired down a slit this narrow still takes the block beside it.
+        assertTrueWithMsg(Bunkers.obstructs(drilled, x, Rules.bulletSize()#x),
+            "a channel one point wide reported itself clear for a "
+            + "${Rules.bulletSize()#x}px shot");
+
         // The cannon's own shots now pass straight through, at every height.
         let ownShotStopped = List.exists(row -> {
             let y = Rules.bunkerTop() + (Int32.toFloat32(row) + 0.5f32) * Rules.bunkerCell();
