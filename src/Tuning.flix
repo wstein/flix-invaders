@@ -57,7 +57,8 @@ mod Tuning {
             "  \"finishFlank\":      ${t#finishFlank}," ::
             "  \"narrowTo\":         ${t#narrowTo}," ::
             "  \"narrowing\":        ${t#narrowing}," ::
-            "  \"fireWindow\":       ${t#fireWindow}" ::
+            "  \"fireWindow\":       ${t#fireWindow}," ::
+            "  \"imminence\":        ${t#imminence}" ::
             "}" :: Nil)
 
     // -- reading -----------------------------------------------------------------------------
@@ -112,7 +113,8 @@ mod Tuning {
                 finishFlank = number(members, "finishFlank", base#finishFlank),
                 narrowTo = number(members, "narrowTo", base#narrowTo),
                 narrowing = number(members, "narrowing", base#narrowing),
-                fireWindow = number(members, "fireWindow", base#fireWindow)
+                fireWindow = number(members, "fireWindow", base#fireWindow),
+                imminence = number(members, "imminence", base#imminence)
             })
         }
 
@@ -150,7 +152,10 @@ mod Tuning {
         narrowing = withinF(0.0f32, 20.0f32, t#narrowing),
         // Below 1 the bot may only take shots the geometry guarantees, which measures far
         // worse; above 20 the window covers the field and it fires at empty sky.
-        fireWindow = withinF(1.0f32, 20.0f32, t#fireWindow)
+        fireWindow = withinF(1.0f32, 20.0f32, t#fireWindow),
+        // At 0 the bot ignores how far down a target has come, which is the one thing that
+        // ends games.
+        imminence = withinF(0.1f32, 40.0f32, t#imminence)
     }
 
     // -- where it lives ------------------------------------------------------------------------

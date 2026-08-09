@@ -45,7 +45,8 @@ pub type alias Tuning = {
     finishFlank = Float32,
     narrowTo = Float32,
     narrowing = Float32,
-    fireWindow = Float32
+    fireWindow = Float32,
+    imminence = Float32
 }
 
 pub type alias Hand = {
@@ -155,7 +156,25 @@ mod Demo {
         // Five sits in the middle. Firing *unconditionally* is not better: it also scores 6.0
         // but reaches level seven half as often, because a shot at empty sky spends the
         // cooldown that the next real target needed.
-        fireWindow = 5.0f32
+        fireWindow = 5.0f32,
+
+        // What a target's nearness to the invasion line is worth, against the tidiness of
+        // clearing a flank. This is the priority the game itself sets: sixty games in sixty
+        // end by invasion and none by running out of lives, so a descending column is the only
+        // genuinely urgent thing on the screen.
+        //
+        // It was 1 by construction and never chosen -- `nearness` is a fraction, so it topped
+        // out at 1.0 while the flank bonuses reached 3.1 between them. `composure` rescued the
+        // emergency by fading those bonuses once the formation was very low, but nothing acted
+        // *before* the emergency: the bot kept tidying flanks until a column had passed 76% of
+        // the way down, by which point there is no longer time to kill it. At 4 it switches at
+        // 46%.
+        //
+        // The largest gain the bot has had: mean level 6.0 to 7.7, games reaching level seven
+        // from 20 in 60 to 52, and the worst seed from 3 to 6 -- every game now clears level
+        // six. A plateau, as usual: 3 through 10 all score 7.0 to 7.9. Four is where the worst
+        // case peaks, and the worst case is what a demo is judged on.
+        imminence = 4.0f32
     }
 
     /// The offsets from its current position that the bot considers standing at.
@@ -252,13 +271,13 @@ mod Demo {
     def columnWorth(t: Tuning, target: Column, left: Float32, right: Float32,
                     spread: Float32, looming: Float32): Float32 = {
         // Near 0 at the top of the formation, near 1 on the invasion line.
-        let imminence = Float32.max(0.0f32, target#y) / Rules.playerY();
+        let nearness = Float32.max(0.0f32, target#y) / Rules.playerY();
         let onAFlank = target#x == left or target#x == right;
         let nearlyDone = target#depth <= t#stragglers;
         let steady = composure(t, looming);
         let narrowing = if (spread > t#narrowTo) t#narrowing * steady else 0.0f32;
         let finishing = if (nearlyDone) t#finishFlank * steady else 0.0f32;
-        imminence + (if (onAFlank) narrowing + finishing else 0.0f32)
+        t#imminence * nearness + (if (onAFlank) narrowing + finishing else 0.0f32)
     }
 
     ///

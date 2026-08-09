@@ -64,7 +64,7 @@ Leave it alone at the title and it plays itself, and it is meant to look like a 
 it: [the bot](src/Invaders/Demo.flix) misjudges a shot and lives with the misjudgement for a
 beat, needs a real reason to turn the cannon round, and now and then stops watching. All of
 that is still pure -- it threads a `Hand` the way the game threads its `Rng` -- and it is the
-same code the balance test drives, good enough to reach about level six.
+same code the balance test drives, good enough to reach about level seven.
 
 The table keeps **twelve places**, and a qualifying score asks for three initials. It lives in
 `~/.config/flix-invaders/scores.txt` (or `$XDG_CONFIG_HOME`). Delete it to start over; it is
@@ -318,7 +318,7 @@ all three with greps.
 | [TestScreenGraph](test/TestScreenGraph.flix) | 4 | no screen traps the player — reachability, in Datalog, over injected facts |
 | [TestBench](test/TestBench.flix) | 18 | the benchmark's own arithmetic — rates, worst cases, cut-short runs, counters that cannot go negative |
 | [TestTuning](test/TestTuning.flix) | 13 | the tuning file: round trip, overrides, clamping |
-| [TestDifficulty](test/TestDifficulty.flix) | 6 | the game is winnable, not trivial, and the demo reaches about level six |
+| [TestDifficulty](test/TestDifficulty.flix) | 6 | the game is winnable, not trivial, and the demo reaches about level seven |
 
 ## Stats for nerds
 

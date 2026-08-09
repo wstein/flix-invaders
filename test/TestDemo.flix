@@ -219,6 +219,49 @@ mod TestDemo {
         assertNeq(unexpected = Some(Key.Left), walks(Demo.defaults(), threeColumns(1)))
     }
 
+    ///
+    /// The same wide block, with the middle column well down the screen.
+    ///
+    /// `wideBlock` is the fixture where clearing a flank correctly beats shooting the lowest
+    /// invader. This is the same shape with the stakes changed: the middle column is 60% of the
+    /// way to the invasion line, and tidying a flank instead spends the time that was left.
+    ///
+    /// Sixty per cent rather than ninety-five, because ninety-five does not discriminate.
+    /// `composure` already fades the flank bonus to nothing once the formation is that low, so
+    /// both the old weight and the new one do the right thing in the emergency. The gap was in
+    /// acting *before* the emergency: at a weight of 1 the bot kept tidying until a column had
+    /// passed 76% of the way down, and by then there is not enough time left to kill it.
+    ///
+    def comingDown(): World = {
+        let w = wideBlock();
+        let low = Vector.mapWithIndex((i, inv) ->
+            if (i == 4) { pos = { x = inv#pos#x, y = 0.60f32 * Rules.invasionLine() } | inv }
+            else inv, w#invaders);
+        { invaders = low | w }
+    }
+
+    ///
+    /// A descending invader outranks a tidy flank.
+    ///
+    /// Sixty games in sixty end by invasion and none by running out of lives, so how far down
+    /// a column has come is the only genuinely urgent thing on the screen -- and it was
+    /// outranked by construction. The nearness term is a fraction and so topped out at 1.0,
+    /// while the two flank bonuses reach 3.1 between them.
+    ///
+    @Test
+    def testADescendingColumnOutranksATidyFlank(): Unit \ Assert = {
+        assertNeq(unexpected = Some(Key.Left), walks(Demo.defaults(), comingDown()))
+    }
+
+    @Test
+    def testWithoutTheWeightItWouldTidyTheFlankInstead(): Unit \ Assert = {
+        // The control, and the bug as it stood: at a weight of 1 a column 60% of the way down
+        // cannot outbid `narrowing`, so the bot walks off to the flank. Without this the test
+        // above would pass on a bot that never walks left at all.
+        let asItWas = { imminence = 1.0f32 | Demo.defaults() };
+        assertEq(expected = Some(Key.Left), walks(asItWas, comingDown()))
+    }
+
     @Test
     def testTheCutoffIsMeasuredAgainstTheStartingWidth(): Unit \ Assert = {
         // A fraction of the *original* formation, not of whatever is left -- against the latter

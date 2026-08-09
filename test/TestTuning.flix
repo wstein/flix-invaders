@@ -103,7 +103,11 @@ mod TestTuning {
         // one firing across the whole field at nothing.
         assertTrueWithMsg(fixed#fireWindow >= 1.0f32, "a firing window narrower than a hit survived");
         assertTrueWithMsg(Tuning.sane({ fireWindow = 500.0f32 | Demo.defaults() })#fireWindow <= 20.0f32,
-            "a firing window wider than the field survived")
+            "a firing window wider than the field survived");
+        // At zero the bot stops caring how far down a target has come, which is the one thing
+        // that ends games.
+        assertTrueWithMsg(Tuning.sane({ imminence = 0.0f32 | Demo.defaults() })#imminence > 0.0f32,
+            "a bot indifferent to invaders reaching the ground survived")
     }
 
     @Test

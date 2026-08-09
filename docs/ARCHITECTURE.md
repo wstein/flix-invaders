@@ -648,6 +648,7 @@ a record of intuition being wrong:
 | Drill early anyway, for the firing lane | cheap on level 1, where there is time | 5.2 → 5.1 → 4.9 as more is allowed |
 | Camp on an outermost bunker and let the formation come | fewer wasted ticks walking | 4.9 left, 5.2 right, against 5.2 — the camp costs what the lane gains |
 | Widen the firing window fivefold | more misses, fewer kills | **5.2 → 6.0**, and *fewer* deaths |
+| Let how far a column has come outrank a tidy flank | a modest correction | **6.0 → 7.7**, and every seed clears level six |
 | Stop hunting from level 6 and fire from where it stands | hunting is dead time late on | below resolution — the sixty say +0.1, the ten say −0.2 |
 
 One change came from asking *why* instead of trying another weight. Throughput was falling
@@ -693,6 +694,45 @@ so the rule that would have fixed it now buys nothing: gating the chase off from
 measures +0.1 levels on the sixty seeds and −0.2 on the ten, which is a change below the
 resolution of both samples. Worth knowing before proposing it a fourth time — and worth
 knowing that its premise expired rather than being disproved.
+
+### The priority the game sets
+
+Sixty games in sixty end by **invasion**, and none by running out of lives. The loss condition
+is the formation reaching the ground, so how far down a column has come should outrank
+everything — and for most of this project's life it was outranked by construction.
+
+`columnWorth` scored a target as its nearness to the invasion line plus, on an outer column,
+`narrowing` and `finishFlank`. Nearness is a *fraction*, so it topped out at **1.0**; the two
+flank bonuses reach **3.1** between them. A tidy shot at the top of the formation therefore
+outbid a descending column three to one, and the bot would walk away from the thing about to
+end the game in order to square off the block.
+
+`composure` concealed it. It fades the flank bonuses as the formation comes down, so the bot
+did the right thing in an emergency — which is exactly why this survived so long, and why the
+first test written for it was vacuous at 95% of the way down, where both weightings agree.
+What was missing was acting *before* the emergency. At a weight of 1 the bot kept tidying until
+a column passed **76%** of the way to the line, and by then there is not enough time left to
+kill it. At 4 it switches at **46%**.
+
+| `imminence` | Mean level | Worst | Games reaching level 7 |
+|---|---|---|---|
+| 1 — as it was | 6.0 | 3 | 20 of 60 |
+| 3 | 7.0 | 5 | 45 of 60 |
+| **4 — shipped** | **7.7** | **6** | **52 of 60** |
+| 5 | 7.5 | 5 | 40 of 60 |
+| 10 | 7.9 | 3 | 51 of 60 |
+
+The largest single gain the bot has had, and again a plateau — 3 through 10 all score 7.0 to
+7.9. Four is chosen over the higher mean at 10 because of the **worst** column: at 4 every one
+of the sixty games clears level six, and at 10 one collapses to 3. A mean that rises while a
+seed collapses is the trade this project's benchmark exists to refuse.
+
+It is worth being clear about what the fault was. Nobody chose 1; the term simply had no
+coefficient, so its weight was whatever a fraction happens to be next to constants of 2.0 and
+1.1. Every other number in `Demo.defaults` was measured, and this one was structural — which
+is why a decade of tuning the others never found it.
+
+---
 
 Both halves of the aimed-fire rule therefore still stand, and are still tested: the bot leads
 its target, and it holds fire over empty sky. What changed is only the tolerance it judges the
