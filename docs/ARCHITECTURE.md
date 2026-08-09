@@ -444,7 +444,11 @@ own 4px shot fits; a 6px bomb always clips a standing block on one side. Measure
 column of a bunker: a lane opens after about 150 ticks for 5 to 13 blocks, and the bomb is
 stopped every time.
 
-Three consequences worth knowing:
+That is the rule. Whether anyone can *use* it is a separate question, and the answer turns out
+to be no — for the bot and for a player at the cabinet alike, since both drive the same cannon
+through the same `Game.step`. See the last consequence below.
+
+Four consequences worth knowing:
 
 - **Alignment matters.** A shot on the *seam* between two columns straddles both and drills a
   channel twice as wide, which a bomb fits through. Camping requires lining up — and see below
@@ -459,7 +463,9 @@ Three consequences worth knowing:
   bunker the guard had called clear**, so the bot drilled continuously without meaning to.
   `Bunkers.obstructs` asks the question that matches what gets fired, and takes that count to
   zero.
-- **Teaching it to drill deliberately is not open work; it is impossible.** The cannon starts
+- **Nobody can line up, so nobody can camp.** This was written up as open work for the bot and
+  is not a bot problem at all — a human at the cabinet moves the same cannon by the same steps
+  and is off by the same 2px. The cannon starts
   at the middle of the field and moves in whole `playerSpeed` steps, so its positions form a
   4px lattice, and `clampTo` at either wall starts two more. Block centres are on a 4px lattice
   of their own, and none of the three ever coincides with one: the closest the cannon comes to
@@ -468,6 +474,15 @@ Three consequences worth knowing:
   two columns. The channel it opens is therefore always the wide one, which is a hole in the
   roof rather than a shelter. `testTheCannonCannotLineUpToCamp` pins this, and would fail if a
   change to the bunker spacing or the cannon's speed ever made the tactic reachable.
+
+  Restoring the tactic takes two changes, not one. `Rules.bunkerLeft` would have to place each
+  bunker so its column centres fall on the cannon's lattice — the outer two are 2px out and the
+  inner two land on thirds of a pixel. And `Rules.playerSize` would have to be an even width:
+  it is 39, so the clamp parks the cannon on 19.5 or 620.5, and from a half-pixel position no
+  number of 4px steps ever returns to a whole one. Touching a wall currently forfeits the
+  alignment permanently. Both are changes to the game rather than to the bot, so they are
+  recorded here as a decision waiting to be made — the craters in the table above are tuned to
+  enable a tactic the geometry then denies to everyone.
 
 A lane is still a lane even when it shelters nobody, so the *other* reason to drill was
 measured rather than argued away: it would let the bot fire from where it stands instead of
