@@ -83,6 +83,28 @@ mod TestDifficulty {
             "the demo ran away to ${reached}; it is meant to be beatable, not immortal")
     }
 
+    ///
+    /// The bot has not quietly lost a level.
+    ///
+    /// `testTheDemoSurvivesToAboutLevelFour` guards the floor and tolerates one bad seed, so it
+    /// keeps passing while the bot slides from five back to four across the board. That is the
+    /// regression worth catching: every improvement this bot has had is a third of a level, and
+    /// a change that gives one back is invisible to a per-seed minimum.
+    ///
+    /// Deterministic, not statistical -- fixed seeds and a discharged `Sound` effect mean this
+    /// number does not wobble, so the 5.0 floor against a measured 5.33 is margin, not luck. If
+    /// it fails, either the bot got worse or the figure quoted in `README.md` and
+    /// `docs/ARCHITECTURE.md` needs revising; both are one edit and neither is optional.
+    ///
+    @Test
+    def testTheDemoHasNotRegressedByAWholeLevel(): Unit \ Assert = {
+        let reached = List.map(seed -> playShaky(wholeGame(), seed)#level, seeds());
+        let meanTenths = (List.sum(reached) * 10) / List.length(seeds());
+        assertTrueWithMsg(meanTenths >= 50,
+            "the demo averaged level ${meanTenths / 10}.${meanTenths `Int32.remainder` 10} "
+            + "across ${reached}; it reached 5.3 when that figure was last written down")
+    }
+
     @Test
     def testTheFirstLevelIsNotTrivialEither(): Unit \ Assert = {
         // The other side of the same guard: if the game never ends, there is no pressure.

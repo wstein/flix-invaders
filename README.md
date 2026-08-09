@@ -44,7 +44,7 @@ git clone https://github.com/wstein/flix-invaders
 cd flix-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 433 tests -- no window, no audio device, no filesystem
+bin/flix test      # 434 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
 bin/bench          # measure the demo bot over ten seeds
 bin/bench --wide   # sixty seeds instead; the only sample that settles a close call
@@ -64,7 +64,7 @@ Leave it alone at the title and it plays itself, and it is meant to look like a 
 it: [the bot](src/Invaders/Demo.flix) misjudges a shot and lives with the misjudgement for a
 beat, needs a real reason to turn the cannon round, and now and then stops watching. All of
 that is still pure -- it threads a `Hand` the way the game threads its `Rng` -- and it is the
-same code the balance test drives, good enough to reach about level four.
+same code the balance test drives, good enough to reach about level five.
 
 A qualifying score asks for three initials and is kept in
 `~/.config/flix-invaders/scores.txt` (or `$XDG_CONFIG_HOME`). Delete it to start over; it is
@@ -105,7 +105,7 @@ flowchart LR
 | 4 | [Invaders/Game.flix](src/Invaders/Game.flix) | `bin/flix run` | The rules are a compact function of world and input; sound is the one concrete effect. |
 | 5 | [Runtime/Sketch.flix](src/Runtime/Sketch.flix) | — | Where purity stops and Java starts. One file. |
 | 6 | [TestScreenGraph.flix](test/TestScreenGraph.flix) | `bin/flix test` | Datalog is *in the language*. Three rules prove no screen can trap the player — and the facts are discovered by running the real code, not typed out. |
-| 7 | [Tuning.flix](src/Tuning.flix), [Bench.flix](src/Bench.flix) | `bin/bench` | JSON configuration makes a search an ordinary loop; a headless benchmark plays ten games and reports the result. |
+| 7 | [Tuning.flix](src/Tuning.flix), [Bench.flix](src/Bench.flix) | `bin/bench` | JSON configuration makes a search an ordinary loop; a headless benchmark plays ten games — or sixty, with `--wide` — and reports the result. |
 
 **Your first change**, in under a minute: open [Still.flix](src/Sketches/Still.flix), change a
 colour or move the sun in its `Canvas.ellipse` call, then `bin/sketch static` again.
@@ -295,17 +295,17 @@ concrete `Sound` handler inside `draw`, where the JVM boundary permits it.
 
 ## Testing
 
-419 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+434 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |
 | --- | --- | --- |
-| [TestGame](test/TestGame.flix) | 107 | every rule, hit boxes, levels, shield, bonus lives |
-| [TestSession](test/TestSession.flix) | 55 | screens, taking turns, typed initials |
+| [TestGame](test/TestGame.flix) | 110 | every rule, hit boxes, levels, shield, bonus lives |
+| [TestSession](test/TestSession.flix) | 56 | screens, taking turns, typed initials |
 | [TestAnimation](test/TestAnimation.flix) | 27 | elastic collisions; conservation of momentum and energy |
 | [TestBunkers](test/TestBunkers.flix) | 25 | damage, absorption, erosion, camping behind a drilled slit |
 | [TestSprites](test/TestSprites.flix) | 19 | run-length decomposition of the pixel art |
-| [TestDemo](test/TestDemo.flix) | 26 | the computer player: aim, dodge, when to fire, and not shaking |
+| [TestDemo](test/TestDemo.flix) | 33 | the computer player: aim, dodge, when to fire, narrowing the block, and not shooting its own cover |
 | [TestScores](test/TestScores.flix) | 16 | the table's format and ordering, with no handlers at all |
 | [TestCanvas](test/TestCanvas.flix) | 14 | the effect and its interpretations |
 | [TestContrast](test/TestContrast.flix) | 10 | WCAG contrast of every palette colour |
@@ -315,10 +315,10 @@ all three with greps.
 | [TestScoresFile](test/TestScoresFile.flix) | 8 | saving and loading, on a filesystem that does not exist |
 | [TestStats](test/TestStats.flix) | 15 | the telemetry overlay, and that showing it changes nothing |
 | [TestView](test/TestView.flix) | 12 | banner placement against the attract panel, and the countdown |
-| [TestScreenGraph](test/TestScreenGraph.flix) | 4 | no screen traps the player — reachability, in Datalog |
-| [TestBench](test/TestBench.flix) | 12 | the benchmark's own arithmetic — rates, worst cases, cut-short runs |
+| [TestScreenGraph](test/TestScreenGraph.flix) | 4 | no screen traps the player — reachability, in Datalog, over injected facts |
+| [TestBench](test/TestBench.flix) | 18 | the benchmark's own arithmetic — rates, worst cases, cut-short runs, counters that cannot go negative |
 | [TestTuning](test/TestTuning.flix) | 13 | the tuning file: round trip, overrides, clamping |
-| [TestDifficulty](test/TestDifficulty.flix) | 5 | the game is winnable, not trivial, and the demo reaches about level four |
+| [TestDifficulty](test/TestDifficulty.flix) | 6 | the game is winnable, not trivial, and the demo reaches about level five |
 
 ## Stats for nerds
 
