@@ -44,7 +44,8 @@ pub type alias Tuning = {
     stragglers = Int32,
     finishFlank = Float32,
     narrowTo = Float32,
-    narrowing = Float32
+    narrowing = Float32,
+    fireWindow = Float32
 }
 
 pub type alias Hand = {
@@ -138,7 +139,23 @@ mod Demo {
         // the last few columns are where the width is worth the least and the invaders are
         // lowest, and that is exactly when the bot should be shooting whatever is about to land.
         narrowTo = 0.30f32,
-        narrowing = 2.0f32
+        narrowing = 2.0f32,
+
+        // How wide the "this shot will connect" window is, as a multiple of the exact
+        // bullet-meets-invader overlap. One means only shots the geometry guarantees; five
+        // means any target roughly overhead is worth a shot.
+        //
+        // Aiming precisely is worth less than firing often, because a miss costs only the
+        // twelve-tick cooldown and there is no limit on shots. Over sixty seeds this is the
+        // largest single gain the bot has had: mean level 5.2 to 6.0, and games reaching
+        // level seven from 2 in 60 to 20.
+        //
+        // A plateau, not a peak -- 3, 5, 7 and 10 all score 5.9 to 6.1 and every one beats
+        // exact aiming, so this is a real effect rather than a value fitted to the sample.
+        // Five sits in the middle. Firing *unconditionally* is not better: it also scores 6.0
+        // but reaches level seven half as often, because a shot at empty sky spends the
+        // cooldown that the next real target needed.
+        fireWindow = 5.0f32
     }
 
     /// The offsets from its current position that the bot considers standing at.
@@ -325,13 +342,13 @@ mod Demo {
     /// taking. Firing only when lined up on the target wasted every tick the cannon spent
     /// under some *other* column, and the formation landed while it was still being fussy.
     ///
-    def willConnect(w: World): Bool = {
+    def willConnect(t: Tuning, w: World): Bool = {
         // The formation's own drift, not the drift of whatever the bot happens to be aiming
         // at. When the saucer is the target that number describes the saucer, and projecting
         // the invaders by it answers a question about neither.
         let living = Vector.count(inv -> inv#alive, w#invaders);
         let drift = w#marchDir * Rules.marchSpeedFor(living, w#level);
-        let overlap = (Rules.invaderSize()#x + Rules.bulletSize()#x) / 2.0f32;
+        let overlap = t#fireWindow * (Rules.invaderSize()#x + Rules.bulletSize()#x) / 2.0f32;
         Vector.exists(
             inv -> { if (not inv#alive) false else {
                 let flight = (Rules.playerY() - inv#pos#y) / Rules.bulletSpeed();
@@ -341,15 +358,15 @@ mod Demo {
         )
     }
 
-    def worthFiring(dx: Float32, w: World): Bool =
+    def worthFiring(t: Tuning, dx: Float32, w: World): Bool =
         // Never through its own shelter. The rules allow it -- carving a slit is legal, and in
         // the arcade original it is a tactic -- but a bot doing it by accident is spending
         // shots to demolish its own cover.
         if (Bunkers.obstructs(w#bunkers, w#playerX, Rules.bulletSize()#x)) false
         // The saucer crosses above the formation on its own path, so being lined up on it is
         // its own reason to fire; the formation is judged separately and always.
-        else if (Option.isEmpty(w#mystery)) willConnect(w)
-        else Float32.abs(dx) < 6.0f32 or willConnect(w)
+        else if (Option.isEmpty(w#mystery)) willConnect(t, w)
+        else Float32.abs(dx) < 6.0f32 or willConnect(t, w)
 
     ///
     /// The best place to stand: safe first, in position second.
@@ -399,7 +416,7 @@ mod Demo {
                 // towards the best. Treating them separately made the bot oscillate between
                 // fleeing and lining up, and do neither well.
                 let aimX = w#playerX + dx;
-                Some({ goal = bestSpot(t, aimX, w) - w#playerX, fire = worthFiring(dx, w) })
+                Some({ goal = bestSpot(t, aimX, w) - w#playerX, fire = worthFiring(t, dx, w) })
             }
         }
     }

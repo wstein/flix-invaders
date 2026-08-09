@@ -93,12 +93,17 @@ mod TestTuning {
         // A hand-edited file, or a search that wandered, should not be able to produce a bot
         // that never moves or divides by zero.
         let wild = { dangerWidth = -100.0f32, urgency = 0.0f32, calm = 9.0f32,
-                     stragglers = 99, lapseOneIn = 0 | Demo.defaults() };
+                     stragglers = 99, lapseOneIn = 0, fireWindow = 0.0f32 | Demo.defaults() };
         let fixed = Tuning.sane(wild);
         assertTrueWithMsg(fixed#dangerWidth > 0.0f32, "a negative threat width survived");
         assertTrueWithMsg(fixed#urgency > 0.0f32, "a zero urgency survived, which divides by zero");
         assertTrueWithMsg(fixed#calm <= 1.0f32, "calm above 1 survived; it is a fraction");
-        assertTrueWithMsg(fixed#lapseOneIn >= 1, "a one-in-zero chance survived")
+        assertTrueWithMsg(fixed#lapseOneIn >= 1, "a one-in-zero chance survived");
+        // A window below the exact overlap is a bot that may not fire at all; above 20 it is
+        // one firing across the whole field at nothing.
+        assertTrueWithMsg(fixed#fireWindow >= 1.0f32, "a firing window narrower than a hit survived");
+        assertTrueWithMsg(Tuning.sane({ fireWindow = 500.0f32 | Demo.defaults() })#fireWindow <= 20.0f32,
+            "a firing window wider than the field survived")
     }
 
     @Test

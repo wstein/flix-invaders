@@ -646,6 +646,8 @@ a record of intuition being wrong:
 | Make the "never shoot your own bunker" guard actually hold | no change; it already refused | it never had: **1 shot in 7** hit cover, and stopping cost 5.5 → 5.2 |
 | Teach the bot the arcade camping trick | a sheltered firing position | it cannot line up to one — **off by 2px, forever** |
 | Drill early anyway, for the firing lane | cheap on level 1, where there is time | 5.2 → 5.1 → 4.9 as more is allowed |
+| Camp on an outermost bunker and let the formation come | fewer wasted ticks walking | 4.9 left, 5.2 right, against 5.2 — the camp costs what the lane gains |
+| Widen the firing window fivefold | more misses, fewer kills | **5.2 → 6.0**, and *fewer* deaths |
 
 One change came from asking *why* instead of trying another weight. Throughput was falling
 from 46 kills per 1000 ticks with a full formation to 18 with a handful left, and the
@@ -658,6 +660,32 @@ when the field empties. Firing on *will this shot connect* rather than *is somet
 lifted every band and the mean level from 4.4 to 4.9. Four earlier attempts to fix the same
 symptom by choosing targets or aiming differently all failed; the one that worked changed when
 to pull the trigger.
+
+**And then the same lever went further in the other direction.** Having made the bot aim, the
+next question was how *precisely* it must aim, and the answer is barely at all. `fireWindow`
+scales the window a predicted hit is judged against; at 1 the bot may only take shots the
+geometry guarantees, and at 5 anything roughly overhead is worth a shot. Widening it is the
+largest single gain the bot has had:
+
+| `fireWindow` | Mean level | Worst | Games reaching level 7 |
+|---|---|---|---|
+| 1 — exact | 5.2 | 4 | 2 of 60 |
+| 3 | 5.9 | 4 | 8 of 60 |
+| **5 — shipped** | **6.0** | 3 | **20 of 60** |
+| 10 | 6.1 | 3 | 20 of 60 |
+| fire unconditionally | 6.0 | 4 | 11 of 60 |
+
+Two things in that table are worth more than the headline. It is a **plateau** — every value
+from 3 to 10 beats exact aiming and they sit within 0.2 of each other, so this is a real effect
+and not a number fitted to sixty seeds. And firing *unconditionally* is **worse than firing
+loosely**: the same mean, but half as many games reach level seven, because a shot at empty sky
+spends the twelve-tick cooldown that the next real target needed. The rule that survives is
+neither "aim" nor "spray" but *do not waste the cooldown* — a miss is nearly free, and an
+unloaded gun is not.
+
+Both halves of the aimed-fire rule therefore still stand, and are still tested: the bot leads
+its target, and it holds fire over empty sky. What changed is only the tolerance it judges the
+lead against.
 
 So the constants are measured rather than argued about. [`bin/bench`](../bin/bench) plays a
 fixed set of seeds, reporting per-seed outcomes and aggregate rates. It runs `Game.step` under

@@ -56,7 +56,8 @@ mod Tuning {
             "  \"calm\":             ${t#calm}," ::
             "  \"finishFlank\":      ${t#finishFlank}," ::
             "  \"narrowTo\":         ${t#narrowTo}," ::
-            "  \"narrowing\":        ${t#narrowing}" ::
+            "  \"narrowing\":        ${t#narrowing}," ::
+            "  \"fireWindow\":       ${t#fireWindow}" ::
             "}" :: Nil)
 
     // -- reading -----------------------------------------------------------------------------
@@ -110,7 +111,8 @@ mod Tuning {
                 stragglers = base#stragglers,
                 finishFlank = number(members, "finishFlank", base#finishFlank),
                 narrowTo = number(members, "narrowTo", base#narrowTo),
-                narrowing = number(members, "narrowing", base#narrowing)
+                narrowing = number(members, "narrowing", base#narrowing),
+                fireWindow = number(members, "fireWindow", base#fireWindow)
             })
         }
 
@@ -145,7 +147,10 @@ mod Tuning {
         stragglers = within(0, 6, t#stragglers),
         finishFlank = withinF(0.0f32, 20.0f32, t#finishFlank),
         narrowTo = withinF(0.0f32, 1.0f32, t#narrowTo),
-        narrowing = withinF(0.0f32, 20.0f32, t#narrowing)
+        narrowing = withinF(0.0f32, 20.0f32, t#narrowing),
+        // Below 1 the bot may only take shots the geometry guarantees, which measures far
+        // worse; above 20 the window covers the field and it fires at empty sky.
+        fireWindow = withinF(1.0f32, 20.0f32, t#fireWindow)
     }
 
     // -- where it lives ------------------------------------------------------------------------

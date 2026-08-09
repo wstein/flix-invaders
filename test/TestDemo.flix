@@ -509,20 +509,59 @@ mod TestDemo {
             "the bot held fire on a shot that would have connected")
     }
 
+    /// The half-width of the window `fireWindow` opens, in pixels.
+    def fireWindowPx(): Float32 =
+        Demo.defaults()#fireWindow * (Rules.invaderSize()#x + Rules.bulletSize()#x) / 2.0f32
+
+    ///
+    /// The lead is still applied; the window it is judged against is just wide.
+    ///
+    /// This test used to assert the opposite of the one below it -- that a target drifting by
+    /// more than its own width was not worth a shot. That was right when the window was the
+    /// exact overlap, and `fireWindow` has since widened it fivefold on measurement. What
+    /// survives the change is the principle: the bot aims where the bullet will *arrive*, so a
+    /// target that will have left the window by then is still not a target.
+    ///
+    /// The fixture is built from `fireWindow` rather than from a fixed distance, so widening
+    /// the window again cannot quietly make this vacuous -- it would fail instead.
+    ///
     @Test
-    def testItHoldsFireOnAShotThatWouldMiss(): Unit \ Assert = {
-        // The rule that replaced "shoot whatever is overhead". A bullet takes forty ticks to
-        // reach the back rows and the formation moves the whole while, so an invader directly
-        // overhead is not a target -- it is where a target used to be. Firing at it spends the
-        // cooldown on a shot that arrives behind the invader.
+    def testItStillHoldsFireOnAShotThatCannotArriveInTime(): Unit \ Assert = {
+        let w = settled();
+        // High up, so the flight is long and the formation has time to leave the window.
+        let high = Vector.mapWithIndex((i, inv) ->
+            if (i == 0) { pos = { x = w#playerX, y = 40.0f32 }, alive = true | inv } else inv,
+            w#invaders);
+        let marching = { marchDir = 1.0f32, invaders = high | w };
+        let flight = (Rules.playerY() - 40.0f32) / Rules.bulletSpeed();
+        let drift = Rules.marchSpeedFor(1, marching#level) * flight;
+        assertTrueWithMsg(drift > fireWindowPx(),
+            "the fixture drifts ${drift}px against a ${fireWindowPx()}px window, so it does not "
+            + "put the invader out of reach and the assertion below would prove nothing");
+        assertFalseWithMsg(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), marching)#held),
+            "the bot fired at where the invader is rather than where the bullet will arrive")
+    }
+
+    ///
+    /// And the widening itself, which is the change that bought it a whole level.
+    ///
+    /// Exact aiming refuses this shot -- the invader drifts further than its own width before
+    /// the bullet arrives -- and the bot takes it anyway. A miss costs only the twelve-tick
+    /// cooldown, there is no limit on shots in flight, and over sixty seeds firing on "roughly
+    /// overhead" beats firing on "guaranteed to connect" by 5.2 to 6.0 levels.
+    ///
+    @Test
+    def testItTakesAShotExactAimingWouldRefuse(): Unit \ Assert = {
         let w = settled();
         let marching = { marchDir = 1.0f32 | w };
         let flight = (Rules.playerY() - 260.0f32) / Rules.bulletSpeed();
         let drift = Rules.marchSpeedFor(1, marching#level) * flight;
-        assertTrueWithMsg(drift > Rules.invaderSize()#x,
-            "the fixture does not actually move the invader out of the way: ${drift} px");
-        assertFalseWithMsg(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), marching)#held),
-            "the bot fired at where the invader is rather than where the bullet will arrive")
+        let exact = (Rules.invaderSize()#x + Rules.bulletSize()#x) / 2.0f32;
+        assertTrueWithMsg(drift > exact and drift < fireWindowPx(),
+            "the fixture drifts ${drift}px, which is not between the exact window ${exact}px "
+            + "and the widened one ${fireWindowPx()}px, so it does not test the widening");
+        assertTrueWithMsg(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), marching)#held),
+            "the bot held fire on a target inside its firing window")
     }
 
     @Test

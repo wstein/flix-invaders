@@ -92,7 +92,7 @@ mod TestDifficulty {
     /// a change that gives one back is invisible to a per-seed minimum.
     ///
     /// Deterministic, not statistical -- fixed seeds and a discharged `Sound` effect mean this
-    /// number does not wobble, so the 5.0 floor against a measured 5.33 is margin, not luck. If
+    /// number does not wobble, so the 6.0 floor against a measured 6.3 is margin, not luck. If
     /// it fails, either the bot got worse or the figure quoted in `README.md` and
     /// `docs/ARCHITECTURE.md` needs revising; both are one edit and neither is optional.
     ///
@@ -100,9 +100,9 @@ mod TestDifficulty {
     def testTheDemoHasNotRegressedByAWholeLevel(): Unit \ Assert = {
         let reached = List.map(seed -> playShaky(wholeGame(), seed)#level, seeds());
         let meanTenths = (List.sum(reached) * 10) / List.length(seeds());
-        assertTrueWithMsg(meanTenths >= 50,
+        assertTrueWithMsg(meanTenths >= 60,
             "the demo averaged level ${meanTenths / 10}.${meanTenths `Int32.remainder` 10} "
-            + "across ${reached}; it reached 5.3 when that figure was last written down")
+            + "across ${reached}; it reached 6.3 when that figure was last written down")
     }
 
     @Test

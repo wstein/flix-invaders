@@ -309,6 +309,10 @@ mod Bench {
     /// the formation and leaves the block at full width all game. Search tunes the numbers; it
     /// does not get to overturn the design.
     ///
+    /// `fireWindow` is absent for a duller reason: it is a plateau. Every value from 3 to 10
+    /// scores 5.9 to 6.1 over sixty seeds, so a search would spend its budget wandering inside
+    /// the flat part and report the wander as progress.
+    ///
     /// The same caution applies to anything else added here. Ask first whether a worse score
     /// would actually mean a worse demo.
     ///
