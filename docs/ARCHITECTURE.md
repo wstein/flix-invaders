@@ -648,6 +648,7 @@ a record of intuition being wrong:
 | Drill early anyway, for the firing lane | cheap on level 1, where there is time | 5.2 → 5.1 → 4.9 as more is allowed |
 | Camp on an outermost bunker and let the formation come | fewer wasted ticks walking | 4.9 left, 5.2 right, against 5.2 — the camp costs what the lane gains |
 | Widen the firing window fivefold | more misses, fewer kills | **5.2 → 6.0**, and *fewer* deaths |
+| Stop hunting from level 6 and fire from where it stands | hunting is dead time late on | below resolution — the sixty say +0.1, the ten say −0.2 |
 
 One change came from asking *why* instead of trying another weight. Throughput was falling
 from 46 kills per 1000 ticks with a full formation to 18 with a handful left, and the
@@ -682,6 +683,16 @@ loosely**: the same mean, but half as many games reach level seven, because a sh
 spends the twelve-tick cooldown that the next real target needed. The rule that survives is
 neither "aim" nor "spray" but *do not waste the cooldown* — a miss is nearly free, and an
 unloaded gun is not.
+
+It also retired a problem rather than solving it. Chasing a target across the field used to be
+**dead time** — with an exact window, a walking bot fires almost nothing, which is why *stop
+hunting what you cannot catch* looked so promising and was tried three times. A wide window
+lets the bot fire at whatever drifts overhead *while* it walks, and the endgame cost per kill
+falls from 40.96 ticks to 32.71 with eight or fewer invaders left. Hunting is no longer barren,
+so the rule that would have fixed it now buys nothing: gating the chase off from level 6
+measures +0.1 levels on the sixty seeds and −0.2 on the ten, which is a change below the
+resolution of both samples. Worth knowing before proposing it a fourth time — and worth
+knowing that its premise expired rather than being disproved.
 
 Both halves of the aimed-fire rule therefore still stand, and are still tested: the bot leads
 its target, and it holds fire over empty sky. What changed is only the tolerance it judges the
