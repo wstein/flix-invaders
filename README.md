@@ -44,9 +44,10 @@ git clone https://github.com/wstein/flix-invaders
 cd flix-invaders
 
 bin/flix check     # type-check; the fast feedback loop
-bin/flix test      # 419 tests -- no window, no audio device, no filesystem
+bin/flix test      # 433 tests -- no window, no audio device, no filesystem
 bin/flix run       # play
 bin/bench          # measure the demo bot over ten seeds
+bin/bench --wide   # sixty seeds instead; the only sample that settles a close call
 bin/bench --recalc # search for better bot numbers and save them
 ```
 

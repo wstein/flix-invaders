@@ -517,11 +517,9 @@ narrowing at all. But it is not needed, and the controlled 2×2 says why:
 Caution on its own does nothing. The whole gain is the narrowing, and paying for the deaths
 separately turns out to cost more than the deaths do.
 
-**The ten-seed benchmark ranked this backwards.** `bin/bench` scored the adopted change at 4.6
-against a 4.9 baseline — a clear reject — where sixty seeds from two independent families give
-4.95 against 4.52. Ten games is enough to compare things that differ a lot and not enough to
-compare things that differ by a third of a level, which is the size of every honest improvement
-found here. Anything close is now settled on sixty.
+**The ten-seed benchmark ranked this backwards** — 4.6 against a 4.9 baseline, a clear reject,
+where `--wide` gives 4.95 against 4.52. This is the finding that bought the sixty-seed sample;
+see *Measuring the bot*.
 
 ---
 
@@ -606,16 +604,34 @@ lifted every band and the mean level from 4.4 to 4.9. Four earlier attempts to f
 symptom by choosing targets or aiming differently all failed; the one that worked changed when
 to pull the trigger.
 
-So the constants are measured rather than argued about. [`bin/bench`](../bin/bench) plays ten
-fixed seeds, reporting per-seed outcomes and aggregate rates. It runs `Game.step` under
+So the constants are measured rather than argued about. [`bin/bench`](../bin/bench) plays a
+fixed set of seeds, reporting per-seed outcomes and aggregate rates. It runs `Game.step` under
 `Sound.runWithNoOp`; with that effect discharged, the bot and measurement are deterministic.
 Given the same tuning, the same build produces the same numbers, and any difference between
 builds is the change under test.
 
-Three rules it enforces, each of which was learned by getting it wrong:
+There are two samples, and which one you use is part of the claim:
+
+| | Seeds | Use |
+|---|---|---|
+| default | 10 | the fast loop — separates changes worth a whole level |
+| `--wide` | 60 | the only sample that settles a close call |
+
+Ten seeds cannot rank changes that differ by a third of a level, which is the size of every
+honest improvement this bot has had. The narrowing rule scores 4.6 against a 4.9 baseline on
+the ten — a clear reject — and 4.95 against 4.52 on the sixty. The two sets are deliberately
+disjoint, drawn from two independent families, so a figure quoted from one is never silently
+compared against the other. Every per-seed number recorded in this document says which.
+
+Four rules it enforces, each of which was learned by getting it wrong:
 
 - **Rates, never totals.** A change that ends games sooner posts fewer deaths and fewer row
   drops while being strictly worse.
+- **A counter must survive the events it counts.** The same trap in different clothes: kills
+  were counted as the drop in living invaders per tick, and clearing a formation restores all
+  55, so every level cleared subtracted 55 from the total. The configuration that got *further*
+  reported *fewer* kills. Nothing about the arithmetic looked wrong; only asking whether a
+  count could go negative found it.
 - **One stopping condition.** Nothing may stop a run early on something the change under test
   could itself affect. A bunker-damage measurement once reported every bunker perfectly intact
   because it stopped at the level change — which resets them.
@@ -639,17 +655,18 @@ and the benchmark. Every field is optional and falls back to the compiled-in def
 naming one parameter is a valid file and a config from an older build still loads.
 
 **`stragglers` is excluded from the search, and from the config file entirely.** Setting it to
-zero switches off flank finishing, so a search allowed to touch it deletes it every time. Excluding it from `knobs` was not enough: a config already
-written with `stragglers: 0` was still being *read*, so the game silently stopped narrowing the
-formation and the demo looked wrong with nothing in the code to explain it. Measured on seed 1
-of level 1, the block held 400px the whole way instead of falling to 200.
+zero switches off flank finishing, so a search allowed to touch it deletes it every time.
+Excluding it from `knobs` was not enough: a config already written with `stragglers: 0` was
+still being *read*, so the game silently stopped narrowing the formation and the demo looked
+wrong with nothing in the code to explain it. Measured on seed 1 of level 1, the block held
+400px the whole way instead of falling to 200.
 
 **`narrowing` and `narrowTo` are excluded for a different reason: the search cannot measure
-them.** Over the benchmark's ten seeds the adopted setting scores 4.6 against a 4.9 baseline,
-where sixty seeds give 4.95 against 4.52. A search optimising the ten would drive `narrowing` to
-zero, delete the largest gain the bot has, and report an improvement while doing it. Ten games
-separate things that differ by a level; they do not separate things that differ by a third of
-one, and every honest improvement found here has been that size.
+them.** The search runs on the ten seeds, and on the ten the adopted setting scores 4.6 against
+a 4.9 baseline where the sixty give 4.95 against 4.52. A search optimising the ten would drive
+`narrowing` to zero, delete the largest gain the bot has, and report an improvement while doing
+it. Running the search on sixty seeds instead would cost six times the time for every candidate
+it rejects, so the sample stays small and these two stay out of it.
 
 The rule that came out of it: **tuned numbers live in the config; decisions about how the demo
 behaves live in `Demo.defaults`, where changing them is a visible edit.** `Tuning.decode`
