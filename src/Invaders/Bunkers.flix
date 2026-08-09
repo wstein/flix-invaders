@@ -96,15 +96,12 @@ mod Bunkers {
     }
 
     ///
-    /// Whether any standing block sits directly above `x`.
-    ///
-    /// A shot fired from here hits the shelter rather than anything above it. The rules do
-    /// not care -- carving a slit through your own bunker is legal, and in the arcade original
-    /// it is a tactic -- but a player who is not doing it deliberately is destroying their own
-    /// cover and wasting the shot.
-    ///
-    ///
     /// Whether a shot of width `width`, fired from `x`, would meet a bunker on its way up.
+    ///
+    /// The rules do not care -- carving a slit through your own bunker is legal, and in the
+    /// arcade original it is a tactic -- but a player who is not doing it deliberately is
+    /// destroying their own cover and wasting the shot. This is the question to ask before
+    /// pulling the trigger.
     ///
     /// `blocks` samples a single point, and a point is not what gets fired. A bullet is four
     /// pixels wide and so is a bunker block, so a shot whose *centre* sits in a gap still
@@ -120,6 +117,12 @@ mod Bunkers {
         blocks(bunkers, x - half) or blocks(bunkers, x) or blocks(bunkers, x + half)
     }
 
+    ///
+    /// Whether any standing block sits directly above the single point `x`.
+    ///
+    /// A point is not what gets fired, so this is rarely the question a caller wants -- see
+    /// `obstructs`, which asks it of a whole bullet.
+    ///
     pub def blocks(bunkers: Vector[Bunker], x: Float32): Bool =
         Vector.exists(bunker -> {
             let offset = (x - bunker#origin#x) / Rules.bunkerCell();

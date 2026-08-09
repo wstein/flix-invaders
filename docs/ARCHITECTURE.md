@@ -439,9 +439,22 @@ Three consequences worth knowing:
   channel twice as wide, which a bomb fits through. Camping requires lining up.
 - **The clock is running.** `bombCrater` stays at 6px, so the enemy tears your shelter down
   faster than you carve it. Camping is a tactic with a time limit, not a place to live.
-- **The bot does not do this.** It refuses to fire through its own cover at all, which costs
-  it nothing measurable — level 4.8 either way — and keeps its behaviour legible. Teaching it
-  to drill deliberately is open work.
+- **The bot does not do this, and for a long time it did.** It is meant to refuse to fire
+  through its own cover at all, but it asked the wrong question: `Bunkers.blocks` samples the
+  single point under the shot's centre, while a bullet is 4px wide and `contact` tests the
+  whole footprint. A shot centred in a one-block channel therefore reads as clear and clips
+  the block beside it. Across sixty games **3124 of 22504 shots — one in seven — struck a
+  bunker the guard had called clear**, so the bot drilled continuously without meaning to.
+  `Bunkers.obstructs` asks the question that matches what gets fired, and takes that count to
+  zero. Teaching it to drill *deliberately* is open work.
+
+The correction is also a lesson about the measurement above it. This section used to claim the
+refusal cost nothing — *level 4.8 either way* — which compared refusing against firing freely
+at a time when the bot was firing freely under both settings. Making the refusal real costs
+**0.3 levels, 5.5 down to 5.2 over sixty seeds**, because the cover it was demolishing blocks
+its own shots too. That is a genuine price, paid for a bot whose stated behaviour and actual
+behaviour agree; a guard that quietly does not hold is worth less than no guard, because the
+tuning around it is then fitted to a rule nobody is following.
 
 ---
 
@@ -579,6 +592,7 @@ a record of intuition being wrong:
 | The same, but stopping at 30% of the starting width | more of the same | **4.52 → 4.95** |
 | Ignore bombs the shield will stop | a little free time | mean level 4.5 → 4.8 |
 | Have the bot stop chasing what it cannot catch | fewer wasted ticks, more shots | all three of those, and **fewer levels** |
+| Make the "never shoot your own bunker" guard actually hold | no change; it already refused | it never had: **1 shot in 7** hit cover, and stopping cost 5.5 → 5.2 |
 
 One change came from asking *why* instead of trying another weight. Throughput was falling
 from 46 kills per 1000 ticks with a full formation to 18 with a handful left, and the

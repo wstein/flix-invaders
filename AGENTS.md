@@ -110,6 +110,12 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   `Fs.FileSystem.withInMemoryFS`; CI greps for exactly that. `withInMemoryFS` leaves a
   residual `Time.Clock`, whose only handler is `runWithIO`, so hand-write a frozen one to keep
   the test pure — see `test/TestScoresFile.flix`.
+- **A guard that samples a point does not guard a sprite.** `Bunkers.blocks` answers "is there
+  a block above this *x*", but everything that collides here has width — a bullet is 4px and so
+  is a bunker block, and `contact` tests the whole footprint. The bot's "never shoot your own
+  cover" rule was written against the point and so did not hold: one shot in seven struck a
+  bunker it had called clear, for months, silently. Any new predicate that gates a *collision*
+  must be asked of the same extent the collision uses; `Bunkers.obstructs` is the pattern.
 - **Never compare bot tunings on totals.** A change that ends games sooner posts fewer deaths
   and fewer row drops while being strictly worse. `bin/bench` reports rates per 10,000 ticks for
   this reason, and flags any game cut short by the budget — such a game was interrupted, not
