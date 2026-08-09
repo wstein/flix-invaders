@@ -182,6 +182,17 @@ reads and writes the high-score file through `Fs`. See *Persistence*.
 One text file, `NAME|SCORE|LEVEL` per line, in `$XDG_CONFIG_HOME/flix-invaders/scores.txt` or
 `~/.config/flix-invaders/scores.txt`.
 
+`Scores.places()` keeps **twelve** entries and `Scores.nameLength()` allows **three**
+characters. Both are single constants: qualification, insertion and truncation all derive from
+`places()`, and `Screens.table` simply renders whatever list it is handed, so the capacity is
+changed in one place.
+
+It is bounded by the screen, and not by much. The table stacks at a 24px pitch from y=110, so
+the twelfth row's baseline sits at 386 against the `PRESS ENTER` prompt at 440. Fourteen places
+is the ceiling — the fifteenth row lands at 458, past the prompt — leaving **two spare**.
+`TestSession` pins it, because the constant and the layout that has to accommodate it are in
+different files with nothing else connecting them.
+
 The whole of it is arranged so that exactly one function can touch a disk:
 
 ```mermaid

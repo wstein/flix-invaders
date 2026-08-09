@@ -326,6 +326,36 @@ mod TestSession {
         }, cmds))
     }
 
+    ///
+    /// A full table still fits on the screen.
+    ///
+    /// `Scores.places()` and the layout that has to accommodate it live in different files with
+    /// nothing connecting them, so raising the capacity is a one-line edit that can silently
+    /// push the last rows through the `PRESS ENTER` prompt and off the bottom of the field.
+    /// Going from eight places to twelve used up two of the four rows that were spare.
+    ///
+    /// Derived from `Scores.places()` rather than from twelve, so the next change to the
+    /// capacity is checked by this test rather than merely permitted by it.
+    ///
+    @Test
+    def testAFullScoreTableFitsAboveThePrompt(): Unit \ Assert = {
+        let full = List.range(0, Scores.places())
+            |> List.map(i -> { name = "AAA", score = 1000 - i, level = 1 });
+        let s = { screen = Screen.Table | Session.withScores(2026i64, full) };
+        let baselines = Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty()))
+            |> List.filterMap(cmd -> match cmd {
+                case DrawCmd.Text(t, _, y) => if (String.startsWith(prefix = "AAA", t)) Some(y) else None
+                case _ => None
+            });
+        assertTrueWithMsg(List.length(baselines) == Scores.places(),
+            "the table drew ${List.length(baselines)} of ${Scores.places()} rows");
+        let lowest = List.foldLeft(Float32.max, 0.0f32, baselines);
+        let prompt = Rules.fieldHeight() - 40.0f32;
+        assertTrueWithMsg(lowest < prompt,
+            "the last of ${Scores.places()} rows has its baseline at ${lowest}, "
+            + "which is below the PRESS ENTER prompt at ${prompt}")
+    }
+
     @Test
     def testTheHudNamesWhoseTurnItIs(): Unit \ Assert = {
         let cmds = Canvas.commands((640, 480), () -> Screens.render(twoPlayer(), Stats.empty()));

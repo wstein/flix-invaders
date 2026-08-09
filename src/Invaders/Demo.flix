@@ -332,14 +332,13 @@ mod Demo {
         let living = Vector.count(inv -> inv#alive, w#invaders);
         let drift = w#marchDir * Rules.marchSpeedFor(living, w#level);
         let overlap = (Rules.invaderSize()#x + Rules.bulletSize()#x) / 2.0f32;
-        Vector.exists(inv -> {
-            if (not inv#alive) false
-            else {
+        Vector.exists(
+            inv -> { if (not inv#alive) false else {
                 let flight = (Rules.playerY() - inv#pos#y) / Rules.bulletSpeed();
-                if (flight <= 0.0f32) false
-                else Float32.abs(inv#pos#x + drift * flight - w#playerX) < overlap
-            }
-        }, w#invaders)
+                if (flight <= 0.0f32) false else Float32.abs(inv#pos#x + drift * flight - w#playerX) < overlap
+            } },
+            w#invaders
+        )
     }
 
     def worthFiring(dx: Float32, w: World): Bool =

@@ -66,7 +66,7 @@ beat, needs a real reason to turn the cannon round, and now and then stops watch
 that is still pure -- it threads a `Hand` the way the game threads its `Rng` -- and it is the
 same code the balance test drives, good enough to reach about level five.
 
-A qualifying score asks for three initials and is kept in
+The table keeps **twelve places**, and a qualifying score asks for three initials. It lives in
 `~/.config/flix-invaders/scores.txt` (or `$XDG_CONFIG_HOME`). Delete it to start over; it is
 a text file, and a damaged one costs you the table, not the game.
 
