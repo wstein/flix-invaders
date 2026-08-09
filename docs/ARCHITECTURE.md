@@ -647,6 +647,7 @@ a record of intuition being wrong:
 | Teach the bot the arcade camping trick | a sheltered firing position | it cannot line up to one — **off by 2px, forever** |
 | Drill early anyway, for the firing lane | cheap on level 1, where there is time | 5.2 → 5.1 → 4.9 as more is allowed |
 | Camp on an outermost bunker and let the formation come | fewer wasted ticks walking | 4.9 left, 5.2 right, against 5.2 — the camp costs what the lane gains |
+| Rest in the *gaps* between bunkers 1–2 or 3–4 instead | a clear line of fire, unlike behind a bunker | much better than the outer bunkers and still no gain: 7.4–7.6 against 7.7 |
 | Widen the firing window fivefold | more misses, fewer kills | **5.2 → 6.0**, and *fewer* deaths |
 | Let how far a column has come outrank a tidy flank | a modest correction | **6.0 → 7.7**, and every seed clears level six |
 | Drop or cut the penalty for standing behind a bunker | it only blocks shots for a moment | 7.7 → 6.7 at zero, 7.1 at half, 7.3 at double |
@@ -696,6 +697,36 @@ so the rule that would have fixed it now buys nothing: gating the chase off from
 measures +0.1 levels on the sixty seeds and −0.2 on the ten, which is a change below the
 resolution of both samples. Worth knowing before proposing it a fourth time — and worth
 knowing that its premise expired rather than being disproved.
+
+### Why no resting place helps
+
+Parking the bot somewhere and letting the formation come to it has been proposed and measured
+four times, in increasingly sensible forms. The progression is worth keeping, because each
+version fixed a real fault in the one before and none of them beat simply not doing it:
+
+| Rest anchor | Mean level | Worst | Against a baseline of |
+|---|---|---|---|
+| outermost bunker, left | 4.9 | 2 | 5.2 |
+| outermost bunker, right | 5.2 | 2 | 5.2 |
+| gap between bunkers 3 and 4 | 7.1 | 5 | 7.7 |
+| gap between bunkers 1 and 2 | 7.5 | 5 | 7.7 |
+| whichever of those two gaps is nearer | 7.6 | 6 | 7.7 |
+
+The diagnosis behind the later attempts was correct: standing *behind* a bunker is doubly bad,
+because the bot is both blind and at the edge of the sweep, and moving into a gap fixes both.
+The remaining gap closes to nothing — and then stops.
+
+The reason it cannot close further is that a rest anchor is a **prior on position**, and the
+bot already has a better signal than any prior. Once `imminence` weights a descending column
+properly, position is decided by the thing that actually ends games; a resting bias can only
+pull the cannon away from it. The scorer already rests implicitly, too — when nothing is
+urgent the aim term is small and the cannon does not wander. What looked like a missing
+behaviour was an emergent one.
+
+Note also what the fixed anchors cost that the mean hides: every one of them drops the worst
+seed from 6 to 5, giving up the property that *every* game clears level six.
+
+---
 
 ### The priority the game sets
 
