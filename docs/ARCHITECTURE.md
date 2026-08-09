@@ -649,6 +649,8 @@ a record of intuition being wrong:
 | Camp on an outermost bunker and let the formation come | fewer wasted ticks walking | 4.9 left, 5.2 right, against 5.2 — the camp costs what the lane gains |
 | Widen the firing window fivefold | more misses, fewer kills | **5.2 → 6.0**, and *fewer* deaths |
 | Let how far a column has come outrank a tidy flank | a modest correction | **6.0 → 7.7**, and every seed clears level six |
+| Drop or cut the penalty for standing behind a bunker | it only blocks shots for a moment | 7.7 → 6.7 at zero, 7.1 at half, 7.3 at double |
+| Charge that penalty once on entry rather than per tick | it is a toll for crossing, not for being there | 7.7 → 7.2 — it is rent, and the bot settles in blind without it |
 | Stop hunting from level 6 and fire from where it stands | hunting is dead time late on | below resolution — the sixty say +0.1, the ten say −0.2 |
 
 One change came from asking *why* instead of trying another weight. Throughput was falling
