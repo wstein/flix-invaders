@@ -447,7 +447,8 @@ stopped every time.
 Three consequences worth knowing:
 
 - **Alignment matters.** A shot on the *seam* between two columns straddles both and drills a
-  channel twice as wide, which a bomb fits through. Camping requires lining up.
+  channel twice as wide, which a bomb fits through. Camping requires lining up — and see below
+  for who can.
 - **The clock is running.** `bombCrater` stays at 6px, so the enemy tears your shelter down
   faster than you carve it. Camping is a tactic with a time limit, not a place to live.
 - **The bot does not do this, and for a long time it did.** It is meant to refuse to fire
@@ -457,7 +458,33 @@ Three consequences worth knowing:
   the block beside it. Across sixty games **3124 of 22504 shots — one in seven — struck a
   bunker the guard had called clear**, so the bot drilled continuously without meaning to.
   `Bunkers.obstructs` asks the question that matches what gets fired, and takes that count to
-  zero. Teaching it to drill *deliberately* is open work.
+  zero.
+- **Teaching it to drill deliberately is not open work; it is impossible.** The cannon starts
+  at the middle of the field and moves in whole `playerSpeed` steps, so its positions form a
+  4px lattice, and `clampTo` at either wall starts two more. Block centres are on a 4px lattice
+  of their own, and none of the three ever coincides with one: the closest the cannon comes to
+  any block centre in the game is **0.17px**, and against the outer bunkers it is exactly 2px
+  — precisely the seam, the worst case. Every shot the cannon can fire into a bunker straddles
+  two columns. The channel it opens is therefore always the wide one, which is a hole in the
+  roof rather than a shelter. `testTheCannonCannotLineUpToCamp` pins this, and would fail if a
+  change to the bunker spacing or the cannon's speed ever made the tactic reachable.
+
+A lane is still a lane even when it shelters nobody, so the *other* reason to drill was
+measured rather than argued away: it would let the bot fire from where it stands instead of
+walking out from behind cover, and drilling early was the version worth trying, since level one
+is where it has time to spare. It loses, and loses more the more of it there is:
+
+| Drilling allowed | Mean level | Worst | Deaths per 10 000 ticks | Games lost to bombs |
+|---|---|---|---|---|
+| never (shipped) | **5.2** | 4 | 1.0 | 0 of 60 |
+| level 1 only | 5.1 | 4 | 1.2 | 0 of 60 |
+| levels 1–2 | 4.9 | 2 | 1.7 | 5 of 60 |
+
+A dose-response curve rather than a single reading, so this is a real effect and not sixty
+seeds of luck. The mechanism is the one the geometry predicts: the bot spends shots to open a
+hole its enemies then drop bombs through, and starts losing games to bombs it had never lost
+before. Walking around a bunker costs about ten ticks; drilling through one costs a dozen
+shots at a twelve-tick cooldown, and the field is only 192px of bunker in 640px of room.
 
 The correction is also a lesson about the measurement above it. This section used to claim the
 refusal cost nothing — *level 4.8 either way* — which compared refusing against firing freely
@@ -602,6 +629,8 @@ a record of intuition being wrong:
 | Ignore bombs the shield will stop | a little free time | mean level 4.5 → 4.8 |
 | Have the bot stop chasing what it cannot catch | fewer wasted ticks, more shots | all three of those, and **fewer levels** |
 | Make the "never shoot your own bunker" guard actually hold | no change; it already refused | it never had: **1 shot in 7** hit cover, and stopping cost 5.5 → 5.2 |
+| Teach the bot the arcade camping trick | a sheltered firing position | it cannot line up to one — **off by 2px, forever** |
+| Drill early anyway, for the firing lane | cheap on level 1, where there is time | 5.2 → 5.1 → 4.9 as more is allowed |
 
 One change came from asking *why* instead of trying another weight. Throughput was falling
 from 46 kills per 1000 ticks with a full formation to 18 with a handful left, and the

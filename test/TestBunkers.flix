@@ -18,8 +18,10 @@ mod TestBunkers {
     /// One shot, rising from under the bunker until it meets a block -- which is what a bullet
     /// does. Absorbing at a fixed height would only ever chip one row.
     ///
-    def drilledAt(column: Int32, bunkers: Vector[Bunker]): Vector[Bunker] = {
-        let x = columnCentre(column);
+    def drilledAt(column: Int32, bunkers: Vector[Bunker]): Vector[Bunker] =
+        drilledFrom(columnCentre(column), bunkers)
+
+    def drilledFrom(x: Float32, bunkers: Vector[Bunker]): Vector[Bunker] = {
         let floor = Rules.bunkerTop() + Int32.toFloat32(Rules.bunkerRows()) * Rules.bunkerCell();
         def shoot(acc) = {
             def rise(y, seen) =
@@ -371,6 +373,66 @@ mod TestBunkers {
         assertTrueWithMsg(List.isEmpty(disagreements),
             "the guard and the collision disagree at ${disagreements} "
             + "-- each triple is (x, obstructs, actually stopped)")
+    }
+
+    ///
+    /// Every x the cannon can ever occupy.
+    ///
+    /// It starts at the middle of the field and moves by whole `playerSpeed` steps, so its
+    /// positions form a lattice. `clampTo` at either wall parks it exactly on the wall, which
+    /// starts a second and a third lattice offset from the first.
+    ///
+    def latticeStarts(): List[Float32] = {
+        let half = Rules.playerSize()#x / 2.0f32;
+        Rules.fieldWidth() / 2.0f32 :: half :: Rules.fieldWidth() - half :: Nil
+    }
+
+    /// The nearest position to `target` the cannon can actually stand on, starting from `from`.
+    def nearestStand(base: Float32, target: Float32): Float32 = {
+        let steps = Float32.round((target - base) / Rules.playerSpeed());
+        base + steps * Rules.playerSpeed()
+    }
+
+    ///
+    /// The bot cannot camp, because it cannot line up.
+    ///
+    /// `testASlitLetsYouShootOutButNotThemIn` drills on a block column's centre and gets a
+    /// shelter that stops bombs. Nothing checked whether the *cannon* can stand there, and it
+    /// cannot: its lattice is 4px from the middle of the field, the block centres are on a 4px
+    /// lattice of their own, and the two never coincide on any of the three starts. It is
+    /// typically 2px out -- exactly on a seam, the worst case, where a shot straddles two
+    /// columns and opens a channel twice as wide as intended.
+    ///
+    /// So the arcade tactic is not merely hard for the bot, it is unreachable. Drilling from
+    /// where the cannon can actually stand carves a lane its own shots pass through *and* the
+    /// invaders' bombs fall down, which is not shelter -- it is a hole in the roof.
+    ///
+    @Test
+    def testTheCannonCannotLineUpToCamp(): Unit \ Assert = {
+        let centres = List.range(0, Rules.bunkerCount()) |> List.flatMap(b ->
+            List.range(0, Rules.bunkerColumns()) |> List.map(c ->
+                Vector.get(b, Bunkers.initial())#origin#x
+                    + (Int32.toFloat32(c) + 0.5f32) * Rules.bunkerCell()));
+
+        let aligned = latticeStarts() |> List.flatMap(base ->
+            centres |> List.filter(centre -> nearestStand(base, centre) == centre));
+        assertTrueWithMsg(List.isEmpty(aligned),
+            "the cannon can stand on block centres ${aligned}; the camping tactic is reachable "
+            + "after all, and the bot should be taught it");
+
+        // The consequence, from the closest the cannon ever gets to the column the shelter
+        // test drills. Its own shots fly, so the lane is real -- and a bomb comes straight
+        // down it, so the lane is not cover.
+        let stand = nearestStand(Rules.fieldWidth() / 2.0f32, columnCentre(6));
+        let camped = drilledFrom(stand, Bunkers.initial());
+        assertFalseWithMsg(Bunkers.obstructs(camped, stand, Rules.bulletSize()#x),
+            "the cannon drilled from ${stand} and still cannot shoot out");
+        let (_, bombStopped) =
+            Bunkers.absorb(camped, { x = stand, y = Rules.bunkerTop() + 2.0f32 },
+                           Rules.bombSize(), Rules.bombCrater());
+        assertFalseWithMsg(bombStopped,
+            "a lane drilled from ${stand} stopped a bomb, so the cannon can shelter without "
+            + "lining up and the tactic is worth teaching")
     }
 
     @Test
