@@ -103,18 +103,47 @@ mod Bunkers {
     /// destroying their own cover and wasting the shot. This is the question to ask before
     /// pulling the trigger.
     ///
-    /// `blocks` samples a single point, and a point is not what gets fired. A bullet is four
-    /// pixels wide and so is a bunker block, so a shot whose *centre* sits in a gap still
-    /// overlaps the block beside it -- `contact` tests the whole footprint, and rightly.
-    /// Asking the narrower question meant the bot cleared itself a slit, declared the way open,
-    /// and then demolished its own cover from below: one shot in seven struck a bunker the
-    /// guard had called clear.
+    /// This asks the question of the *same extent* `contact` uses, and so gives the same
+    /// answer by construction. Two narrower versions were wrong in opposite directions, and
+    /// both cost real play:
     ///
-    pub def obstructs(bunkers: Vector[Bunker], x: Float32, width: Float32): Bool = {
-        let half = width / 2.0f32;
-        // The centre too, not only the edges -- a shot narrower than a block can sit entirely
-        // inside one, and then neither edge is what strikes it.
-        blocks(bunkers, x - half) or blocks(bunkers, x) or blocks(bunkers, x + half)
+    /// - Sampling only the centre (`blocks`) misses the block beside the shot, because a
+    ///   bullet is four pixels wide and so is a block. The bot cleared itself a slit, declared
+    ///   the way open, and demolished its own cover from below -- one shot in seven struck a
+    ///   bunker the guard had called clear.
+    /// - Sampling the two edges as well over-corrects. `Collide.overlaps` is strict, so a
+    ///   bullet centred on a block column does *not* touch the next column -- but the right
+    ///   edge lands exactly on that column's boundary and floors into it. A perfectly drilled
+    ///   channel then reads as blocked, which makes camping impossible to aim for.
+    ///
+    /// Sampling points cannot express a strict overlap at all, so this does not sample.
+    ///
+    pub def obstructs(bunkers: Vector[Bunker], x: Float32, width: Float32): Bool =
+        Vector.exists(bunker -> meets(bunker, x, width), bunkers)
+
+    ///
+    /// Whether any standing block of `bunker` lies in the path of a shot of `width` at `x`.
+    ///
+    /// Scans columns rather than cells: a shot rising through a bunker meets every row of the
+    /// columns it overlaps, so which row is irrelevant to the question and only the horizontal
+    /// extent matters. The comparison is the x half of `Collide.overlaps`, strict included.
+    ///
+    def meets(bunker: Bunker, x: Float32, width: Float32): Bool = {
+        let reach = (width + Rules.bunkerCell()) / 2.0f32;
+        def standing(column) =
+            Vector.exists(row ->
+                Vector.nth(row * Rules.bunkerColumns() + column, bunker#cells)
+                    |> Option.getWithDefault(false),
+                Vector.range(0, Rules.bunkerRows()));
+        def scan(column) =
+            if (column >= Rules.bunkerColumns()) false
+            else {
+                let centre =
+                    bunker#origin#x + (Int32.toFloat32(column) + 0.5f32) * Rules.bunkerCell();
+                if (Float32.abs(centre - x) < reach and standing(column)) true
+                else scan(column + 1)
+            };
+        scan(0)
     }
 
     ///

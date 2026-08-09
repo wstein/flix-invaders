@@ -8,6 +8,34 @@ mod TestBunkers {
 
     def first(): Bunker = Vector.get(0, Bunkers.initial())
 
+    /// The x of the centre of block `column` in the first bunker, where a camper lines up.
+    def columnCentre(column: Int32): Float32 =
+        first()#origin#x + (Int32.toFloat32(column) + 0.5f32) * Rules.bunkerCell()
+
+    ///
+    /// The first bunker after the cannon has drilled a channel up `column`.
+    ///
+    /// One shot, rising from under the bunker until it meets a block -- which is what a bullet
+    /// does. Absorbing at a fixed height would only ever chip one row.
+    ///
+    def drilledAt(column: Int32, bunkers: Vector[Bunker]): Vector[Bunker] = {
+        let x = columnCentre(column);
+        let floor = Rules.bunkerTop() + Int32.toFloat32(Rules.bunkerRows()) * Rules.bunkerCell();
+        def shoot(acc) = {
+            def rise(y, seen) =
+                if (y < Rules.bunkerTop() - Rules.bulletSize()#y) seen
+                else {
+                    let (damaged, hit) =
+                        Bunkers.absorb(seen, { x = x, y = y }, Rules.bulletSize(), Rules.bulletCrater());
+                    if (hit) damaged else rise(y - 2.0f32, seen)
+                };
+            rise(floor, acc)
+        };
+        def drill(n, acc) =
+            if (n <= 0 or not Bunkers.blocks(acc, x)) acc else drill(n - 1, shoot(acc));
+        drill(60, bunkers)
+    }
+
     /// A point in the solid top of the first bunker.
     def solidSpot(): Vec2 = {
         let b = first();
@@ -279,36 +307,21 @@ mod TestBunkers {
         // the trick quietly stops working. Alignment is part of the tactic, for the bot and for
         // a player at the cabinet alike.
         let column = 6;
-        let x = first()#origin#x + (Int32.toFloat32(column) + 0.5f32) * Rules.bunkerCell();
+        let x = columnCentre(column);
         let lane = { x = x, y = Rules.bunkerTop() + 2.0f32 };
 
-        // One shot, rising from under the bunker until it meets a block -- which is what a
-        // bullet does. Absorbing at a fixed height would only ever chip one row.
-        let floor = Rules.bunkerTop() + Int32.toFloat32(Rules.bunkerRows()) * Rules.bunkerCell();
-        def shoot(bunkers) = {
-            def rise(y, acc) =
-                if (y < Rules.bunkerTop() - Rules.bulletSize()#y) acc
-                else {
-                    let (damaged, hit) =
-                        Bunkers.absorb(acc, { x = x, y = y }, Rules.bulletSize(), Rules.bulletCrater());
-                    if (hit) damaged else rise(y - 2.0f32, acc)
-                };
-            rise(floor, bunkers)
-        };
-        def drill(n, bunkers) =
-            if (n <= 0 or not Bunkers.blocks(bunkers, x)) bunkers
-            else drill(n - 1, shoot(bunkers));
-        let drilled = drill(60, Bunkers.initial());
+        let drilled = drilledAt(column, Bunkers.initial());
 
         assertTrueWithMsg(not Bunkers.blocks(drilled, x),
             "60 shots did not open a channel; the cannon cannot drill at all");
 
-        // The channel is open to a *point* and not to a bullet. This is the gap the bot fell
-        // into: `blocks` samples the centre column, `absorb` tests the whole four-pixel
-        // footprint, so a shot fired down a slit this narrow still takes the block beside it.
-        assertTrueWithMsg(Bunkers.obstructs(drilled, x, Rules.bulletSize()#x),
-            "a channel one point wide reported itself clear for a "
-            + "${Rules.bulletSize()#x}px shot");
+        // Aligned on a column centre, the channel is open to a whole bullet and not merely to
+        // a point, so the guard must say so. This assertion used to read the other way, and
+        // contradicted the one below it in the same test: `obstructs` called the lane blocked
+        // while `absorb` let the shot through at every height.
+        assertFalseWithMsg(Bunkers.obstructs(drilled, x, Rules.bulletSize()#x),
+            "a channel drilled on a column centre still reports itself blocked for a "
+            + "${Rules.bulletSize()#x}px shot; the bot can never aim to camp");
 
         // The cannon's own shots now pass straight through, at every height.
         let ownShotStopped = List.exists(row -> {
@@ -322,6 +335,42 @@ mod TestBunkers {
         let (_, bombStopped) = Bunkers.absorb(drilled, lane, Rules.bombSize(), Rules.bombCrater());
         assertTrueWithMsg(bombStopped,
             "a bomb fell straight down the channel; the slit shelters nobody")
+    }
+
+    ///
+    /// The guard agrees with the collision, everywhere.
+    ///
+    /// `obstructs` exists to answer, before firing, what `absorb` will do after. Any position
+    /// where the two disagree is a position where the bot is either wasting shots on its own
+    /// cover or refusing shots that would have flown. Both have happened, in that order, from
+    /// two different approximations of this one question -- so the property, and not a handful
+    /// of positions, is what is worth asserting.
+    ///
+    /// Swept at 1px across a whole bunker and a margin either side, over an eroded bunker
+    /// rather than a fresh one: a fresh bunker is a solid slab for most of its width and would
+    /// agree by accident.
+    ///
+    @Test
+    def testTheFiringGuardAgreesWithTheCollision(): Unit \ Assert = {
+        let eroded = drilledAt(6, Bunkers.initial());
+        let left = first()#origin#x - 8.0f32;
+        let width = Int32.toFloat32(Rules.bunkerColumns()) * Rules.bunkerCell() + 16.0f32;
+        let disagreements = List.range(0, Float32.tryToInt32(width) |> Option.getWithDefault(0))
+            |> List.filterMap(step -> {
+                let x = left + Int32.toFloat32(step);
+                let guarded = Bunkers.obstructs(eroded, x, Rules.bulletSize()#x);
+                // What the shot actually does: rise through every row and see if anything stops it.
+                let stopped = List.exists(row -> {
+                    let y = Rules.bunkerTop() + (Int32.toFloat32(row) + 0.5f32) * Rules.bunkerCell();
+                    let (_, hit) =
+                        Bunkers.absorb(eroded, { x = x, y = y }, Rules.bulletSize(), Rules.bulletCrater());
+                    hit
+                }, List.range(0, Rules.bunkerRows()));
+                if (guarded == stopped) None else Some((x, guarded, stopped))
+            });
+        assertTrueWithMsg(List.isEmpty(disagreements),
+            "the guard and the collision disagree at ${disagreements} "
+            + "-- each triple is (x, obstructs, actually stopped)")
     }
 
     @Test
