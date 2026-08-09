@@ -67,7 +67,7 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   to build on. You must hand-write `instance Eq[W]`. This is worth knowing because the
   refactor looks free and has apparent stdlib backing (`Net/HttpRequest.flix:29`), and it
   is not -- it was proposed, tested, and rejected on that basis.
-- **Reserved words that bite as ordinary names:** `run`, `spawn`, `from`, `where`, and
+- **Reserved words that bite as ordinary names:** `run`, `spawn`, `from`, `where`, `into` and
   `Static`. The errors point at the *next* token, so they read as unrelated syntax errors —
   and worse, a parse error inside one function makes the compiler report every *other*
   function it calls as an unused definition, which sends you hunting in the wrong file.

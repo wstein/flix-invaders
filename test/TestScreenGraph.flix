@@ -74,11 +74,9 @@ mod TestScreenGraph {
 
     /// Which screens are reachable from which, by one or more transitions.
     def reachable(edges: List[(Screen, Screen)]): Vector[(Screen, Screen)] = {
-        let facts = List.foldLeft((acc, edge) -> {
-            let (source, target) = edge;
-            let fact = #{ Edge(source, target). };
-            acc <+> fact
-        }, #{}, edges);
+        // `inject` turns the observed pairs straight into an `Edge/2` relation. Folding
+        // `<+>` over singleton fact sets says the same thing at five times the length.
+        let facts = inject edges into Edge/2;
         let rules = #{
             Path(x, y) :- Edge(x, y).
             Path(x, z) :- Path(x, y), Edge(y, z).

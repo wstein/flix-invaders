@@ -381,8 +381,12 @@ reachability properties — every screen can be got to, and no screen traps the 
 transitive closure, so they are three rules and a `query` rather than a hand-rolled search:
 
 ```flix
-Path(x, y) :- Edge(x, y).
-Path(x, z) :- Path(x, y), Edge(y, z).
+let facts = inject edges into Edge/2;
+let rules = #{
+    Path(x, y) :- Edge(x, y).
+    Path(x, z) :- Path(x, y), Edge(y, z).
+};
+query facts, rules select (x, y) from Path(x, y)
 ```
 
 What makes it a real test rather than a restatement is where `Edge` comes from: the facts are
@@ -390,6 +394,11 @@ What makes it a real test rather than a restatement is where `Edge` comes from: 
 transitions by hand would assert the author's belief about the state machine and keep passing
 after somebody deleted the way out of `Table`. Deleting it for real strands three screens, not
 one, and the closure says so.
+
+`inject` is the seam between the two halves. Ordinary Flix computes the pairs; one line lifts
+that `List[(Screen, Screen)]` into an `Edge/2` relation the solver can close over, with no
+intermediate representation and nothing restated. Folding `<+>` over singleton fact sets does
+the same job in five lines and reads as plumbing, which is what this originally did.
 
 Datalog was considered for the game itself and rejected. Every relational-looking thing in
 `Game.step` — bullet × invader, bomb × player, bullet × bunker cell — is a **single
