@@ -180,8 +180,23 @@ mod Bench {
     /// before it was fixed. A scale that cannot show the improvement it was built to detect is
     /// no better than no scale.
     ///
+    ///
+    /// `count` per 10 000 ticks, in tenths.
+    ///
+    /// Widened to `Int64` for the multiplication, which is not defensive: `count * 100000`
+    /// leaves `Int32` above 21 474, and a sixty-seed run of the shipped bot reports 24 871
+    /// kills. It printed as `-277.-8` per 10 000 ticks -- visibly broken, which was luck. An
+    /// overflow a little smaller would have printed a plausible number instead.
+    ///
     pub def rateTenths(count: Int32, ticks: Int32): Int32 =
-        if (ticks <= 0) 0 else (count * 100000) / ticks
+        if (ticks <= 0) 0
+        else {
+            let wide = Int32.toInt64(count) * 100000i64 / Int32.toInt64(ticks);
+            match Int64.tryToInt32(wide) {
+                case Some(rate) => rate
+                case None       => Int32.maxValue()
+            }
+        }
 
     /// A tenths value as `X.Y`.
     pub def showTenths(tenths: Int32): String =

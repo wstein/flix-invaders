@@ -51,6 +51,19 @@ mod TestBench {
     def testARateOfNothingIsNotADivisionByZero(): Unit \ Assert =
         assertEq(expected = 0, Bench.rateTenths(0, 0))
 
+    @Test
+    def testALargeCountDoesNotWrapAround(): Unit \ Assert = {
+        // `count * 100000` leaves Int32 above 21 474, and a sixty-seed run of the shipped bot
+        // reports 24 871 kills -- so this was not a theoretical limit, it was the next
+        // measurement. It printed as `-277.-8` per 10 000 ticks, which was luck: a slightly
+        // smaller overflow would have printed a plausible number and been believed.
+        let rate = Bench.rateTenths(24871, 54000);
+        assertTrueWithMsg(rate > 0, "24871 kills over 54000 ticks reported as ${rate}");
+        // Twice the kills over the same play is twice the rate, which wrapping cannot manage.
+        assertTrueWithMsg(Bench.rateTenths(49742, 54000) > rate,
+            "doubling the kills did not double the rate; the arithmetic still wraps")
+    }
+
     // -- the summary ------------------------------------------------------------------------
 
     @Test
