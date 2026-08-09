@@ -704,19 +704,52 @@ Parking the bot somewhere and letting the formation come to it has been proposed
 four times, in increasingly sensible forms. The progression is worth keeping, because each
 version fixed a real fault in the one before and none of them beat simply not doing it:
 
-| Rest anchor | Mean level | Worst | Against a baseline of |
+| When and where it rests | Mean level | Worst | Against a baseline of |
 |---|---|---|---|
-| outermost bunker, left | 4.9 | 2 | 5.2 |
-| outermost bunker, right | 5.2 | 2 | 5.2 |
-| gap between bunkers 3 and 4 | 7.1 | 5 | 7.7 |
-| gap between bunkers 1 and 2 | 7.5 | 5 | 7.7 |
-| whichever of those two gaps is nearer | 7.6 | 6 | 7.7 |
+| always, at the outermost bunker, left | 4.9 | 2 | 5.2 |
+| always, at the outermost bunker, right | 5.2 | 2 | 5.2 |
+| always, in the gap between bunkers 3 and 4 | 7.1 | 5 | 7.7 |
+| always, in the gap between bunkers 1 and 2 | 7.5 | 5 | 7.7 |
+| always, in whichever of those gaps is nearer | 7.6 | 6 | 7.7 |
+| once the march passes 60% of the cannon's speed | 7.2 | 6 | 7.7 |
+| once the march passes 70%, easing the chase | 7.5 | 5 | 7.7 |
+| once the march passes 70%, stopping it | 7.2 | 5 | 7.7 |
+
+The last of those derives a *condition* rather than guessing a place, which is the right
+instinct, so it was swept across the whole band a threshold can occupy — stopping the chase
+only for targets actually running away, the sharpest form:
+
+| Rest once the march exceeds | Mean level | Worst | Reaching level 7 |
+|---|---|---|---|
+| 60% of the cannon's speed | 7.3 | 5 | 46 of 60 |
+| 65% | 7.3 | 5 | 46 of 60 |
+| 70% | 7.6 | 5 | 47 of 60 |
+| 75% — the cap, so it barely fires | 7.7 | 6 | 50 of 60 |
+| **never** | **7.7** | **6** | **52 of 60** |
+
+That is the shape of a harmful intervention: the score rises monotonically as the rule does
+less, and reaches the baseline exactly where the rule stops firing at all. No threshold in the
+band is better than no threshold.
 
 The diagnosis behind the later attempts was correct: standing *behind* a bunker is doubly bad,
 because the bot is both blind and at the edge of the sweep, and moving into a gap fixes both.
 The remaining gap closes to nothing — and then stops.
 
-The reason it cannot close further is that a rest anchor is a **prior on position**, and the
+The later attempts stop guessing a place and derive a *condition* instead, which is the right
+instinct: chasing is futile when the target recedes nearly as fast as the cannon can move. The
+arithmetic supports it — the march is capped at **75% of the cannon's speed**, so a receding
+target closes at 1 px/tick against 7 for an approaching one, and the same 100px gap costs 100
+ticks one way and 14 the other. A threshold above 75% cannot fire at all, which is worth
+knowing before choosing one.
+
+It still loses, and the measured reason is that **the bot is escorting, not chasing**: only
+10% of endgame walking is against the march. Suppressing the chase wholesale gives up the 90%
+to fix the 10%, and suppressing it only for receding targets — the sharpest form, and the one
+that should work — still loses, because the formation turns around at the wall. Walking after
+a target that is running away is how the cannon is in position when it comes back. Standing
+still forfeits the return sweep.
+
+The other reason it cannot close is that a rest anchor is a **prior on position**, and the
 bot already has a better signal than any prior. Once `imminence` weights a descending column
 properly, position is decided by the thing that actually ends games; a resting bias can only
 pull the cannon away from it. The scorer already rests implicitly, too — when nothing is
