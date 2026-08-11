@@ -192,7 +192,7 @@ mod TestSession {
     /// Puts a bomb on the active cannon so the next step destroys it.
     def aboutToDie(s: Session): Session = {
         let w = Session.active(s);
-        { worlds = Vector.update(s#current, { bombs = { x = w#playerX, y = Rules.playerY() } :: Nil | w },
+        { worlds = Vector.update(s#current, { bombs = Rules.bombAt({ x = w#playerX, y = Rules.playerY() }, BombKind.Slow) :: Nil | w },
                                  s#worlds) | s }
     }
 

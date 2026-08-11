@@ -200,7 +200,7 @@ mod TestGame {
     def testABombHittingThePlayerCostsALife(): Unit \ Assert = {
         let base = start();
         let bomb = { x = base#playerX, y = Rules.playerY() };
-        let w = stepped({ bombs = bomb :: Nil | base }, Input.empty());
+        let w = stepped({ bombs = Rules.bombAt(bomb, BombKind.Slow) :: Nil | base }, Input.empty());
         assertEq(expected = Rules.startingLives() - 1, w#lives)
     }
 
@@ -208,7 +208,7 @@ mod TestGame {
     def testABombThatMissesCostsNothing(): Unit \ Assert = {
         let base = start();
         let bomb = { x = base#playerX + 300.0f32, y = Rules.playerY() };
-        let w = stepped({ bombs = bomb :: Nil | base }, Input.empty());
+        let w = stepped({ bombs = Rules.bombAt(bomb, BombKind.Slow) :: Nil | base }, Input.empty());
         assertEq(expected = Rules.startingLives(), w#lives)
     }
 
@@ -372,7 +372,7 @@ mod TestGame {
     def testRunningOutOfLivesLoses(): Unit \ Assert = {
         let base = start();
         let bomb = { x = base#playerX, y = Rules.playerY() };
-        let w = stepped({ bombs = bomb :: Nil, lives = 1 | base }, Input.empty());
+        let w = stepped({ bombs = Rules.bombAt(bomb, BombKind.Slow) :: Nil, lives = 1 | base }, Input.empty());
         assertEq(expected = Phase.Lost, w#phase)
     }
 
@@ -492,7 +492,7 @@ mod TestGame {
     /// A world with a bomb sitting exactly on the cannon.
     def aboutToBeHit(): World = {
         let base = start();
-        { bombs = { x = base#playerX, y = Rules.playerY() } :: Nil | base }
+        { bombs = Rules.bombAt({ x = base#playerX, y = Rules.playerY() }, BombKind.Slow) :: Nil | base }
     }
 
     @Test
@@ -1085,6 +1085,113 @@ mod TestGame {
         let first = stepped({ mysteryTimer = 1 | start() }, Input.empty());
         let second = stepped({ mysteryTimer = 1, rng = Rng.fromSeed(88i64) | start() }, Input.empty());
         assertTrue(first#mysteryTimer != second#mysteryTimer)
+    }
+
+    // -- bombs: the cap and the three kinds ------------------------------------------
+
+    ///
+    /// The formation may never have more than three bombs in the air.
+    ///
+    /// Driven for a long stretch at the highest bomb rate the curve reaches, which is the
+    /// only condition under which the cap can bind. Before it existed the drop chance was the
+    /// only bound, so a late level did not merely get busier -- it became a curtain.
+    ///
+    @Test
+    def testAtMostThreeBombsAreEverAloft(): Unit \ Assert = {
+        def loop(n, w, worst) =
+            if (n <= 0) worst
+            else {
+                let next = stepped(w, Input.empty());
+                loop(n - 1, next, Int32.max(worst, List.length(next#bombs)))
+            };
+        let busy = { level = 40 | start() };
+        let worst = loop(3000, busy, 0);
+        assertTrueWithMsg(worst <= Rules.maxBombs(),
+            "saw ${worst} bombs aloft at level 40; the cap is ${Rules.maxBombs()}")
+    }
+
+    ///
+    /// A capped formation does not draw from the generator.
+    ///
+    /// The cap is checked before the die is rolled. If it were checked after, the generator's
+    /// position would depend on how crowded the screen was, and two replays of the same input
+    /// would diverge the first time a third bomb was in the air.
+    ///
+    @Test
+    def testTheCapDoesNotConsumeRandomness(): Unit \ Assert = {
+        let full = { bombs = Rules.bombAt({ x = 100.0f32, y = 100.0f32 }, BombKind.Slow)
+                          :: Rules.bombAt({ x = 200.0f32, y = 100.0f32 }, BombKind.Slow)
+                          :: Rules.bombAt({ x = 300.0f32, y = 100.0f32 }, BombKind.Slow) :: Nil
+                   | start() };
+        let after = stepped(full, Input.empty());
+        assertTrueWithMsg(after#rng == full#rng,
+            "a capped formation moved the generator from ${full#rng} to ${after#rng}")
+    }
+
+    @Test
+    def testTheThreeKindsFallAtDifferentSpeeds(): Unit \ Assert = {
+        assertTrueWithMsg(
+            Rules.bombSpeedFor(BombKind.Fast) > Rules.bombSpeedFor(BombKind.Slow)
+                and Rules.bombSpeedFor(BombKind.Slow) > Rules.bombSpeedFor(BombKind.Wiggly),
+            "expected fast > slow > wiggly, got ${Rules.bombSpeedFor(BombKind.Fast)}, "
+            + "${Rules.bombSpeedFor(BombKind.Slow)}, ${Rules.bombSpeedFor(BombKind.Wiggly)}")
+    }
+
+    /// A straight bomb keeps its column; the wiggler does not.
+    @Test
+    def testOnlyTheWigglerLeavesItsColumn(): Unit \ Assert = {
+        let at = x -> { x = x, y = 120.0f32 };
+        let drift = kind -> {
+            let w = steps(6, { bombs = Rules.bombAt(at(320.0f32), kind) :: Nil | start() },
+                          Input.empty());
+            match List.last(w#bombs) {
+                case Some(b) => Float32.abs(b#x - 320.0f32)
+                case None => 0.0f32
+            }
+        };
+        assertTrueWithMsg(drift(BombKind.Slow) == 0.0f32 and drift(BombKind.Fast) == 0.0f32,
+            "a straight bomb drifted: slow ${drift(BombKind.Slow)}, fast ${drift(BombKind.Fast)}");
+        assertTrueWithMsg(drift(BombKind.Wiggly) > 0.0f32,
+            "the wiggler did not sway; drift was ${drift(BombKind.Wiggly)}")
+    }
+
+    /// And it sways *back*: the sign flips every `bombWiggleTicks`.
+    @Test
+    def testTheWigglerSwaysBothWays(): Unit \ Assert = {
+        let dropped = { bombs = Rules.bombAt({ x = 320.0f32, y = 40.0f32 }, BombKind.Wiggly) :: Nil
+                      | start() };
+        let xAfter = n -> match List.last(steps(n, dropped, Input.empty())#bombs) {
+            case Some(b) => b#x
+            case None => 320.0f32
+        };
+        let out = xAfter(Rules.bombWiggleTicks());
+        let back = xAfter(2 * Rules.bombWiggleTicks());
+        assertTrueWithMsg(out > 320.0f32 and back < out,
+            "expected the wiggler to sway out to ${out} and back, but returned to ${back}")
+    }
+
+    /// Lives left after a bomb of `kind` lands squarely on the cannon.
+    def livesAfter(kind: BombKind): Int32 = {
+        let base = { lives = 3 | start() };
+        let onTarget = Rules.bombAt({ x = base#playerX, y = Rules.playerY() }, kind);
+        stepped({ bombs = onTarget :: Nil | base }, Input.empty())#lives
+    }
+
+    /// "Most powerful" means the shelters, not the cannon.
+    @Test
+    def testTheWigglerTearsTheBiggestHole(): Unit \ Assert = {
+        assertTrueWithMsg(
+            Rules.bombCraterFor(BombKind.Wiggly) > Rules.bombCraterFor(BombKind.Fast),
+            "the wiggler's crater ${Rules.bombCraterFor(BombKind.Wiggly)} is not bigger than "
+            + "the dagger's ${Rules.bombCraterFor(BombKind.Fast)}");
+        // Any bomb still kills the cannon outright -- there is no health bar to differ on.
+        // A named def rather than a local lambda: the closure form makes this compiler emit
+        // bytecode that fails verification (`VerifyError: Instruction type does not match
+        // stack map`), which reads like a test failure and is not one.
+        assertTrueWithMsg(livesAfter(BombKind.Slow) == 2 and livesAfter(BombKind.Fast) == 2
+                              and livesAfter(BombKind.Wiggly) == 2,
+            "the three kinds are not equally lethal: ${livesAfter(BombKind.Slow)}, "
+            + "${livesAfter(BombKind.Fast)}, ${livesAfter(BombKind.Wiggly)}")
     }
 
 }

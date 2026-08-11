@@ -42,6 +42,28 @@ pub type alias Blast = { pos = Vec2, ticksLeft = Int32, kind = BlastKind }
 pub type alias Invader = { pos = Vec2, alive = Bool, kind = InvaderKind, row = Int32 }
 
 ///
+/// The three kinds of bomb the invaders drop, as in the original: "slow straight ones, fast
+/// straight ones and wiggly ones which are the most powerful".
+///
+/// "Most powerful" is not more lethal -- any bomb that reaches the cannon kills it. It is the
+/// shelters that tell the three apart: the wiggler tears a wider hole, so a formation dropping
+/// them strips your cover faster than one dropping daggers.
+///
+pub enum BombKind with Eq, ToString {
+    case Slow
+    case Fast
+    case Wiggly
+}
+
+///
+/// A falling bomb. `age` counts ticks since it was dropped, and drives the wiggler's sway --
+/// keeping the phase on the bomb rather than deriving it from the world clock is what lets two
+/// wigglers dropped at different moments sway out of step, and what keeps `step` a pure
+/// function of its argument.
+///
+pub type alias Bomb = { x = Float32, y = Float32, kind = BombKind, age = Int32 }
+
+///
 /// What the game is currently doing.
 ///
 /// There is no winning. Clearing the formation puts the game in `Cleared` for a moment and
@@ -76,7 +98,7 @@ pub type alias World = {
     tick = Int32,
     playerX = Float32,
     bullets = List[Vec2],
-    bombs = List[Vec2],
+    bombs = List[Bomb],
     invaders = Vector[Invader],
     bunkers = Vector[Bunker],
     marchDir = Float32,
@@ -149,7 +171,34 @@ mod Rules {
             |> Option.getWithDefault(1)
 
     pub def bombSize(): Vec2 = { x = 6.0f32, y = 14.0f32 }
-    pub def bombSpeed(): Float32 = 3.0f32
+
+    ///
+    /// How many bombs the formation may have in the air at once.
+    ///
+    /// Three, as in the original. Without a cap the drop chance is the only thing bounding
+    /// the bomb count, so a high level does not merely get busier -- it eventually becomes a
+    /// solid curtain no cannon can cross. `bombChanceFor` was floored to hold that off, which
+    /// treated the symptom; this is the rule the original actually has, and it makes the
+    /// per-level rate mean something again, because a faster drop rate now buys *sooner*
+    /// bombs rather than *more* of them.
+    ///
+    pub def maxBombs(): Int32 = 3
+
+    /// A freshly dropped bomb. One place knows that a new bomb starts at age zero.
+    pub def bombAt(pos: Vec2, kind: BombKind): Bomb =
+        { x = pos#x, y = pos#y, kind = kind, age = 0 }
+
+    /// The speed a bomb of each kind falls at.
+    ///
+    /// The slow one is the old single speed, so the game a player already knows is the middle
+    /// of the new range rather than the bottom of it. The dagger is fast enough to punish
+    /// standing still and the wiggler is slower than either, which is what makes its sideways
+    /// sweep readable instead of a blur.
+    pub def bombSpeedFor(kind: BombKind): Float32 = match kind {
+        case BombKind.Slow => 3.0f32
+        case BombKind.Fast => 5.0f32
+        case BombKind.Wiggly => 2.4f32
+    }
 
     /// One in this many steps, some invader drops a bomb.
     ///
@@ -235,6 +284,49 @@ mod Rules {
     /// than a place to live.
     ///
     pub def bombCrater(): Float32 = 6.0f32
+
+    ///
+    /// The crater each kind of bomb leaves, which is where "most powerful" actually lives.
+    ///
+    /// Any bomb that reaches the cannon kills it, so the three cannot differ in lethality
+    /// without inventing a health bar the original never had. They differ in what they do to
+    /// your cover, which is the resource the game is really about: a wiggler takes half again
+    /// what a dagger does, so which kind is falling changes how long a shelter lasts.
+    ///
+    pub def bombCraterFor(kind: BombKind): Float32 = match kind {
+        case BombKind.Slow => bombCrater()
+        case BombKind.Fast => bombCrater()
+        case BombKind.Wiggly => bombCrater() * 1.5f32
+    }
+
+    ///
+    /// How far a wiggler sways from its column, and how long each half-sweep lasts.
+    ///
+    /// The sway is a triangle wave rather than a sine: it needs no trigonometry, no phase
+    /// stored beyond the bomb's own age, and -- because the horizontal step is constant --
+    /// it cannot tunnel through a bunker column the way an accelerating sweep could.
+    ///
+    /// Kept under half a bunker's width so a wiggler that starts over cover stays over it.
+    ///
+    pub def bombWiggleSpeed(): Float32 = 1.1f32
+
+    pub def bombWiggleTicks(): Int32 = 14
+
+    ///
+    /// Which kind of bomb an invader drops.
+    ///
+    /// Weighted by the shape of the original's threat rather than uniformly: the plain slow
+    /// bomb is the common case and the two that change the player's plan are rarer, so
+    /// meeting a wiggler is an event rather than a third of the traffic.
+    ///
+    pub def bombKindFrom(rng: Rng): (BombKind, Rng) = {
+        let (roll, next) = Rng.nextInt32Below(8, rng);
+        let kind =
+            if (roll < 4) BombKind.Slow
+            else if (roll < 6) BombKind.Fast
+            else BombKind.Wiggly;
+        (kind, next)
+    }
 
     /// The formation's speed on level 1 with every invader still alive.
     pub def baseMarchSpeed(): Float32 = 0.65f32

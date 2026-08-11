@@ -89,11 +89,27 @@ mod Game {
             |> List.map(b -> { y = b#y - Rules.bulletSpeed() | b })
             |> List.filter(b -> b#y > -Rules.bulletSize()#y) | w }
 
+    ///
     /// Bombs fall and are dropped when they leave the bottom of the field.
-    def moveBombs(w: World): World =
+    ///
+    /// Each kind falls at its own speed, and the wiggler also sways: its horizontal step
+    /// reverses every `bombWiggleTicks`, which is a triangle wave written as a sign flip.
+    /// The sway is clamped to the field so a wiggler dropped by an invader at the wall
+    /// cannot walk off the edge and fall where nothing can be hit.
+    ///
+    def moveBombs(w: World): World = {
+        let half = Rules.bombSize()#x / 2.0f32;
+        let sway = b ->
+            if (b#kind != BombKind.Wiggly) 0.0f32
+            else if (Int32.remainder(b#age / Rules.bombWiggleTicks(), 2) == 0) Rules.bombWiggleSpeed()
+            else -Rules.bombWiggleSpeed();
         { bombs = w#bombs
-            |> List.map(b -> { y = b#y + Rules.bombSpeed() | b })
+            |> List.map(b ->
+                { x = clampTo(half, Rules.fieldWidth() - half, b#x + sway(b)),
+                  y = b#y + Rules.bombSpeedFor(b#kind),
+                  age = b#age + 1 | b })
             |> List.filter(b -> b#y < Rules.fieldHeight() + Rules.bombSize()#y) | w }
+    }
 
     /// The x of the leftmost and rightmost living invader, if any are left.
     def liveBounds(invaders: Vector[Invader]): Option[(Float32, Float32)] =
@@ -153,26 +169,38 @@ mod Game {
             else inv :: List.filter(other -> other#pos#x != inv#pos#x, acc),
             Nil, invaders)
 
+    ///
     /// Occasionally, one of them drops a bomb.
-    def invaderFire(w: World): World = {
-        let (drops, afterChance) = Rng.chance(Rules.bombChanceFor(w#level), w#rng);
-        if (not drops) { rng = afterChance | w }
+    ///
+    /// The cap is checked before the die is rolled, so a formation already at three bombs
+    /// does not silently consume randomness -- which would make the generator's position
+    /// depend on how crowded the screen was, and two replays of the same input diverge.
+    ///
+    def invaderFire(w: World): World =
+        if (List.length(w#bombs) >= Rules.maxBombs()) w
         else {
-            let candidates = bombers(w#invaders);
-            let count = List.length(candidates);
-            if (count == 0) { rng = afterChance | w }
+            let (drops, afterChance) = Rng.chance(Rules.bombChanceFor(w#level), w#rng);
+            if (not drops) { rng = afterChance | w }
             else {
-                let (pick, afterPick) = Rng.nextInt32Below(count, afterChance);
-                match List.nth(pick, candidates) {
-                    case None => { rng = afterPick | w }
-                    case Some(inv) => {
-                        let bomb = { x = inv#pos#x, y = inv#pos#y + Rules.invaderSize()#y };
-                        { bombs = bomb :: w#bombs, rng = afterPick | w }
+                let candidates = bombers(w#invaders);
+                let count = List.length(candidates);
+                if (count == 0) { rng = afterChance | w }
+                else {
+                    let (pick, afterPick) = Rng.nextInt32Below(count, afterChance);
+                    match List.nth(pick, candidates) {
+                        case None => { rng = afterPick | w }
+                        case Some(inv) => {
+                            let (kind, afterKind) = Rules.bombKindFrom(afterPick);
+                            let bomb = { x = inv#pos#x,
+                                         y = inv#pos#y + Rules.invaderSize()#y,
+                                         kind = kind,
+                                         age = 0 };
+                            { bombs = bomb :: w#bombs, rng = afterKind | w }
+                        }
                     }
                 }
             }
         }
-    }
 
     /// The index of the first living invader this bullet hits.
     def hitIndex(bullet: Vec2, invaders: Vector[Invader]): Option[Int32] = {
@@ -225,7 +253,8 @@ mod Game {
     ///
     def resolveBombs(w: World): World \ Sound = {
         let player = { x = w#playerX, y = Rules.playerY() };
-        let hit = List.exists(b -> Collide.overlaps(aPos = b, aSize = Rules.bombSize(),
+        let hit = List.exists(b -> Collide.overlaps(aPos = { x = b#x, y = b#y },
+                                                    aSize = Rules.bombSize(),
                                                     bPos = player, bSize = Rules.playerSize()), w#bombs);
         if (not hit) w
         else if (w#shield > 0)
@@ -344,7 +373,7 @@ mod Game {
     ///
     def resolveBunkers(w: World): World = {
         let (afterBullets, bullets) = Bunkers.absorbAll(w#bunkers, w#bullets, Rules.bulletSize(), Rules.bulletCrater());
-        let (afterBombs, bombs) = Bunkers.absorbAll(afterBullets, w#bombs, Rules.bombSize(), Rules.bombCrater());
+        let (afterBombs, bombs) = Bunkers.absorbBombs(afterBullets, w#bombs);
         { bunkers = Bunkers.erode(afterBombs, w#invaders), bullets = bullets, bombs = bombs | w }
     }
 
@@ -397,7 +426,7 @@ mod Game {
             + "|d=${w#marchDir}|h=${w#hiScore}|v=${w#level}|p=${w#pause}"
             + "|g=${w#shield}|n=${w#nextBonusAt}|r=${w#rng}";
         let shots = List.foldLeft((acc, b) -> acc + "|b(${b#x},${b#y})", "", w#bullets);
-        let drops = List.foldLeft((acc, b) -> acc + "|m(${b#x},${b#y})", "", w#bombs);
+        let drops = List.foldLeft((acc, b) -> acc + "|m(${b#kind},${b#x},${b#y},${b#age})", "", w#bombs);
         let formation = Vector.foldLeft((acc, inv) ->
             acc + (if (inv#alive) "|i(${inv#pos#x},${inv#pos#y})" else "|."), "", w#invaders);
         let shelters = Vector.foldLeft((acc, bunker) ->

@@ -79,11 +79,13 @@ mod View {
 
     def drawShots(w: World): Unit \ Canvas = {
         let bullet = Sprites.bullet();
-        let bomb = Sprites.bomb();
         Canvas.fill(Palette.shot());
         List.forEach(b -> Sprite.draw(bullet, b, Rules.spriteScale()), w#bullets);
+        // One fill for all three bombs: they are told apart by shape, not colour, so that a
+        // player who cannot separate the palette's coral from its shot colour still can.
         Canvas.fill(Palette.coral());
-        List.forEach(b -> Sprite.draw(bomb, b, Rules.spriteScale()), w#bombs)
+        List.forEach(b -> Sprite.draw(Sprites.bombFor(b#kind), { x = b#x, y = b#y },
+                                      Rules.spriteScale()), w#bombs)
     }
 
     ///

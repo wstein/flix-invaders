@@ -123,7 +123,7 @@ mod TestDemo {
         // Shooting the saucer buys ten seconds of immunity. Spending them dodging wastes the
         // prize -- that is time to stand under the formation and fire.
         let w = settled();
-        let overhead = { bombs = { x = w#playerX, y = Rules.playerY() - 60.0f32 } :: Nil | w };
+        let overhead = { bombs = Rules.bombAt({ x = w#playerX, y = Rules.playerY() - 60.0f32 }, BombKind.Slow) :: Nil | w };
         let shielded = { shield = Rules.shieldTicks() | overhead };
         assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), overhead)#held)
                           or Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), overhead)#held),
@@ -139,7 +139,7 @@ mod TestDemo {
         // takes forty to arrive, and walking calmly into that would be a strange celebration.
         let w = { bombs = Nil, mystery = None | midGame() };
         let bomb = { x = w#playerX, y = Rules.playerY() - 60.0f32 };
-        let lapsing = { shield = 2, bombs = bomb :: Nil | w };
+        let lapsing = { shield = 2, bombs = Rules.bombAt(bomb, BombKind.Slow) :: Nil | w };
         assertTrueWithMsg(Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), lapsing)#held)
                           or Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), lapsing)#held),
             "the bot trusted a shield that expires before the bomb lands")
@@ -387,7 +387,7 @@ mod TestDemo {
         // shelter first. Given a bomb overhead, the bot should be less eager to flee cover.
         let w = midGame();
         let sheltered = { playerX = underShelter() | w };
-        let bomb = { bombs = { x = sheltered#playerX, y = Rules.playerY() - 60.0f32 } :: Nil | sheltered };
+        let bomb = { bombs = Rules.bombAt({ x = sheltered#playerX, y = Rules.playerY() - 60.0f32 }, BombKind.Slow) :: Nil | sheltered };
         let exposed = { bunkers = Vector.map(b -> { cells = Vector.map(_ -> false, b#cells) | b },
                                              bomb#bunkers) | bomb };
         let staysPut = Set.isEmpty(Demo.aim(Demo.defaults(), bomb)#held) or not Set.isEmpty(Demo.aim(Demo.defaults(), exposed)#held);
@@ -519,7 +519,7 @@ mod TestDemo {
     def testTheBotGetsOutFromUnderABomb(): Unit \ Assert = {
         // Staying alive beats lining up a shot.
         let w = midGame();
-        let overhead = { bombs = { x = w#playerX, y = Rules.playerY() - 60.0f32 } :: Nil | w };
+        let overhead = { bombs = Rules.bombAt({ x = w#playerX, y = Rules.playerY() - 60.0f32 }, BombKind.Slow) :: Nil | w };
         let moves = Demo.aim(Demo.defaults(), overhead)#held;
         assertTrueWithMsg(Set.memberOf(Key.Left, moves) or Set.memberOf(Key.Right, moves),
             "the bot stood still under a falling bomb")
@@ -529,7 +529,7 @@ mod TestDemo {
     def testTheBotIgnoresBombsThatWillMiss(): Unit \ Assert = {
         // A bomb far off to the side is not a reason to abandon a shot.
         let w = midGame();
-        let wide = { bombs = { x = w#playerX + 300.0f32, y = Rules.playerY() - 60.0f32 } :: Nil | w };
+        let wide = { bombs = Rules.bombAt({ x = w#playerX + 300.0f32, y = Rules.playerY() - 60.0f32 }, BombKind.Slow) :: Nil | w };
         assertEq(expected = Demo.aim(Demo.defaults(), w)#held, Demo.aim(Demo.defaults(), wide)#held)
     }
 
@@ -538,7 +538,7 @@ mod TestDemo {
         // Fleeing into a wall would be worse than not fleeing.
         let w = midGame();
         let cornered = { playerX = Rules.playerSize()#x / 2.0f32 | w };
-        let bomb = { bombs = { x = cornered#playerX, y = Rules.playerY() - 40.0f32 } :: Nil | cornered };
+        let bomb = { bombs = Rules.bombAt({ x = cornered#playerX, y = Rules.playerY() - 40.0f32 }, BombKind.Slow) :: Nil | cornered };
         assertTrue(Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), bomb)#held))
     }
 

@@ -221,7 +221,7 @@ mod Sprites {
         "#"
     })
 
-    /// The invaders' bomb, which tumbles as it falls.
+    /// The invaders' bomb, which tumbles as it falls. The common, slow one.
     pub def bomb(): Sprite = Sprite.of(Vector#{
         ".#.",
         "..#",
@@ -231,6 +231,42 @@ mod Sprites {
         "..#",
         ".#."
     })
+
+    ///
+    /// The fast bomb: a dagger, drawn straight so its speed reads as purpose.
+    ///
+    /// The three bombs have to be told apart at a glance while the screen is busy, and the
+    /// only channels available are shape and motion -- they are all one colour. A vertical
+    /// bar against the tumbler's zigzag is the largest difference two three-pixel-wide
+    /// sprites can carry.
+    ///
+    pub def bombFast(): Sprite = Sprite.of(Vector#{
+        ".#.",
+        ".#.",
+        ".#.",
+        ".#.",
+        ".#.",
+        "###",
+        ".#."
+    })
+
+    /// The wiggler: a wide zigzag, the one that tears the biggest hole in a shelter.
+    pub def bombWiggly(): Sprite = Sprite.of(Vector#{
+        "#..",
+        ".#.",
+        "..#",
+        ".#.",
+        "#..",
+        ".#.",
+        "..#"
+    })
+
+    /// The sprite for a bomb of the given kind.
+    pub def bombFor(kind: BombKind): Sprite = match kind {
+        case BombKind.Slow => bomb()
+        case BombKind.Fast => bombFast()
+        case BombKind.Wiggly => bombWiggly()
+    }
 
     ///
     /// The mystery ship that crosses the top of the screen.

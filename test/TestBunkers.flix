@@ -163,9 +163,9 @@ mod TestBunkers {
     @Test
     def testAnInvaderBombIsStoppedByABunker(): Unit \ Assert = {
         // The bomb is placed just above the bunker so that one step's fall lands it inside.
-        let spot = { x = solidSpot()#x, y = solidSpot()#y - Rules.bombSpeed() };
+        let spot = { x = solidSpot()#x, y = solidSpot()#y - Rules.bombSpeedFor(BombKind.Slow) };
         let before = List.length(start()#bombs);
-        let w = stepped({ bombs = spot :: Nil | start() }, Input.empty());
+        let w = stepped({ bombs = Rules.bombAt(spot, BombKind.Slow) :: Nil | start() }, Input.empty());
         assertEq(expected = before, List.length(w#bombs));
         assertTrue(Bunkers.totalRemaining(w#bunkers) < Bunkers.totalRemaining(start()#bunkers))
     }
@@ -177,8 +177,8 @@ mod TestBunkers {
         // and bunkers that are merely drawn.
         let base = start();
         let bunkerX = Vector.get(0, base#bunkers)#origin#x + 24.0f32;
-        let bomb = { x = bunkerX, y = Rules.bunkerTop() - Rules.bombSpeed() + 2.0f32 };
-        let w = stepped({ playerX = bunkerX, bombs = bomb :: Nil | base }, Input.empty());
+        let bomb = { x = bunkerX, y = Rules.bunkerTop() - Rules.bombSpeedFor(BombKind.Slow) + 2.0f32 };
+        let w = stepped({ playerX = bunkerX, bombs = Rules.bombAt(bomb, BombKind.Slow) :: Nil | base }, Input.empty());
         assertEq(expected = Rules.startingLives(), w#lives);
         assertTrue(Bunkers.totalRemaining(w#bunkers) < Bunkers.totalRemaining(base#bunkers))
     }

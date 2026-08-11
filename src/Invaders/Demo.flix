@@ -344,8 +344,10 @@ mod Demo {
     /// the shield runs on a clock: one with twenty ticks left does nothing about a bomb that
     /// takes forty to land, and walking calmly into that would be a strange way to celebrate.
     ///
-    def harmless(bomb: Vec2, w: World): Bool = {
-        let fall = (Rules.playerY() - bomb#y) / Rules.bombSpeed();
+    def harmless(bomb: Bomb, w: World): Bool = {
+        // Per kind: a dagger arrives in two thirds the time a wiggler does, so a shield that
+        // covers one may not cover the other.
+        let fall = (Rules.playerY() - bomb#y) / Rules.bombSpeedFor(bomb#kind);
         fall < Int32.toFloat32(w#shield)
     }
 

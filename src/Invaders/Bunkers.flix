@@ -258,6 +258,27 @@ mod Bunkers {
     ///
     /// Returns the damaged bunkers and the shots that got through.
     ///
+    ///
+    /// The same, for bombs, which carry their own crater size.
+    ///
+    /// Separate from `absorbAll` rather than generalising it: the crater is a property of the
+    /// individual bomb here, not of the batch, and threading a per-item function through the
+    /// batch version would make the common case -- bullets, all identical -- read worse to
+    /// buy nothing.
+    ///
+    pub def absorbBombs(bunkers: Vector[Bunker], bombs: List[Bomb]): (Vector[Bunker], List[Bomb]) = {
+        def loop(remaining, acc, kept) = match remaining {
+            case Nil => (acc, List.reverse(kept))
+            case bomb :: rest => {
+                let (damaged, wasHit) =
+                    absorb(acc, { x = bomb#x, y = bomb#y }, Rules.bombSize(),
+                           Rules.bombCraterFor(bomb#kind));
+                loop(rest, damaged, if (wasHit) kept else bomb :: kept)
+            }
+        };
+        loop(bombs, bunkers, Nil)
+    }
+
     pub def absorbAll(bunkers: Vector[Bunker], shots: List[Vec2], size: Vec2, crater: Float32): (Vector[Bunker], List[Vec2]) = {
         def loop(remainingShots, acc, kept) = match remainingShots {
             case Nil => (acc, List.reverse(kept))
