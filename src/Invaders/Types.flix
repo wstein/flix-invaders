@@ -90,6 +90,7 @@ pub enum Phase with Eq, ToString {
 /// - `pause` is ticks remaining in a non-playing phase, used for the between-levels beat.
 /// - `shield` is ticks of invulnerability remaining, earned by shooting the mystery ship.
 /// - `nextBonusAt` is the score at which the next extra life is awarded.
+/// - `shotsFired` counts the cannon's shots on this board, and sets the saucer's value.
 /// - `marchNote` and `marchedSince` drive the bassline: notes are spaced by *distance*
 ///   marched, not by time, so the tempo tracks the formation's speed for free.
 ///
@@ -115,6 +116,7 @@ pub type alias World = {
     shield = Int32,
     nextBonusAt = Int32,
     marchNote = Int32,
+    shotsFired = Int32,
     marchedSince = Float32
 }
 
@@ -503,7 +505,10 @@ mod Rules {
     /// Short enough that a saucer turns up two or three times in a level rather than once at
     /// the very end, and jittered so it does not arrive on the same beat every time.
     ///
-    pub def mysteryInterval(): Int32 = 700
+    /// Raised from 700 to match the guide's "roughly 25 seconds" between saucers. A rarer
+    /// saucer is a higher-stakes one, and it gives the shot counter room to matter: at the
+    /// old rate a player barely had time to reach the 23rd shot between appearances.
+    pub def mysteryInterval(): Int32 = 1500
 
     pub def mysterySpread(): Int32 = 320
 
@@ -542,16 +547,37 @@ mod Rules {
     ///
     /// What the mystery ship is worth.
     ///
-    /// The original's value depended on how many shots you had fired, which players
-    /// eventually reverse-engineered into a way to score 300 every time. Here it is simply
-    /// drawn from the table, which keeps it a genuine bonus rather than a memorised trick.
+    /// The original's rule, restored: 300 points if hit with the 23rd shot of the board and
+    /// on every fifteenth shot after that, and one of a fixed table otherwise.
     ///
-    pub def mysteryScores(): Vector[Int32] = Vector#{50, 100, 150, 300}
+    /// This was a random draw here for a while, on the reasoning that the original's rule
+    /// "players eventually reverse-engineered into a way to score 300 every time" and a table
+    /// keeps the saucer a genuine bonus rather than a memorised trick. That reasoning had it
+    /// backwards. The exploit is not a defect in the rule; it is the rule's whole texture --
+    /// counting your own shots while a formation descends is a real skill, and it is the only
+    /// thing in the game that rewards planning several shots ahead. A die roll cannot be
+    /// planned against, so it replaced a skill with a shrug.
+    ///
+    /// Deterministic also means the saucer no longer draws from the generator, so what a
+    /// player scores depends on how they played rather than on where the stream happened to
+    /// be -- which is a better property for a replayable game than the randomness it cost.
+    ///
+    pub def mysteryFirstBonusShot(): Int32 = 23
 
-    pub def mysteryScoreFrom(rng: Rng): (Int32, Rng) = {
-        let (pick, next) = Rng.nextInt32Below(Vector.length(mysteryScores()), rng);
-        (Vector.get(pick, mysteryScores()), next)
-    }
+    pub def mysteryBonusEvery(): Int32 = 15
+
+    /// The lesser values, walked by shot count. Fixed order, so it can be learned.
+    def mysteryTable(): Vector[Int32] =
+        Vector#{50, 100, 50, 100, 150, 100, 100, 50, 150, 100, 50, 100, 150, 50, 100}
+
+    pub def mysteryScoreFor(shotsFired: Int32): Int32 =
+        if (shotsFired >= mysteryFirstBonusShot()
+            and Int32.remainder(shotsFired - mysteryFirstBonusShot(), mysteryBonusEvery()) == 0)
+            300
+        else {
+            let n = Vector.length(mysteryTable());
+            Vector.get(Int32.remainder(Int32.max(0, shotsFired), n), mysteryTable())
+        }
 
     ///
     /// How far the formation marches between notes of the bassline.

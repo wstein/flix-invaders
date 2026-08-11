@@ -50,6 +50,7 @@ mod Game {
           shield = 0,
           nextBonusAt = Rules.bonusLifeScore(),
           marchNote = 0,
+          shotsFired = 0,
           marchedSince = 0.0f32 }
 
     def clampTo(lo: Float32, hi: Float32, v: Float32): Float32 =
@@ -80,7 +81,8 @@ mod Game {
         else if (not Set.memberOf(Key.Space, input#held)) w
         else {
             let muzzle = { x = w#playerX, y = Rules.playerY() - Rules.playerSize()#y };
-            emit(SoundCmd.Shoot, { bullets = muzzle :: w#bullets | w })
+            emit(SoundCmd.Shoot,
+                 { bullets = muzzle :: w#bullets, shotsFired = w#shotsFired + 1 | w })
         }
 
     /// Bullets rise and are dropped when they leave the top of the field.
@@ -346,7 +348,7 @@ mod Game {
                                              bPos = pos, bSize = Rules.mysterySize());
             if (not List.exists(hits, w#bullets)) w
             else {
-                let (points, next) = Rules.mysteryScoreFrom(w#rng);
+                let points = Rules.mysteryScoreFor(w#shotsFired);
                 let blast = { pos = pos, ticksLeft = Rules.invaderBlastTicks(), kind = BlastKind.InvaderBlast };
                 // The bonus is not only points: it also raises the cannon's shield.
                 emit(SoundCmd.MysteryDies,
@@ -354,8 +356,7 @@ mod Game {
                        bullets = List.filter(b -> not hits(b), w#bullets),
                        score = w#score + points,
                        blasts = blast :: w#blasts,
-                       shield = Rules.shieldTicks(),
-                       rng = next | w })
+                       shield = Rules.shieldTicks() | w })
             }
         }
     }
@@ -439,6 +440,8 @@ mod Game {
           mystery = None,
           mysteryTimer = Rules.mysteryInterval(),
           marchNote = 0,
+          // The shot counter is per board, as the saucer's value is.
+          shotsFired = 0,
           marchedSince = 0.0f32,
           playerX = Rules.fieldWidth() / 2.0f32 | w }
 
@@ -454,7 +457,7 @@ mod Game {
     pub def digest(w: World): String = {
         let header = "${w#phase}|t=${w#tick}|x=${w#playerX}|s=${w#score}|l=${w#lives}"
             + "|d=${w#marchDir}|h=${w#hiScore}|v=${w#level}|p=${w#pause}"
-            + "|g=${w#shield}|n=${w#nextBonusAt}|r=${w#rng}";
+            + "|g=${w#shield}|n=${w#nextBonusAt}|f=${w#shotsFired}|r=${w#rng}";
         let shots = List.foldLeft((acc, b) -> acc + "|b(${b#x},${b#y})", "", w#bullets);
         let drops = List.foldLeft((acc, b) -> acc + "|m(${b#kind},${b#x},${b#y},${b#age})", "", w#bombs);
         let formation = Vector.foldLeft((acc, inv) ->

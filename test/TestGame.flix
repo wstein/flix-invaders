@@ -634,13 +634,64 @@ mod TestGame {
         assertTrue(List.exists(b -> b#kind == BlastKind.InvaderBlast, w#blasts))
     }
 
+    /// The saucer is worth exactly what the shot count says it is.
     @Test
-    def testTheShipIsWorthOneOfItsTableValues(): Unit \ Assert = {
-        let base = withMystery(300.0f32);
+    def testTheShipIsWorthWhatTheShotCountSays(): Unit \ Assert = {
+        let base = { shotsFired = 7 | withMystery(300.0f32) };
         let shot = { bullets = { x = 300.0f32, y = Rules.mysteryY() } :: Nil | base };
         let scored = stepped(shot, Input.empty())#score;
-        Assert.assertTrueWithMsg(Vector.exists(v -> v == scored, Rules.mysteryScores()),
-            "scored ${scored}, which is not in the table")
+        assertEq(expected = Rules.mysteryScoreFor(7), scored)
+    }
+
+    ///
+    /// The original's trick: the twenty-third shot of a board, and every fifteenth after it,
+    /// is worth 300.
+    ///
+    /// This is the only thing in the game that rewards planning several shots ahead, so it is
+    /// pinned rather than left to the table.
+    ///
+    @Test
+    def testTheTwentyThirdShotAndEveryFifteenthAfterAreWorthThreeHundred(): Unit \ Assert = {
+        let bonus = Rules.mysteryFirstBonusShot();
+        let every = Rules.mysteryBonusEvery();
+        List.forEach(n ->
+            assertTrueWithMsg(Rules.mysteryScoreFor(bonus + n * every) == 300,
+                "shot ${bonus + n * every} scored ${Rules.mysteryScoreFor(bonus + n * every)}, "
+                + "not 300"),
+            List.range(0, 5));
+        // And the shots either side of one are not.
+        assertTrueWithMsg(Rules.mysteryScoreFor(bonus - 1) != 300
+                              and Rules.mysteryScoreFor(bonus + 1) != 300,
+            "a shot next to the bonus also scored 300")
+    }
+
+    /// The counter is per board: clearing a level resets it, as the saucer's value is.
+    @Test
+    def testTheShotCounterResetsWithTheBoard(): Unit \ Assert = {
+        let cleared = { invaders = Vector.map(inv -> { alive = false | inv }, start()#invaders),
+                        shotsFired = 40 | start() };
+        let settled = steps(Rules.levelPauseTicks() + 2, cleared, Input.empty());
+        assertTrueWithMsg(settled#level > 1 and settled#shotsFired == 0,
+            "after reaching level ${settled#level} the counter was ${settled#shotsFired}")
+    }
+
+    ///
+    /// The saucer's value is earned, not drawn.
+    ///
+    /// Two worlds differing only in the state of the generator must score the same, which is
+    /// the property the random table could not offer: what a player scores now depends on how
+    /// they played rather than on where the stream happened to be.
+    ///
+    @Test
+    def testTheSaucerScoresTheSameWhateverTheGeneratorIsDoing(): Unit \ Assert = {
+        let staged = w -> {
+            let base = { shotsFired = 11 | withMystery(300.0f32) };
+            let seeded = { rng = Rng.fromSeed(w) | base };
+            stepped({ bullets = { x = 300.0f32, y = Rules.mysteryY() } :: Nil | seeded },
+                    Input.empty())#score
+        };
+        assertTrueWithMsg(staged(1i64) == staged(9999i64),
+            "the saucer scored ${staged(1i64)} and ${staged(9999i64)} on two generator states")
     }
 
     @Test
@@ -1067,16 +1118,26 @@ mod TestGame {
 
     @Test
     def testSaucersArriveSeveralTimesInALevel(): Unit \ Assert = {
-        // Once per level made the bonus almost theoretical.
+        // A saucer roughly every twenty-five seconds, per the play guide -- rarer than the
+        // eleven seconds this used to run at, which is what gives the shot counter room to
+        // matter: at the old rate a board barely reached its twenty-third shot between
+        // appearances. The run is lengthened to match rather than the rate being kept.
         //
         // Shielded, because the fixture never touches the controls and this is a test of the
         // saucer's timer, not of how long an idle cannon lasts. Without it, raising the bomb
         // rate shortens the run and the second saucer never gets the chance to arrive -- the
         // test would be reporting the player's life expectancy under a different name.
+        // The formation also starts far above the field. At the guide's rate a saucer takes
+        // longer to arrive than a level takes to end -- a real level fits about two -- so a
+        // normal fixture would be measuring the descent rather than the timer.
         let survives = { shield = 100000 | start() };
-        let appearances = countOf(SoundCmd.MysteryAppears, heard(3000, survives, Input.empty()));
+        let high = { invaders = Vector.map(
+                         inv -> { pos = { y = inv#pos#y - 900.0f32 | inv#pos } | inv },
+                         survives#invaders) | survives };
+        let window = 3 * (Rules.mysteryInterval() + Rules.mysterySpread());
+        let appearances = countOf(SoundCmd.MysteryAppears, heard(window, high, Input.empty()));
         assertTrueWithMsg(appearances >= 2,
-            "only ${appearances} saucer(s) in a level's worth of ticks")
+            "only ${appearances} saucer(s) in ${window} ticks, which spans three intervals")
     }
 
     @Test
