@@ -20,6 +20,11 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
     runs-on: ${{ matrix.os }}
+    # Keep the wrapper cache inside the workspace: the default differs per platform
+    # (~/.cache/flixw, ~/Library/Caches/flixw, %LOCALAPPDATA%\flixw) and one cache
+    # path cannot name all three.
+    env:
+      FLIX_CACHE_HOME: ${{ github.workspace }}/.flix-cache
     steps:
       - name: Check out
         uses: actions/checkout@v5
@@ -34,9 +39,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: |
-            .flix
+            .flix-cache
             lib
-          key: flix-${{ runner.os }}-${{ hashFiles('flix.toml') }}
+          key: flix-${{ runner.os }}-${{ hashFiles('flix.toml', '.flix-wrapper/lock.toml') }}
 
       # Linux runners have no display. Without Xvfb, Processing's ShimAWT hits a
       # HeadlessException and calls System.exit(1) -- a bare exit code with no stack trace.

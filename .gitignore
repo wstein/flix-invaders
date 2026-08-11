@@ -1,7 +1,7 @@
 *.fpkg
 *.jar
 .GITHUB_TOKEN
-.flix/
+.flix-cache/
 artifact/
 build/
 lib/

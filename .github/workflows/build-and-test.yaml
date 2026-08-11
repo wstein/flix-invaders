@@ -8,6 +8,11 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # Keep the wrapper cache inside the workspace so actions/cache can see it. Without
+    # this it lands in ~/.cache/flixw on Linux and ~/Library/Caches/flixw on macOS, and
+    # one cache path cannot name both.
+    env:
+      FLIX_CACHE_HOME: ${{ github.workspace }}/.flix-cache
     steps:
       - name: Check out
         uses: actions/checkout@v5
@@ -18,21 +23,23 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      # bin/flix downloads the pinned compiler into .flix/, and dependency
-      # resolution populates lib/. Both are keyed on flix.toml.
+      # ./flix caches the pinned compiler by content, and dependency resolution
+      # populates lib/. The lock names the exact compiler bytes, so it belongs in the
+      # key: a cache hit that predates a repin would otherwise be discarded anyway,
+      # since the wrapper re-hashes the jar on every run.
       - name: Cache toolchain and dependencies
         uses: actions/cache@v5
         with:
           path: |
-            .flix
+            .flix-cache
             lib
-          key: flix-${{ runner.os }}-${{ hashFiles('flix.toml') }}
+          key: flix-${{ runner.os }}-${{ hashFiles('flix.toml', '.flix-wrapper/lock.toml') }}
 
       - name: Check
-        run: bin/flix check
+        run: ./flix check
 
       - name: Test
-        run: bin/flix test
+        run: ./flix test
 
       # The test suite must stay headless: no @Test may open a window or a sound line.
       # Runners have neither a display nor a mixer -- Processing's ShimAWT calls
@@ -77,8 +84,8 @@ jobs:
 
       - name: Verify formatting
         run: |
-          bin/flix format
+          ./flix format
           if ! git diff --exit-code -- src test; then
-            echo "::error::Run 'bin/flix format' and commit the result."
+            echo "::error::Run './flix format' and commit the result."
             exit 1
           fi

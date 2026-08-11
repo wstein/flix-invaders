@@ -19,4 +19,4 @@ case "$name" in
     ;;
 esac
 
-exec "$root/bin/flix" run --entrypoint "$entry"
+exec "$root/flix" run --entrypoint "$entry"

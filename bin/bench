@@ -14,4 +14,4 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 # `--` separates the compiler's own options from the program's.
-exec "$root/bin/flix" run --entrypoint Bench.main -- "$@"
+exec "$root/flix" run --entrypoint Bench.main -- "$@"
