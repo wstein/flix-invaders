@@ -146,16 +146,17 @@ mod Demo {
         // bullet-meets-invader overlap. One means only shots the geometry guarantees; five
         // means any target roughly overhead is worth a shot.
         //
-        // Aiming precisely is worth less than firing often, because a miss costs only the
-        // twelve-tick cooldown and there is no limit on shots. Over sixty seeds this is the
-        // largest single gain the bot has had: mean level 5.2 to 6.0, and games reaching
-        // level seven from 2 in 60 to 20.
+        // Widened back when five shots could be aloft at once and a miss cost twelve ticks;
+        // over sixty seeds it was the largest single gain the bot ever had, mean level 5.2 to
+        // 6.0. One shot aloft inverts that economy -- a miss now costs the whole climb, about
+        // sixty-eight ticks -- so this is retuned below against the same benchmark.
         //
         // A plateau, not a peak -- 3, 5, 7 and 10 all score 5.9 to 6.1 and every one beats
         // exact aiming, so this is a real effect rather than a value fitted to the sample.
-        // Five sits in the middle. Firing *unconditionally* is not better: it also scores 6.0
-        // but reaches level seven half as often, because a shot at empty sky spends the
-        // cooldown that the next real target needed.
+        // Five sat in the middle of a plateau -- 3, 5, 7 and 10 all scored 5.9 to 6.1 -- and
+        // firing unconditionally was never better even then, because a shot at empty sky
+        // spends the flight the next real target needed. That penalty is now five times
+        // larger.
         fireWindow = 5.0f32,
 
         // What a target's nearness to the invasion line is worth, against the tidiness of

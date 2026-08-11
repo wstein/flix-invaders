@@ -80,12 +80,31 @@ mod TestGame {
         assertEq(expected = 1, List.length(stepped(start(), Input.holding(Key.Space :: Nil))#bullets))
 
     @Test
-    def testTheCooldownLimitsTheRateOfFire(): Unit \ Assert = {
-        // Holding fire for one cooldown's worth of ticks must not empty the magazine.
+    def testOnlyOneShotIsEverAloft(): Unit \ Assert = {
+        // The rule the whole game is balanced around. Holding fire for the length of a full
+        // flight must never put a second shot on screen beside the first.
         let held = Input.holding(Key.Space :: Nil);
-        let w = steps(Rules.fireCooldown(), start(), held);
-        assertTrueWithMsg(List.length(w#bullets) <= 2,
-            "expected at most 2 shots in ${Rules.fireCooldown()} ticks, got ${List.length(w#bullets)}")
+        let w = steps(Rules.shotFlightTicks(), start(), held);
+        assertTrueWithMsg(List.length(w#bullets) <= Rules.shotsAloft(),
+            "expected at most ${Rules.shotsAloft()} shot aloft, got ${List.length(w#bullets)}")
+    }
+
+    @Test
+    def testTheCannonRefiresOnceTheShotHasCleared(): Unit \ Assert = {
+        // The other half: there is no timer, so the moment the screen is clear the next shot
+        // goes. Counted over a long hold rather than sampled at one tick -- a sample can land
+        // on the frame between one shot leaving and the next appearing and see nothing.
+        let held = Input.holding(Key.Space :: Nil);
+        def fired(n, w, seen) =
+            if (n <= 0) seen
+            else {
+                let next = stepped(w, held);
+                let appeared = List.length(next#bullets) > 0 and List.isEmpty(w#bullets);
+                fired(n - 1, next, if (appeared) seen + 1 else seen)
+            };
+        let shots = fired(4 * Rules.shotFlightTicks(), start(), 0);
+        assertTrueWithMsg(shots >= 3,
+            "expected the cannon to refire across four flights, saw ${shots} shots")
     }
 
     @Test

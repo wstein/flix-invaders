@@ -499,7 +499,10 @@ A dose-response curve rather than a single reading, so this is a real effect and
 seeds of luck. The mechanism is the one the geometry predicts: the bot spends shots to open a
 hole its enemies then drop bombs through, and starts losing games to bombs it had never lost
 before. Walking around a bunker costs about ten ticks; drilling through one costs a dozen
-shots at a twelve-tick cooldown, and the field is only 192px of bunker in 640px of room.
+shots, and the field is only 192px of bunker in 640px of room. That was measured when five
+shots could be aloft at once and a shot cost twelve ticks; under the one-shot rule a shot
+costs its whole flight, so drilling is now several times more expensive and the conclusion
+holds a fortiori.
 
 The correction is also a lesson about the measurement above it. This section used to claim the
 refusal cost nothing — *level 4.8 either way* — which compared refusing against firing freely
@@ -686,9 +689,17 @@ Two things in that table are worth more than the headline. It is a **plateau** �
 from 3 to 10 beats exact aiming and they sit within 0.2 of each other, so this is a real effect
 and not a number fitted to sixty seeds. And firing *unconditionally* is **worse than firing
 loosely**: the same mean, but half as many games reach level seven, because a shot at empty sky
-spends the twelve-tick cooldown that the next real target needed. The rule that survives is
+spends the twelve-tick cooldown that the next real target needed. The rule that survived was
 neither "aim" nor "spray" but *do not waste the cooldown* — a miss is nearly free, and an
 unloaded gun is not.
+
+**This whole result is now historical.** It was measured against a twelve-tick cooldown with
+no limit on shots in flight. The game has since adopted the original's rule — one shot on
+screen at a time — which multiplies the price of a miss by about five: a shot that hits
+nothing costs the full climb to the top of the screen. Half of that finding survives intact
+(an unloaded gun is still worse than a loose shot) and half inverts (a miss is no longer
+nearly free), so the plateau was re-searched rather than assumed. The table above is kept
+because the *mechanism* it isolates is what makes the new number readable.
 
 It also retired a problem rather than solving it. Chasing a target across the field used to be
 **dead time** — with an exact window, a walking bot fires almost nothing, which is why *stop
@@ -954,7 +965,7 @@ Recorded because each looks obviously right and is not.
 | `@DefaultHandler` on `Canvas` / `Input` | The only sensible default is a silent no-op, which would let a test that forgot to choose an interpretation compile and assert on a frame nobody drew. Leaving them undefaulted keeps that a type error. |
 | Datalog in the frame loop | All 25 stdlib examples are whole-relation fixpoints over static facts, and the engine re-stratifies per solve with no incremental API. Reasonable at level-load time; malpractice at 60 Hz. |
 | Down-weighting targets the bot cannot easily reach | The follow-up to the aim-lead clamp, and a better-aimed one: rather than changing *where* the bot aims, change *which column it picks*, penalising targets by the time it would take to reach them. The asymmetry is real — a target receding at 60% of the cannon's speed closes at 1.6 px/tick against 6.4 for one approaching, so the same 100px gap costs 62 ticks one way and 16 the other — and `columnWorth` scores only imminence and flanks, with no notion of reach at all. Measured against criteria fixed beforehand, it did exactly half of what it promised: **px per kill fell from 139 to 130, and ticks per kill rose from 72 to 76**, with mean level dropping 4.4 to 4.0. Walking less without killing faster is not an improvement, and that outcome had been named in advance as the reject condition. It also broke three behavioural tests. What it confirms is the scarcity argument: with three invaders sweeping a 640px field a fixed point sees a crossing about every 23 ticks, and no amount of choosing better targets creates targets. Worth knowing that only **10% of endgame walking is against the march** — the bot is not chasing receding invaders so much as escorting a sweeping formation, which target selection cannot address. |
-| Clamping the bot's aim-lead when the formation outruns it | The proposal: past a certain speed the bot cannot catch what it is aiming at, so it should stop chasing and hold a line the invaders must cross. The supporting numbers looked strong — the march reaches 4.16 px/tick at level 5 with three left against a cannon of 4.0, and time per kill rises from **21 ticks with a full formation to 72 with eight or fewer left**, against a floor of 12 set by the fire cooldown. Both clamps failed. Clamping the lead to `playerSpeed * flight` is arithmetically a *no-op*: the flight time cancels, so it binds only when the march exceeds the cannon outright, and across six full games **0% of endgame ticks reach that** — the fastest march ever seen with eight or fewer alive is 3.95 against 4.0. Clamping instead by the *closing* speed does bind, and made it **worse**: 72 → 78 ticks per kill. The reason is already recorded above — aiming where a target *is* rather than where it will *be* misses nearly every shot, so the clamp trades a reachability problem for a worse accuracy problem. The 72 is not chasing at all; with three invaders sweeping a 640px field, a fixed point sees one crossing every ~23 ticks, so most of that number is **target scarcity** and irreducible by aiming. |
+| Clamping the bot's aim-lead when the formation outruns it | The proposal: past a certain speed the bot cannot catch what it is aiming at, so it should stop chasing and hold a line the invaders must cross. The supporting numbers looked strong — the march reaches 4.16 px/tick at level 5 with three left against a cannon of 4.0, and time per kill rises from **21 ticks with a full formation to 72 with eight or fewer left**, against a floor of 12 set by the fire cooldown of the day, since replaced by the one-shot rule. Both clamps failed. Clamping the lead to `playerSpeed * flight` is arithmetically a *no-op*: the flight time cancels, so it binds only when the march exceeds the cannon outright, and across six full games **0% of endgame ticks reach that** — the fastest march ever seen with eight or fewer alive is 3.95 against 4.0. Clamping instead by the *closing* speed does bind, and made it **worse**: 72 → 78 ticks per kill. The reason is already recorded above — aiming where a target *is* rather than where it will *be* misses nearly every shot, so the clamp trades a reachability problem for a worse accuracy problem. The 72 is not chasing at all; with three invaders sweeping a 640px field, a fixed point sees one crossing every ~23 ticks, so most of that number is **target scarcity** and irreducible by aiming. |
 | Chasing the formation's flanks in general | Narrowing the block is real and large — `Game.liveBounds` measures the formation from its *living* invaders, so emptying an outer column widens the runway and cuts level 1 from 5-6 row drops per 1000 ticks to 3. But weighting flanks *generally* loses under every condition tried: a 1000-point bonus life (4.5 plain against 3.8-4.2), a 2500-point one (4.8 against 3.6-4.0), and after the dodging was fixed so the bot stopped dying to bombs entirely (4.9 against 3.9-4.4). Reaching level N means **clearing** N-1 formations, so the race is kill rate against descent rate, and general flank-chasing costs more of the former than it buys of the latter. What *is* worth doing is the same rule with a stopping point: a cutoff at 30% of the starting
 width turns this from a reject into the largest gain the bot has had — see *Narrowing the
 block*. The difference between the losing version and the winning one is entirely *when to

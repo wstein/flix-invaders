@@ -61,7 +61,6 @@ pub enum Phase with Eq, ToString {
 /// - `bullets` travel up and are fired by the player; `bombs` travel down and are dropped by
 ///   the invaders.
 /// - `marchDir` is which way the formation is marching, `-1.0` or `1.0`.
-/// - `cooldown` is the ticks remaining before the player may fire again.
 /// - `rng` is threaded through every step rather than drawn from a global source.
 /// - `seed` is kept so that restarting rebuilds exactly the same starting position.
 /// - `hiScore` survives a restart, the way an arcade cabinet's does.
@@ -81,7 +80,6 @@ pub type alias World = {
     invaders = Vector[Invader],
     bunkers = Vector[Bunker],
     marchDir = Float32,
-    cooldown = Int32,
     score = Int32,
     lives = Int32,
     rng = Rng,
@@ -123,8 +121,32 @@ mod Rules {
     pub def cannonScale(): Float32 = 3.0f32
     pub def bulletSpeed(): Float32 = 7.0f32
 
-    /// Ticks between shots. Without this, holding fire fills the screen.
-    pub def fireCooldown(): Int32 = 12
+    ///
+    /// How many of the cannon's shots may be in the air at once.
+    ///
+    /// One, as in the original: "only 1 laser shot on screen at any one time". This is the
+    /// rule the whole game is balanced around, and it was the largest divergence here. A
+    /// twelve-tick cooldown let five shots fly at once, which made a miss cost twelve ticks;
+    /// under this rule a miss costs the bullet's whole flight to the top of the screen --
+    /// about sixty-eight -- so aiming is suddenly worth more than volume.
+    ///
+    /// It is a constant rather than an inlined check so the tests and the demo bot can say
+    /// what they depend on.
+    ///
+    pub def shotsAloft(): Int32 = 1
+
+    ///
+    /// Ticks a missed shot spends in the air, and therefore the slowest the cannon can fire.
+    ///
+    /// With one shot allowed on screen, the rate of fire is no longer a constant: it is the
+    /// flight time of the last shot. A hit near the formation returns the cannon quickly; a
+    /// miss costs the whole climb. This is the worst case, which is what the difficulty
+    /// tests need to reason about.
+    ///
+    pub def shotFlightTicks(): Int32 =
+        Float32.tryToInt32(
+            Float32.ceil((playerY() - playerSize()#y + bulletSize()#y) / bulletSpeed()))
+            |> Option.getWithDefault(1)
 
     pub def bombSize(): Vec2 = { x = 6.0f32, y = 14.0f32 }
     pub def bombSpeed(): Float32 = 3.0f32
@@ -149,6 +171,10 @@ mod Rules {
     pub def rowSpacing(): Float32 = 32.0f32
     pub def formationLeft(): Float32 = 120.0f32
     pub def formationTop(): Float32 = 96.0f32
+
+    /// The y of the formation's lowest row at spawn -- the furthest a *hit* ever has to fly.
+    pub def formationBottom(): Float32 =
+        formationTop() + Int32.toFloat32(rows() - 1) * rowSpacing()
 
     ///
     /// Which kind sits in each row: squid at the top, then two rows of crabs, then two of

@@ -37,7 +37,6 @@ mod Game {
           invaders = formation(),
           bunkers = Bunkers.initial(),
           marchDir = 1.0f32,
-          cooldown = 0,
           score = 0,
           lives = Rules.startingLives(),
           rng = Rng.fromSeed(seed),
@@ -69,13 +68,19 @@ mod Game {
         { playerX = clampTo(half, Rules.fieldWidth() - half, w#playerX + left + right) | w }
     }
 
-    /// Space fires, subject to the cooldown. Holding it down fires at a fixed rate.
+    ///
+    /// Space fires, if the previous shot has cleared the screen.
+    ///
+    /// There is no timer: the rate of fire is whatever the last shot's flight allows, which
+    /// is the original's rule and the reason accuracy matters. Holding the key down refires
+    /// the instant the screen is clear, so nothing is lost by holding it.
+    ///
     def fire(input: Snapshot, w: World): World \ Sound =
-        if (w#cooldown > 0) { cooldown = w#cooldown - 1 | w }
+        if (List.length(w#bullets) >= Rules.shotsAloft()) w
         else if (not Set.memberOf(Key.Space, input#held)) w
         else {
             let muzzle = { x = w#playerX, y = Rules.playerY() - Rules.playerSize()#y };
-            emit(SoundCmd.Shoot, { bullets = muzzle :: w#bullets, cooldown = Rules.fireCooldown() | w })
+            emit(SoundCmd.Shoot, { bullets = muzzle :: w#bullets | w })
         }
 
     /// Bullets rise and are dropped when they leave the top of the field.
@@ -371,7 +376,6 @@ mod Game {
           bullets = Nil,
           bombs = Nil,
           marchDir = 1.0f32,
-          cooldown = 0,
           blasts = Nil,
           mystery = None,
           mysteryTimer = Rules.mysteryInterval(),
@@ -390,7 +394,7 @@ mod Game {
     ///
     pub def digest(w: World): String = {
         let header = "${w#phase}|t=${w#tick}|x=${w#playerX}|s=${w#score}|l=${w#lives}"
-            + "|d=${w#marchDir}|c=${w#cooldown}|h=${w#hiScore}|v=${w#level}|p=${w#pause}"
+            + "|d=${w#marchDir}|h=${w#hiScore}|v=${w#level}|p=${w#pause}"
             + "|g=${w#shield}|n=${w#nextBonusAt}|r=${w#rng}";
         let shots = List.foldLeft((acc, b) -> acc + "|b(${b#x},${b#y})", "", w#bullets);
         let drops = List.foldLeft((acc, b) -> acc + "|m(${b#x},${b#y})", "", w#bombs);

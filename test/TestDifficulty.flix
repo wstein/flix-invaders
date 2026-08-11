@@ -92,17 +92,26 @@ mod TestDifficulty {
     /// a change that gives one back is invisible to a per-seed minimum.
     ///
     /// Deterministic, not statistical -- fixed seeds and a discharged `Sound` effect mean this
-    /// number does not wobble, so the 6.3 floor against a measured 6.6 is margin, not luck. If
+    /// number does not wobble, so the floor against the measured figure is margin, not luck. If
     /// it fails, either the bot got worse or the figure quoted in `README.md` and
     /// `docs/ARCHITECTURE.md` needs revising; both are one edit and neither is optional.
+    ///
+    /// The figure dropped from 6.6 to 4.1 when the game adopted the original's one-shot rule,
+    /// and that is a change in the *game*, not a regression in the bot. Three aim windows were
+    /// swept against it -- 1.5, 2.5 and the shipped 5.0 -- and all three score 4.0 over ten
+    /// seeds, so the loss is not a mis-set constant. It is the flight time: with one shot
+    /// aloft the cannon fires 260 times per 10,000 ticks where it used to fire 394, and no
+    /// choice of aim window changes that. Recovering the levels needs a bot that shortens its
+    /// own flights -- shooting low targets, closing before firing -- which is a redesign of
+    /// `Demo`, not a number.
     ///
     @Test
     def testTheDemoHasNotRegressedByAWholeLevel(): Unit \ Assert = {
         let reached = List.map(seed -> playShaky(wholeGame(), seed)#level, seeds());
         let meanTenths = (List.sum(reached) * 10) / List.length(seeds());
-        assertTrueWithMsg(meanTenths >= 63,
+        assertTrueWithMsg(meanTenths >= 38,
             "the demo averaged level ${meanTenths / 10}.${meanTenths `Int32.remainder` 10} "
-            + "across ${reached}; it reached 6.6 when that figure was last written down")
+            + "across ${reached}; it reached 4.1 when that figure was last written down")
     }
 
     @Test
@@ -117,10 +126,24 @@ mod TestDifficulty {
     @Test
     def testThereIsTimeToClearTheFormation(): Unit \ Assert = {
         // Every invader must be reachable within the descent, with room to spare for misses.
+        //
+        // With one shot aloft the rate of fire is the flight of the last shot, so the bound
+        // depends on how far the shot travels. `shotFlightTicks` is the clean miss -- the
+        // whole climb to the top of the screen -- and using it here would be the wrong
+        // measure twice over: a player shooting the formation is not shooting the sky, and
+        // the formation descends towards the cannon as the level runs, so flights shorten.
+        //
+        // The honest basis is a shot to the formation's own starting line, which is the
+        // longest a *hit* ever takes, and a margin of two shots per invader rather than the
+        // three that a five-shot magazine used to buy.
         let ticks = descentTicks();
-        let shots = ticks / Rules.fireCooldown();
-        assertTrueWithMsg(shots > Rules.totalInvaders() * 3,
-            "only ${shots} shots fit into the ${ticks}-tick descent for ${Rules.totalInvaders()} invaders")
+        let reach = Rules.playerY() - Rules.playerSize()#y - Rules.formationBottom();
+        let flight = Float32.tryToInt32(Float32.ceil(reach / Rules.bulletSpeed()))
+            |> Option.getWithDefault(Rules.shotFlightTicks());
+        let shots = ticks / Int32.max(1, flight);
+        assertTrueWithMsg(shots > Rules.totalInvaders() * 2,
+            "only ${shots} shots fit into the ${ticks}-tick descent for ${Rules.totalInvaders()} "
+            + "invaders (flight ${flight} ticks)")
     }
 
     @Test
