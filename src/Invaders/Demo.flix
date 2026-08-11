@@ -160,9 +160,16 @@ mod Demo {
         fireWindow = 5.0f32,
 
         // What a target's nearness to the invasion line is worth, against the tidiness of
-        // clearing a flank. This is the priority the game itself sets: sixty games in sixty
-        // end by invasion and none by running out of lives, so a descending column is the only
+        // clearing a flank. This was the priority the game itself set: sixty games in sixty
+        // ended by invasion and none by running out of lives, so a descending column was the only
         // genuinely urgent thing on the screen.
+        //
+        // That premise no longer holds. With each wave starting lower than the last, eight of
+        // ten games now end out of lives and only two by invasion -- a lower formation means
+        // bombs fall a shorter way and there is less room to step aside. The weight below was
+        // chosen against the old distribution and is very likely wrong for the new one, but
+        // guessing at it is not an improvement: it wants the same sweep that produced it,
+        // and that belongs with the wider bot work the one-shot rule already called for.
         //
         // It was 1 by construction and never chosen -- `nearness` is a fraction, so it topped
         // out at 1.0 while the flank bonuses reached 3.1 between them. `composure` rescued the

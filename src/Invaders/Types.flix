@@ -236,9 +236,35 @@ mod Rules {
     pub def formationLeft(): Float32 = 120.0f32
     pub def formationTop(): Float32 = 96.0f32
 
+    ///
+    /// How much lower each wave starts than the one before, and how many waves before the
+    /// cycle resets.
+    ///
+    /// The guide: screen 1 "need[s] to drop 11 lines to reach the bottom", screens 2 through 9
+    /// "start progressively lower down the screen", and "at screen 10 the game reverts to the
+    /// screen 1 start position and the cycle begins again".
+    ///
+    /// This is a different kind of difficulty from the two the game already had. Speed and
+    /// bomb rate make a wave harder to *survive*; a lower start makes it shorter, which is
+    /// harder to *finish* -- there is simply less time before the formation lands, whatever
+    /// the player's skill. Eight pixels a wave leaves the ninth still needing seven row drops,
+    /// so the hardest wave in the cycle is tight rather than impossible.
+    ///
+    pub def wavesPerCycle(): Int32 = 9
+
+    pub def descentPerWave(): Float32 = 8.0f32
+
+    /// Where the formation's top row starts on a given level. Cycles every `wavesPerCycle`.
+    pub def formationTopFor(level: Int32): Float32 = {
+        let step = Int32.remainder(Int32.max(0, level - 1), wavesPerCycle());
+        formationTop() + Int32.toFloat32(step) * descentPerWave()
+    }
+
     /// The y of the formation's lowest row at spawn -- the furthest a *hit* ever has to fly.
-    pub def formationBottom(): Float32 =
-        formationTop() + Int32.toFloat32(rows() - 1) * rowSpacing()
+    pub def formationBottomFor(level: Int32): Float32 =
+        formationTopFor(level) + Int32.toFloat32(rows() - 1) * rowSpacing()
+
+    pub def formationBottom(): Float32 = formationBottomFor(1)
 
     ///
     /// Which kind sits in each row: squid at the top, then two rows of crabs, then two of

@@ -1310,4 +1310,48 @@ mod TestGame {
             "one shot cleared both bombs; it should be spent on the first")
     }
 
+    // -- the wave cycle ---------------------------------------------------------------
+
+    ///
+    /// Each wave starts lower than the last, and the tenth starts where the first did.
+    ///
+    /// This is a different difficulty from speed and bomb rate: those make a wave harder to
+    /// survive, a lower start makes it shorter, which is harder to finish whatever the
+    /// player's skill.
+    ///
+    @Test
+    def testEachWaveStartsLowerUntilTheCycleResets(): Unit \ Assert = {
+        let tops = List.map(Rules.formationTopFor, List.range(1, 11));
+        let rising = List.zip(tops, List.drop(1, tops))
+            |> List.take(Rules.wavesPerCycle() - 1)
+            |> List.forAll(match (a, b) -> b > a);
+        assertTrueWithMsg(rising, "the first nine waves do not descend: ${tops}");
+        assertTrueWithMsg(
+            Rules.formationTopFor(Rules.wavesPerCycle() + 1) == Rules.formationTopFor(1),
+            "wave ${Rules.wavesPerCycle() + 1} starts at "
+            + "${Rules.formationTopFor(Rules.wavesPerCycle() + 1)}, not back at "
+            + "${Rules.formationTopFor(1)}")
+    }
+
+    /// Even the lowest wave in the cycle still has room to be cleared.
+    @Test
+    def testTheLowestWaveStillHasRoomToFall(): Unit \ Assert = {
+        let lowest = Rules.formationBottomFor(Rules.wavesPerCycle());
+        let dropsLeft = (Rules.invasionLine() - lowest) / Rules.marchDrop();
+        assertTrueWithMsg(dropsLeft >= 5.0f32,
+            "the hardest wave starts with only ${dropsLeft} row drops before it lands")
+    }
+
+    /// And the game actually builds the formation where the level says.
+    @Test
+    def testTheSecondWaveIsBuiltLowerThanTheFirst(): Unit \ Assert = {
+        let cleared = { invaders = Vector.map(inv -> { alive = false | inv }, start()#invaders)
+                      | start() };
+        let next = steps(Rules.levelPauseTicks() + 2, cleared, Input.empty());
+        let topOf = w -> Vector.foldLeft((acc, inv) -> Float32.min(acc, inv#pos#y),
+                                         Rules.fieldHeight(), w#invaders);
+        assertTrueWithMsg(next#level == 2 and topOf(next) > topOf(start()),
+            "wave ${next#level} starts at ${topOf(next)}, against ${topOf(start())} for wave one")
+    }
+
 }

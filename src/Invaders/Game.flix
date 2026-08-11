@@ -14,12 +14,12 @@ mod Game {
     ///
     /// The formation at the start of a game.
     ///
-    def formation(): Vector[Invader] =
+    def formation(level: Int32): Vector[Invader] =
         Vector.range(0, Rules.totalInvaders()) |> Vector.map(index -> {
             let column = Int32.remainder(index, Rules.columns());
             let row = index / Rules.columns();
             { pos = { x = Rules.formationLeft() + Int32.toFloat32(column) * Rules.columnSpacing(),
-                      y = Rules.formationTop() + Int32.toFloat32(row) * Rules.rowSpacing() },
+                      y = Rules.formationTopFor(level) + Int32.toFloat32(row) * Rules.rowSpacing() },
               alive = true,
               kind = Rules.kindForRow(row),
               row = row }
@@ -34,7 +34,7 @@ mod Game {
           playerX = Rules.fieldWidth() / 2.0f32,
           bullets = Nil,
           bombs = Nil,
-          invaders = formation(),
+          invaders = formation(1),
           bunkers = Bunkers.initial(),
           marchDir = 1.0f32,
           score = 0,
@@ -431,7 +431,9 @@ mod Game {
         { phase = Phase.Playing,
           level = w#level + 1,
           pause = 0,
-          invaders = formation(),
+          // Each wave starts lower than the last until the cycle resets, so a later wave is
+          // not merely faster -- it is shorter.
+          invaders = formation(w#level + 1),
           bunkers = Bunkers.initial(),
           bullets = Nil,
           bombs = Nil,
