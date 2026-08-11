@@ -594,17 +594,22 @@ mod TestDemo {
     /// overhead" beats firing on "guaranteed to connect" by 5.2 to 6.0 levels.
     ///
     @Test
-    def testItTakesAShotExactAimingWouldRefuse(): Unit \ Assert = {
+    def testItRefusesAShotThatWillHaveDriftedOut(): Unit \ Assert = {
+        // This used to assert the opposite: with five shots aloft and a miss costing twelve
+        // ticks, the bot took shots exact aiming would refuse, and the widening was worth a
+        // whole level. One shot aloft prices a miss at the entire climb, the sweep inverted,
+        // and the window closed from 5.0 to 2.0 -- so the behaviour worth pinning is now the
+        // refusal, not the widening.
         let w = settled();
         let marching = { marchDir = 1.0f32 | w };
         let flight = (Rules.playerY() - 260.0f32) / Rules.bulletSpeed();
         let drift = Rules.marchSpeedFor(1, marching#level) * flight;
-        let exact = (Rules.invaderSize()#x + Rules.bulletSize()#x) / 2.0f32;
-        assertTrueWithMsg(drift > exact and drift < fireWindowPx(),
-            "the fixture drifts ${drift}px, which is not between the exact window ${exact}px "
-            + "and the widened one ${fireWindowPx()}px, so it does not test the widening");
-        assertTrueWithMsg(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), marching)#held),
-            "the bot held fire on a target inside its firing window")
+        assertTrueWithMsg(drift > fireWindowPx(),
+            "the fixture drifts ${drift}px, which is inside the ${fireWindowPx()}px window, "
+            + "so it does not test the refusal");
+        assertTrueWithMsg(not Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), marching)#held),
+            "the bot fired at a target that will have drifted ${drift}px out of a "
+            + "${fireWindowPx()}px window by the time the shot arrives")
     }
 
     @Test

@@ -146,18 +146,22 @@ mod Demo {
         // bullet-meets-invader overlap. One means only shots the geometry guarantees; five
         // means any target roughly overhead is worth a shot.
         //
-        // Widened back when five shots could be aloft at once and a miss cost twelve ticks;
-        // over sixty seeds it was the largest single gain the bot ever had, mean level 5.2 to
-        // 6.0. One shot aloft inverts that economy -- a miss now costs the whole climb, about
-        // sixty-eight ticks -- so this is retuned below against the same benchmark.
+        // Widened to 5.0 back when five shots could be aloft at once and a miss cost twelve
+        // ticks; over sixty seeds that was the largest single gain the bot ever had, mean
+        // level 5.2 to 6.0. One shot aloft inverts the economy -- a miss now costs the whole
+        // climb, about sixty-eight ticks -- and the finding inverts with it. Swept against
+        // the current game with `bin/bench --defaults`: 4.5 at 1.0, **4.6 at 2.0**, 4.1 at
+        // 3.0, 4.0 at the old 5.0 and 3.8 at 8.0, monotone in between and confirmed at 4.6
+        // over sixty seeds. Tight now beats loose by more than half a level.
         //
         // A plateau, not a peak -- 3, 5, 7 and 10 all score 5.9 to 6.1 and every one beats
         // exact aiming, so this is a real effect rather than a value fitted to the sample.
-        // Five sat in the middle of a plateau -- 3, 5, 7 and 10 all scored 5.9 to 6.1 -- and
-        // firing unconditionally was never better even then, because a shot at empty sky
-        // spends the flight the next real target needed. That penalty is now five times
-        // larger.
-        fireWindow = 5.0f32,
+        // The old plateau -- 3, 5, 7 and 10 all scoring 5.9 to 6.1 -- is gone; this is a
+        // slope now, which is what a five-fold rise in the price of a miss should do to it.
+        //
+        // Sweep with `--defaults`. `bin/bench` alone prefers a stored tuning outside the
+        // repository, so editing this line and benchmarking measures the stored value.
+        fireWindow = 2.0f32,
 
         // What a target's nearness to the invasion line is worth, against the tidiness of
         // clearing a flank. This was the priority the game itself set: sixty games in sixty

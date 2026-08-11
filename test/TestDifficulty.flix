@@ -96,22 +96,29 @@ mod TestDifficulty {
     /// it fails, either the bot got worse or the figure quoted in `README.md` and
     /// `docs/ARCHITECTURE.md` needs revising; both are one edit and neither is optional.
     ///
-    /// The figure dropped from 6.6 to 4.1 when the game adopted the original's one-shot rule,
-    /// and that is a change in the *game*, not a regression in the bot. Three aim windows were
-    /// swept against it -- 1.5, 2.5 and the shipped 5.0 -- and all three score 4.0 over ten
-    /// seeds, so the loss is not a mis-set constant. It is the flight time: with one shot
-    /// aloft the cannon fires 260 times per 10,000 ticks where it used to fire 394, and no
-    /// choice of aim window changes that. Recovering the levels needs a bot that shortens its
-    /// own flights -- shooting low targets, closing before firing -- which is a redesign of
-    /// `Demo`, not a number.
+    /// The figure dropped from 6.6 to 4.1 when the game adopted the original's one-shot rule.
+    ///
+    /// A sweep of the aim window was reported here as showing that no value recovered the
+    /// loss. **That sweep measured nothing.** `bin/bench` prefers a stored tuning at
+    /// `~/.config/flix-invaders/tuning.json` over `Demo.defaults`, so editing the default and
+    /// benchmarking read the old value back every time -- which is exactly what identical
+    /// results across a five-fold range should have said, and did not. Sweep with
+    /// `bin/bench --defaults`, or the number under test is not the number being measured.
+    ///
+    /// Swept properly, the window matters a great deal and the old finding inverts. Loose
+    /// aiming was worth a level when five shots could be aloft and a miss cost twelve ticks;
+    /// with one shot aloft a miss costs the whole climb, and tight aiming wins monotonically:
+    /// 1.0 and 2.0 reach 4.5 and 4.6, against 4.0 at the shipped 5.0 and 3.8 at 8.0. Sixty
+    /// seeds confirm 4.6 at 2.0. The rule is no longer "do not waste the cooldown" but simply
+    /// *do not fire blind*.
     ///
     @Test
     def testTheDemoHasNotRegressedByAWholeLevel(): Unit \ Assert = {
         let reached = List.map(seed -> playShaky(wholeGame(), seed)#level, seeds());
         let meanTenths = (List.sum(reached) * 10) / List.length(seeds());
-        assertTrueWithMsg(meanTenths >= 38,
+        assertTrueWithMsg(meanTenths >= 43,
             "the demo averaged level ${meanTenths / 10}.${meanTenths `Int32.remainder` 10} "
-            + "across ${reached}; it reached 4.1 when that figure was last written down")
+            + "across ${reached}; it reached 4.6 when that figure was last written down")
     }
 
     @Test
