@@ -188,6 +188,19 @@ mod Rules {
     pub def bombAt(pos: Vec2, kind: BombKind): Bomb =
         { x = pos#x, y = pos#y, kind = kind, age = 0 }
 
+    ///
+    /// One in this many bombs survives being shot.
+    ///
+    /// The original's rule, and a strange-sounding one until you play it: "the player's shot
+    /// is always destroyed but the invader's missile occasionally survives". The asymmetry is
+    /// the point. Shooting a bomb down is never free -- it costs the shot outright, and under
+    /// the one-shot rule that is the whole flight -- and it is not even reliable, so clearing
+    /// a path is a gamble rather than a technique.
+    ///
+    /// One in four keeps it a real risk without making the attempt pointless.
+    ///
+    pub def bombSurvivesShot(): Int32 = 4
+
     /// The speed a bomb of each kind falls at.
     ///
     /// The slow one is the old single speed, so the game a player already knows is the middle

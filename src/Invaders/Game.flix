@@ -202,6 +202,36 @@ mod Game {
             }
         }
 
+    ///
+    /// Shots meet bombs in mid-air.
+    ///
+    /// Asymmetric, as in the original: the cannon's shot is always spent, the bomb usually
+    /// but not always dies with it. Runs after the bunkers have had their say, so a shot
+    /// already absorbed by a shelter cannot also knock a bomb down on its way through.
+    ///
+    /// Folded bomb-first rather than bullet-first so that one shot cannot clear two bombs:
+    /// each bullet is removed the moment it meets anything.
+    ///
+    def resolveShotsMeetBombs(w: World): World = {
+        def loop(remaining, bullets, rng, kept) = match remaining {
+            case Nil => (List.reverse(kept), bullets, rng)
+            case bomb :: rest => {
+                let struck = b -> Collide.overlaps(aPos = b, aSize = Rules.bulletSize(),
+                                                   bPos = { x = bomb#x, y = bomb#y },
+                                                   bSize = Rules.bombSize());
+                if (not List.exists(struck, bullets)) loop(rest, bullets, rng, bomb :: kept)
+                else {
+                    // The shot is spent either way; only the bomb's fate is a die roll.
+                    let (survives, next) = Rng.chance(Rules.bombSurvivesShot(), rng);
+                    loop(rest, List.filter(b -> not struck(b), bullets), next,
+                         if (survives) bomb :: kept else kept)
+                }
+            }
+        };
+        let (bombs, bullets, rng) = loop(w#bombs, w#bullets, w#rng, Nil);
+        { bombs = bombs, bullets = bullets, rng = rng | w }
+    }
+
     /// The index of the first living invader this bullet hits.
     def hitIndex(bullet: Vec2, invaders: Vector[Invader]): Option[Int32] = {
         def loop(i) =
@@ -466,6 +496,7 @@ mod Game {
                 // full duration rather than losing its first tick to the grant itself.
                 |> ageShield
                 |> resolveBunkers
+                |> resolveShotsMeetBombs
                 |> resolveBullets
                 |> resolveMystery
                 |> resolveBombs

@@ -1194,4 +1194,59 @@ mod TestGame {
             + "${livesAfter(BombKind.Fast)}, ${livesAfter(BombKind.Wiggly)}")
     }
 
+    ///
+    /// A shot that meets a bomb is always spent; the bomb usually but not always dies.
+    ///
+    /// The asymmetry is the original's, and it is what stops "shoot the bomb" becoming a
+    /// technique: the attempt costs the whole flight and is not even reliable.
+    ///
+    @Test
+    def testAShotMeetingABombIsAlwaysSpent(): Unit \ Assert = {
+        let at = { x = 300.0f32, y = 200.0f32 };
+        let w = { bullets = at :: Nil,
+                  bombs = Rules.bombAt(at, BombKind.Slow) :: Nil | start() };
+        let after = stepped(w, Input.empty());
+        assertTrueWithMsg(List.isEmpty(after#bullets),
+            "the shot survived meeting a bomb: ${List.length(after#bullets)} still aloft")
+    }
+
+    /// Over many collisions, some bombs live and most do not.
+    @Test
+    def testSomeBombsSurviveBeingShot(): Unit \ Assert = {
+        def loop(n, w, lived, died) =
+            if (n <= 0) (lived, died)
+            else {
+                let at = { x = 300.0f32, y = 200.0f32 };
+                let staged = { bullets = at :: Nil,
+                               bombs = Rules.bombAt(at, BombKind.Slow) :: Nil | w };
+                let after = stepped(staged, Input.empty());
+                // `invaderFire` may add one of its own, so count only bombs still up here.
+                let survived = List.exists(b -> b#y < 260.0f32 and b#y > 140.0f32, after#bombs);
+                loop(n - 1, { rng = after#rng | w },
+                     if (survived) lived + 1 else lived,
+                     if (survived) died else died + 1)
+            };
+        let (lived, died) = loop(200, start(), 0, 0);
+        assertTrueWithMsg(lived > 0, "no bomb survived being shot across 200 collisions");
+        assertTrueWithMsg(died > lived,
+            "bombs survived more often than not: ${lived} lived, ${died} died")
+    }
+
+    /// A shot is spent on the first bomb it meets, so one shot never clears two.
+    @Test
+    def testOneShotNeverClearsTwoBombs(): Unit \ Assert = {
+        let at = { x = 300.0f32, y = 200.0f32 };
+        let two = Rules.bombAt(at, BombKind.Slow) :: Rules.bombAt(at, BombKind.Fast) :: Nil;
+        def loop(n, w, worst) =
+            if (n <= 0) worst
+            else {
+                let staged = { bullets = at :: Nil, bombs = two | w };
+                let after = stepped(staged, Input.empty());
+                let overlapping = List.count(b -> b#y < 260.0f32 and b#y > 140.0f32, after#bombs);
+                loop(n - 1, { rng = after#rng | w }, Int32.min(worst, overlapping))
+            };
+        assertTrueWithMsg(loop(60, start(), 2) >= 1,
+            "one shot cleared both bombs; it should be spent on the first")
+    }
+
 }
