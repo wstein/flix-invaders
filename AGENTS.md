@@ -16,7 +16,10 @@ from the project root: `main` resolves `assets/` relative to the caller.
 - `./flix check` — type-check without generating code; the fast feedback loop, and the linter
 - `./flix format` — the formatter; run it before every commit
 - `./flix test` — run every `@Test` function under `test/`
-- `./flix run` — run `main`
+- `./flix run` — run `main`; recompiles the whole project first, so it is the slow way in
+- `bin/play` — run the game, compiling only when a source actually changed. About 1.4s
+  against `./flix run`'s 24s, because that compile is repeated every time and almost never
+  needed. `bin/play --force` rebuilds anyway
 - `./flix build` — compile to `build/class`
 - `./flix build-jar` — package to `artifact/`; **`rm -rf build` first**, see the gotcha below
 - `./flix doc` — write API documentation to `build/doc/`, matching this compiler exactly

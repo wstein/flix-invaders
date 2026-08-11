@@ -1,0 +1,50 @@
+#!/bin/sh
+# Play the game, compiling only when something changed.
+#
+#   bin/play              rebuild if needed, then run
+#   bin/play --force      rebuild even if nothing changed
+#
+# `./flix run` recompiles the whole project every time. That costs about twenty-four
+# seconds here against one and a half to start the classes it just produced, so the
+# compile is nearly all of the wait and almost all of it is repeated for nothing.
+#
+# The staleness test is a newest-mtime comparison against a stamp written after each
+# successful build. It is deliberately coarser than the compiler's own dependency graph:
+# this decides only whether to *call* the compiler, and being wrong in the safe direction
+# costs a rebuild the compiler would have done anyway.
+set -eu
+
+# shellcheck disable=SC1007  # CDPATH is cleared for this command only
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+cd "$root"
+
+stamp=build/.play-stamp
+force=no
+[ "${1:-}" = "--force" ] && { force=yes; shift; }
+
+# Newest mtime among the things a build depends on. `find -newer` rather than a hash: it
+# is one syscall per file against reading every byte, and the inputs are small enough that
+# a false rebuild is cheaper than the hash would be.
+stale=yes
+if [ "$force" = no ] && [ -f "$stamp" ] && [ -d build/class ]; then
+  changed=$(find src flix.toml -newer "$stamp" -print -quit 2>/dev/null || true)
+  [ -z "$changed" ] && stale=no
+fi
+
+if [ "$stale" = yes ]; then
+  echo "bin/play: sources changed, building..." >&2
+  ./flix build
+  mkdir -p build
+  : > "$stamp"
+fi
+
+# Processing has to be on the classpath by hand: `flix run` assembles it from flix.toml,
+# and nothing does that for a bare `java`.
+cp=build/class
+for jar in lib/external/*.jar; do
+  [ -f "$jar" ] && cp="$cp:$jar"
+done
+
+# `Main` ends in Sys.Exit.exit(0) precisely so a bare JVM terminates -- AWT's event thread
+# is not a daemon, so without it this would hang after the window closed.
+exec java -cp "$cp" Main "$@"
