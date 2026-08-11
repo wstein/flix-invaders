@@ -1,0 +1,6 @@
+# >>> flixw >>>
+/flix text eol=lf
+/.flix-wrapper/flix.java text eol=lf
+/.flix-wrapper/lock.toml text eol=lf
+/flix.cmd text eol=crlf
+# <<< flixw <<<
