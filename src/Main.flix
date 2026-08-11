@@ -11,7 +11,7 @@
 /// written after it closes, and nothing in between knows a filesystem exists. That is what
 /// keeps `Session.step` testable without a disk.
 ///
-/// Run it:   bin/flix run
+/// Run it:   ./flix run
 ///
 def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, Sys.Exit, IO } = {
     let limit = Sketch.maxFramesFromEnv();
@@ -24,7 +24,8 @@ def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, Sys.Exit, IO } = {
           seed = 2026i64,
           hz = 60,
           maxFrames = limit,
-          // Relative to the working directory; bin/flix cds to the project root first.
+          // Relative to the working directory, which ./flix deliberately does not
+          // change -- run the game from the project root.
           fontPath = Some("assets/PressStart2P-Regular.ttf") },
         seed -> Session.withTuning(seed, saved, tuning),
         Session.step,
@@ -39,7 +40,7 @@ def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, Sys.Exit, IO } = {
     // of Processing calling `System.exit(0)` mid-frame -- which is what makes saving the
     // scores possible at all. The cost is that nothing exits the JVM afterwards: AWT's event
     // thread is not a daemon, so returning from `main` leaves it running and the process
-    // hangs. `bin/flix run` hides this because its launcher owns the JVM; a plain
+    // hangs. `./flix run` hides this because its launcher owns the JVM; a plain
     // `java -jar` does not, and the released game would never terminate.
     //
     // So the exit is explicit, and it is here rather than in `Sketch` on purpose: it belongs

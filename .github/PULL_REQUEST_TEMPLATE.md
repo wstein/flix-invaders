@@ -4,9 +4,9 @@ Describe the change and why it belongs in this project.
 
 ## Validation
 
-- [ ] `bin/flix format`
-- [ ] `bin/flix check`
-- [ ] `bin/flix test`
+- [ ] `./flix format`
+- [ ] `./flix check`
+- [ ] `./flix test`
 - [ ] `bin/bench` before and after (required for demo-bot or rules tuning)
 
 ## Checklist

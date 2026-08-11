@@ -968,8 +968,9 @@ stop*, not what to prefer. An "invaders passed en route" bonus is separately cat
 
 ## Toolchain
 
-`bin/flix` downloads the compiler version pinned in `flix.toml` into `.flix/` once and reuses
-it, so local runs and CI are identical. Processing Core is a single pinned jar fetched from
+`./flix` downloads the compiler version pinned in `flix.toml`, verifies it against the
+SHA-256 in `.flix-wrapper/lock.toml`, and caches it by content, so local runs and CI are
+identical and an altered jar is refused rather than executed. Processing Core is a single pinned jar fetched from
 Maven Central — `[jar-dependencies]`, not `[mvn-dependencies]`, because core's POM drags in
 JOGL umbrella artifacts and a Kotlin stdlib that the JAVA2D renderer never loads. Verified at
 runtime with `-verbose:class`: no `com.jogamp` class is ever loaded.
