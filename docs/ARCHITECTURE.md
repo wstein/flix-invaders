@@ -648,6 +648,8 @@ a record of intuition being wrong:
 | Drill early anyway, for the firing lane | cheap on level 1, where there is time | 5.2 → 5.1 → 4.9 as more is allowed |
 | Camp on an outermost bunker and let the formation come | fewer wasted ticks walking | 4.9 left, 5.2 right, against 5.2 — the camp costs what the lane gains |
 | Rest in the *gaps* between bunkers 1–2 or 3–4 instead | a clear line of fire, unlike behind a bunker | much better than the outer bunkers and still no gain: 7.4–7.6 against 7.7 |
+| Charge for standing outside the outer bunkers, where it visibly rests | it is loitering with no shelter | those strips are where the flank columns are — the formation sweeps 12px to 628px: **7.1–7.7 against 7.7**, and the worst seed falls in every form |
+| Charge for the middle gap while the block is still wide | the centre is the exposed place early on | it is the bot's most productive zone — 81% of rests there have a target overhead: 6.9–7.6 |
 | Widen the firing window fivefold | more misses, fewer kills | **5.2 → 6.0**, and *fewer* deaths |
 | Let how far a column has come outrank a tidy flank | a modest correction | **6.0 → 7.7**, and every seed clears level six |
 | Drop or cut the penalty for standing behind a bunker | it only blocks shots for a moment | 7.7 → 6.7 at zero, 7.1 at half, 7.3 at double |
@@ -758,6 +760,71 @@ behaviour was an emergent one.
 
 Note also what the fixed anchors cost that the mean hides: every one of them drops the worst
 seed from 6 to 5, giving up the property that *every* game clears level six.
+
+### Where the cannon actually stands
+
+The seventh form of the intuition arrives from the other end: not *send the bot somewhere*, but
+*the places it ends up in are the wrong ones*. Watching the demo, the cannon visibly comes to
+rest outside the outer bunkers, and the two zones it seems to want — the gaps flanking the
+outer bunkers — look better than the middle. That is a claim about where the bot rests, so it
+was measured before it was tuned. Over the ten seeds, counting only playing ticks on which the
+cannon did not move:
+
+| Zone | Share of resting ticks | Mean distance to the nearest live invader | With one within 24px |
+|---|---|---|---|
+| left of bunker 1 | 5.8% | 35px | 45% |
+| bunker 1 | 0.3% | 22px | 79% |
+| gap 1–2 | 27.0% | 22px | 72% |
+| bunker 2 | 1.3% | 12px | 89% |
+| gap 2–3 | 24.9% | 16px | 81% |
+| bunker 3 | 1.2% | 13px | 89% |
+| gap 3–4 | 30.9% | 23px | 73% |
+| bunker 4 | 0.4% | 21px | 71% |
+| right of bunker 4 | 7.7% | 33px | 45% |
+
+The observation is real: the two outer strips are a fifth of the field and take 13.5% of all
+resting, rising to **19.8% once eight or fewer invaders are left**. Two other things in that
+table decide the case, though. The bot already refuses to rest *behind* a bunker — 3.2% across
+all four, which is `blockedCost` working — so the loitering is in the open, not in cover. And
+**the middle gap is the bot's most productive zone but one**: 81% of the rests there have an
+invader within one invader's width overhead, against 45% in the strips. It is where the centre
+of the formation is.
+
+The strips are half-justified too, and by a number that is easy to miss: the formation sweeps
+from **x = 12 to x = 628** while the bunkers span only 64 to 576. The outer strips are where
+the flank columns are, and taking a flank is what `narrowing` and `finishFlank` exist to do. A
+cost charged on the strip is therefore a cost charged on the flank shot.
+
+That is exactly how it measures. Twelve variants, on the sixty seeds, against 7.7 and a worst
+of 6:
+
+| Standing cost | Charged | Mean level | Worst |
+|---|---|---|---|
+| strip 0.1 | always | 7.5 | 5 |
+| strip 0.25 | always | 7.5 | 5 |
+| strip 1.0 | always | 7.1 | **2** |
+| middle gap 0.5 | always | 7.4 | 5 |
+| strip 0.5 + middle 0.5 | always | 7.3 | 5 |
+| strip 0.5 | only with nothing overhead | 7.2 | 4 |
+| **strip 1.0** | only with nothing overhead | **7.7** | 5 |
+| strip 2.0 | only with nothing overhead | 7.5 | 5 |
+| strip 2.0 + middle 1.0 | only with nothing overhead | 7.1 | 4 |
+| middle gap 1.0 | while the block spans >50% of the canvas | 6.9 | 5 |
+| middle gap 0.5 | while the block spans >50% of the canvas | 7.6 | 5 |
+| middle gap 1.0 | while the block spans >60% of the canvas | 7.4 | 5 |
+
+The sharpest form — charge the strip only when nothing is overhead, so the flank shot is never
+refused — is the only one that holds the mean, and it does change the behaviour it was built to
+change: strip resting falls from 13.5% to 10.6%, and what remains is *aimed*, the share with a
+target within 24px rising from 45% to 82% on the left and 45% to 75% on the right. It still
+costs the worst seed, 6 to 5, and 0.5/1.0/2.0 scoring 7.2/7.7/7.5 is not monotone, so its 7.7
+is inside the noise rather than a match. Nothing in the family wins.
+
+Two conclusions worth keeping. **Standing at the edge is not the bot loitering, it is the bot
+shooting a flank**, and about half the time there is something directly above it when it does.
+And **the middle gap is not a bad place to be, at any stage** — gating the penalty on how wide
+the block still is was a fair hypothesis and it lost at every strength and every threshold,
+because the centre of a wide formation is the centre of where the targets are.
 
 ---
 
