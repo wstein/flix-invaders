@@ -59,6 +59,42 @@ mod Sketch {
     }
 
     ///
+    /// The seed a run starts from: random unless `FLIX_INVADERS_SEED` names one.
+    ///
+    /// The game was seeded with a constant, so every launch played the identical game and
+    /// the attract screen replayed the identical demo. Reproducibility is worth keeping, but
+    /// it belongs to the tests -- which call `Game.initial(seed)` directly and are unaffected
+    /// by this -- rather than to the thing a person sits down in front of.
+    ///
+    /// `System.nanoTime` rather than the wall clock: two launches in the same millisecond
+    /// would collide on `currentTimeMillis`, and nothing here needs the value to mean a date.
+    /// The note elsewhere about `nanoTime` not being wall-clock is about *measuring* time; an
+    /// arbitrary origin is exactly what a seed wants.
+    ///
+    /// The `F3` overlay shows the seed of whichever world is on screen, so a game worth
+    /// keeping can be read off and played again by setting the variable. That is the whole
+    /// reason the override exists: without it, a bug found once could not be shown to anyone.
+    /// Note the attract screen's `SEED` is the demo's, which `Session.demoSeed` offsets by
+    /// 977 so it never mirrors a real game -- feeding that one back gives a different game,
+    /// not the demo you were watching.
+    ///
+    pub def seedFromEnv(): Option[Int64] \ IO = {
+        let raw = System.getenv("FLIX_INVADERS_SEED");
+        if (Object.isNull(raw)) None else parseSeed(raw)
+    }
+
+    /// The parsing half, split out so it can be tested without an environment.
+    pub def parseSeed(raw: String): Option[Int64] = match Int64.parse(10, String.trim(raw)) {
+        case Result.Ok(n) => Some(n)
+        case _ => None
+    }
+
+    pub def freshSeed(): Int64 \ IO = match seedFromEnv() {
+        case Some(n) => n
+        case None => System.nanoTime()
+    }
+
+    ///
     /// The size a loaded font is first derived to.
     ///
     /// Anything works -- `Canvas.textSize` re-derives the native font on every size change --

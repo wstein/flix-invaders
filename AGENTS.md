@@ -39,6 +39,14 @@ The wrapper's own verbs, which never reach the compiler:
 A verb the compiler implements always wins, so this list shrinks by itself as Flix grows its
 own. `./flixw -- <args>` forces the compiler for anything ambiguous.
 
+### Environment
+
+- `FLIX_INVADERS_SEED` — pin the run's seed. Unset, the game seeds itself from
+  `System.nanoTime`, so every launch is a different game; the tests are unaffected because
+  they call `Game.initial(seed)` directly. Read a seed off the `F3` overlay to replay a game
+- `FLIX_SKETCH_MAX_FRAMES` — stop after N frames; how the smoke test bounds a windowed run
+- `FLIX_CACHE_HOME`, `FLIX_JAVA_HOME`, `FLIX_DIST_URL` — the wrapper's, not the game's
+
 ## Layout
 
 - `src/Runtime/` — the effect boundary. `Runtime/Sketch.flix` (window) and

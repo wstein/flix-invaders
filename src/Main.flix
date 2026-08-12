@@ -21,7 +21,7 @@ def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, Sys.Exit, IO } = {
         { title = "Flix Invaders",
           width = 640,
           height = 480,
-          seed = 2026i64,
+          seed = Sketch.freshSeed(),
           hz = 60,
           maxFrames = limit,
           // Relative to the working directory, which ./flix deliberately does not

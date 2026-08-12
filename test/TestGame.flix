@@ -1354,4 +1354,22 @@ mod TestGame {
             "wave ${next#level} starts at ${topOf(next)}, against ${topOf(start())} for wave one")
     }
 
+    ///
+    /// The seed override parses what a person would actually type.
+    ///
+    /// Only the parsing half is testable without an environment; the `getenv` around it is
+    /// left alone, exactly as `maxFramesFromEnv` is. What matters here is that a seed read
+    /// off the F3 overlay and pasted back in is accepted -- including the negative ones,
+    /// since the default seed is a nanosecond clock and half of those are negative.
+    ///
+    @Test
+    def testTheSeedOverrideParses(): Unit \ Assert = {
+        assertEq(expected = Some(2026i64), Sketch.parseSeed("2026"));
+        assertEq(expected = Some(-8712341234i64), Sketch.parseSeed("-8712341234"));
+        assertEq(expected = Some(3003i64), Sketch.parseSeed("  3003\n"));
+        assertEq(expected = None, Sketch.parseSeed(""));
+        assertEq(expected = None, Sketch.parseSeed("nonsense"));
+        assertEq(expected = None, Sketch.parseSeed("12.5"))
+    }
+
 }
