@@ -49,8 +49,8 @@ mod Canvas {
     /// This is the bridge from a pure `render : world -> List[DrawCmd]` to whichever
     /// handler is currently installed.
     ///
-    pub def paint(cmds: List[DrawCmd]): Unit \ Canvas =
-        List.forEach(cmd -> match cmd {
+    pub def paint(cmds: List[DrawCmd]): Unit \ Canvas = {
+        let processCmd = cmd -> match cmd {
             case DrawCmd.Clear(c)             => Canvas.clear(c)
             case DrawCmd.Fill(c)              => Canvas.fill(c)
             case DrawCmd.FillAlpha(c, a)      => Canvas.fillAlpha(c, a)
@@ -58,7 +58,9 @@ mod Canvas {
             case DrawCmd.Ellipse(x, y, w, h)  => Canvas.ellipse(x, y, w, h)
             case DrawCmd.Text(s, x, y)        => Canvas.text(s, x, y)
             case DrawCmd.TextSize(px)         => Canvas.textSize(px)
-        }, cmds)
+        };
+        List.forEach(processCmd, cmds)
+    }
 
     ///
     /// Interprets `Canvas` by recording every drawing operation instead of performing it.
@@ -71,8 +73,8 @@ mod Canvas {
     /// eighth interpretation of `Canvas` means adding a function here, not editing the
     /// runtime.
     ///
-    pub def handleWithCollector(dims: (Int32, Int32), f: a -> b \ ef
-    ): a -> (b, List[DrawCmd]) \ ef - Canvas = input ->
+    pub def handleWithCollector(dims: (Int32, Int32), f: a -> b \ ef)
+        : a -> (b, List[DrawCmd]) \ ef - Canvas = input ->
         region rc {
             let acc: Ref[List[DrawCmd], rc] = Ref.fresh(rc, Nil);
             let emit = cmd -> Ref.put(cmd :: Ref.get(acc), acc);
@@ -88,7 +90,8 @@ mod Canvas {
                 def textSize(px, k)          = { emit(DrawCmd.TextSize(px)); k() }
                 def dimensions(k)            = k(dims)
             };
-            (result, List.reverse(Ref.get(acc)))
+            let cmds = List.reverse(Ref.get(acc));
+            (result, cmds)
         }
 
     ///
@@ -105,7 +108,8 @@ mod Canvas {
     /// that forgot to choose an interpretation would compile and silently assert on a frame
     /// that was never drawn. Leaving `Canvas` without one keeps that a type error.
     ///
-    pub def runWithNoOp(dims: (Int32, Int32), f: Unit -> a \ ef): a \ ef - Canvas =
+    pub def runWithNoOp(dims: (Int32, Int32), f: Unit -> a \ ef)
+        : a \ ef - Canvas =
         run {
             f()
         } with handler Canvas {
@@ -122,7 +126,8 @@ mod Canvas {
     ///
     /// Runs `f` and returns only the draw commands it produced.
     ///
-    pub def commands(dims: (Int32, Int32), f: Unit -> Unit \ ef): List[DrawCmd] \ ef - Canvas =
+    pub def commands(dims: (Int32, Int32), f: Unit -> Unit \ ef)
+        : List[DrawCmd] \ ef - Canvas =
         snd(runWithCollector(dims, f))
 
 }

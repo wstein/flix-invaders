@@ -90,11 +90,14 @@ mod Audio {
     /// no reason for an explosion to differ between sessions.
     ///
     def burst(rc: Region[r], millis: Int32, volume: Float32): Array[Int8, r] \ r = {
-        let count = Int32.max(1, (millis * sampleRate()) / 1000);
+        let sampleCount = (millis * sampleRate()) / 1000;
+        let count = Int32.max(1, sampleCount);
         Array.init(rc, i -> {
-            let (value, _) = Rng.nextInt32Below(220, Rng.fromSeed(Int32.toInt64(i)));
+            let seedVal = Int32.toInt64(i);
+            let (value, _) = Rng.nextInt32Below(220, Rng.fromSeed(seedVal));
             let progress = Int32.toFloat32(i) / Int32.toFloat32(count);
-            toSample(Int32.toFloat32(value - 110) * volume * (1.0f32 - progress))
+            let rawSample = Int32.toFloat32(value - 110) * volume * (1.0f32 - progress);
+            toSample(rawSample)
         }, count)
     }
 
@@ -111,22 +114,28 @@ mod Audio {
     ///
     def samplesFor(rc: Region[r], cmd: SoundCmd): Array[Int8, r] \ r = match cmd {
         case SoundCmd.Shoot =>
-            sweep(rc, { startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32 })
+            let params = { startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32 };
+            sweep(rc, params)
         case SoundCmd.InvaderDies =>
             burst(rc, 190, 0.7f32)
         case SoundCmd.PlayerDies =>
             burst(rc, 620, 1.0f32)
         case SoundCmd.MysteryAppears =>
-            sweep(rc, { startHz = 620.0f32, endHz = 900.0f32, millis = 220, volume = 0.4f32 })
+            let params = { startHz = 620.0f32, endHz = 900.0f32, millis = 220, volume = 0.4f32 };
+            sweep(rc, params)
         case SoundCmd.MysteryDies =>
-            sweep(rc, { startHz = 900.0f32, endHz = 180.0f32, millis = 380, volume = 0.6f32 })
+            let params = { startHz = 900.0f32, endHz = 180.0f32, millis = 380, volume = 0.6f32 };
+            sweep(rc, params)
         case SoundCmd.ShieldBlock =>
-            sweep(rc, { startHz = 300.0f32, endHz = 1100.0f32, millis = 130, volume = 0.5f32 })
+            let params = { startHz = 300.0f32, endHz = 1100.0f32, millis = 130, volume = 0.5f32 };
+            sweep(rc, params)
         case SoundCmd.ExtraLife =>
-            sweep(rc, { startHz = 500.0f32, endHz = 1600.0f32, millis = 420, volume = 0.6f32 })
+            let params = { startHz = 500.0f32, endHz = 1600.0f32, millis = 420, volume = 0.6f32 };
+            sweep(rc, params)
         case SoundCmd.MarchStep(note) => {
             let hz = marchHz(note);
-            sweep(rc, { startHz = hz, endHz = hz * 0.92f32, millis = 110, volume = 0.85f32 })
+            let params = { startHz = hz, endHz = hz * 0.92f32, millis = 110, volume = 0.85f32 };
+            sweep(rc, params)
         }
     }
 
@@ -175,7 +184,8 @@ mod Audio {
         try {
             // `findLeft` stops at the first idle voice, so a sound with three lines free does
             // not restart all three.
-            match List.findLeft(entry -> fst(entry) == cmd and not snd(entry).isRunning(), voices) {
+            let isIdleVoice = entry -> fst(entry) == cmd and not snd(entry).isRunning();
+            match List.findLeft(isIdleVoice, voices) {
                 case None => ()
                 case Some((_, clip)) => {
                     clip.setFramePosition(0);

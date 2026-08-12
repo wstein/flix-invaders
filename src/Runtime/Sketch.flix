@@ -448,7 +448,8 @@ mod Sketch {
     /// device -- which is why it lives here rather than in `Sound`. `Clip.start()` returns
     /// immediately, so a frame is never held up waiting for audio.
     ///
-    def runWithClips(voices: Audio.Voices, f: Unit -> a \ ef): a \ (ef - Sound) + IO =
+    def runWithClips(voices: Audio.Voices, f: Unit -> a \ ef)
+        : a \ (ef - Sound) + IO =
         run {
             f()
         } with handler Sound {
@@ -461,12 +462,19 @@ mod Sketch {
     /// The counterpart to `Canvas.runWithCollector`, and the only interpretation that needs
     /// a window -- which is why it lives here rather than in `Canvas`.
     ///
-    def runWithSurface(app: PApplet, f: Unit -> a \ ef): a \ (ef - Canvas) + IO =
+    def runWithSurface(app: PApplet, f: Unit -> a \ ef)
+        : a \ (ef - Canvas) + IO =
         run {
             f()
         } with handler Canvas {
-            def clear(c, k) = { let (r, g, b) = channels(c); app.background(r, g, b); k() }
-            def fill(c, k) = { let (r, g, b) = channels(c); app.fill(r, g, b); k() }
+            def clear(c, k) =
+                let (r, g, b) = channels(c);
+                app.background(r, g, b);
+                k()
+            def fill(c, k) =
+                let (r, g, b) = channels(c);
+                app.fill(r, g, b);
+                k()
             def fillAlpha(c, a, k) = {
                 let (r, g, b) = channels(c);
                 app.fill(r, g, b, Int32.toFloat32(a));

@@ -66,6 +66,7 @@ mod Stats {
     pub def rateFrom(frameNs: Int64): Float32 =
         if (frameNs <= 0i64) 0.0f32 else nanosPerSecond() / Int64.toFloat32(frameNs)
 
+    /// Single frame performance sample containing raw nanosecond metrics and step counts.
     pub type alias Sample = {
         frameNs = Int64,
         simNs = Int64,

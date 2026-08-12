@@ -180,10 +180,11 @@ mod Rules {
     /// miss costs the whole climb. This is the worst case, which is what the difficulty
     /// tests need to reason about.
     ///
-    pub def shotFlightTicks(): Int32 =
-        Float32.tryToInt32(
-            Float32.ceil((playerY() - playerSize()#y + bulletSize()#y) / bulletSpeed()))
-            |> Option.getWithDefault(1)
+    pub def shotFlightTicks(): Int32 = {
+        let dist = playerY() - playerSize()#y + bulletSize()#y;
+        let flightTime = dist / bulletSpeed();
+        Float32.tryToInt32(Float32.ceil(flightTime)) |> Option.getWithDefault(1)
+    }
 
     /// Bounding size of an invader bomb.
     pub def bombSize(): Vec2 = { x = 6.0f32, y = 14.0f32 }
@@ -616,7 +617,8 @@ mod Rules {
     /// Deterministic also means the saucer no longer draws from the generator, so what a
     /// player scores depends on how they played rather than on where the stream happened to
     /// be -- which is a better property for a replayable game than the randomness it cost.
-    ///
+
+
     pub def mysteryFirstBonusShot(): Int32 = 23
 
     /// Interval of shots after the first bonus shot that awards 300 points.
@@ -624,7 +626,11 @@ mod Rules {
 
     /// The lesser values, walked by shot count. Fixed order, so it can be learned.
     def mysteryTable(): Vector[Int32] =
-        Vector#{50, 100, 50, 100, 150, 100, 100, 50, 150, 100, 50, 100, 150, 50, 100}
+        Vector#{
+            50, 100, 50, 100, 150,
+            100, 100, 50, 150, 100,
+            50, 100, 150, 50, 100
+        }
 
     /// Computes the score value awarded for hitting the mystery ship on `shotsFired`.
     pub def mysteryScoreFor(shotsFired: Int32): Int32 =

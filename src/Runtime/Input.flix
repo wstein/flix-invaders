@@ -131,11 +131,15 @@ mod Input {
                  mouseX: {mouseX = Int32}, mouseY: {mouseY = Int32}): Snapshot = {
         let before = previous#previous;
         let now = current#current;
+        let newlyPressed = Set.difference(now, before);
+        let newlyReleased = Set.difference(before, now);
+        let mx = mouseX#mouseX;
+        let my = mouseY#mouseY;
         { held = now,
-          pressed = Set.difference(now, before),
-          released = Set.difference(before, now),
-          mouseX = mouseX#mouseX,
-          mouseY = mouseY#mouseY }
+          pressed = newlyPressed,
+          released = newlyReleased,
+          mouseX = mx,
+          mouseY = my }
     }
 
     ///
@@ -143,8 +147,11 @@ mod Input {
     ///
     /// Convenience for tests and scripted replays.
     ///
-    pub def holding(keys: List[Key]): Snapshot =
-        diff(previous = Set.empty(), current = List.toSet(keys), mouseX = 0, mouseY = 0)
+    pub def holding(keys: List[Key]): Snapshot = {
+        let prev = Set.empty();
+        let curr = List.toSet(keys);
+        diff(previous = prev, current = curr, mouseX = 0, mouseY = 0)
+    }
 
     // -- handing one frame's keyboard to several logical ticks ------------------------------
 
@@ -192,7 +199,8 @@ mod Input {
         run {
             f(input)
         } with handler Input {
-            def poll(k) = k(s)
+            def poll(k) =
+                k(s)
         }
 
     ///

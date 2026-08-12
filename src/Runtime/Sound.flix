@@ -57,7 +57,8 @@ mod Sound {
     /// Pure: the accumulator lives in a region that is fully discharged here, so this needs
     /// no `IO` and touches no device. This is what the sound tests use.
     ///
-    pub def handleWithCollector(f: a -> b \ ef): a -> (b, List[SoundCmd]) \ ef - Sound = input ->
+    pub def handleWithCollector(f: a -> b \ ef)
+        : a -> (b, List[SoundCmd]) \ ef - Sound = input ->
         region rc {
             let acc: Ref[List[SoundCmd], rc] = Ref.fresh(rc, Nil);
             let result = run {
@@ -71,7 +72,8 @@ mod Sound {
     ///
     /// Runs `f`, returning its result together with everything it played.
     ///
-    pub def runWithCollector(f: Unit -> a \ ef): (a, List[SoundCmd]) \ ef - Sound =
+    pub def runWithCollector(f: Unit -> a \ ef)
+        : (a, List[SoundCmd]) \ ef - Sound =
         handleWithCollector(f)()
 
     ///
@@ -87,7 +89,8 @@ mod Sound {
     /// `checked_ecast` widens the effect without changing behaviour -- the escape hatch the
     /// Flix style guide sanctions for exactly this ("if necessary, effect casts are OK").
     ///
-    pub def silent(f: (a, b) -> c): (a, b) -> c \ Sound = (x, y) -> checked_ecast(f(x, y))
+    pub def silent(f: (a, b) -> c): (a, b) -> c \ Sound =
+        (x, y) -> checked_ecast(f(x, y))
 
     ///
     /// Interprets `Sound` by discarding it.

@@ -68,9 +68,11 @@ mod Bench {
     /// recorded figures in `docs/ARCHITECTURE.md` are on those, and a sample that quietly
     /// changed underneath them would make every number in that file incomparable.
     ///
-    pub def wideSeeds(): List[Int64] =
-        (List.range(1, 31) |> List.map(n -> Int32.toInt64(n) * 7919i64)) :::
-        (List.range(1, 31) |> List.map(n -> Int32.toInt64(n) * 104729i64))
+    pub def wideSeeds(): List[Int64] = {
+        let firstHalf = List.range(1, 31) |> List.map(n -> Int32.toInt64(n) * 7919i64);
+        let secondHalf = List.range(1, 31) |> List.map(n -> Int32.toInt64(n) * 104729i64);
+        firstHalf ::: secondHalf
+    }
 
     ///
     /// How long a game may run before it is cut short.
@@ -153,11 +155,13 @@ mod Bench {
         // which is usually a third of the way in. Folding `budget()` steps would keep calling
         // a no-op stage for the remaining twenty thousand ticks of every run.
         def loop(st: BenchState) =
-            if (st#left <= 0 or st#world#phase == Phase.Lost)
+            if (st#left <= 0 or st#world#phase == Phase.Lost) {
+                let endg = st#acc#endgame;
+                let reached = invasionReached(st#world);
                 { seed = seed, level = st#world#level, score = st#world#score, lives = st#world#lives,
                   deaths = st#acc#deaths, kills = st#acc#kills, drops = st#acc#drops, ticks = st#acc#ticks,
-                  invaded = invasionReached(st#world), endgame = st#acc#endgame }
-            else
+                  invaded = reached, endgame = endg }
+            } else
                 loop(stepBench(tuning, st));
         let initAcc = { deaths = 0, kills = 0, drops = 0, ticks = 0, endgame = emptyEndgame() };
         loop({ left = budget(), world = Game.initial(seed), hand = Demo.fresh(seed), acc = initAcc })
@@ -171,7 +175,9 @@ mod Bench {
     pub def all(tuning: Tuning): List[Outcome] = allOn(seeds(), tuning)
 
     /// Runs the benchmark across the given list of test seeds.
-    pub def allOn(which: List[Int64], tuning: Tuning): List[Outcome] = List.map(one(tuning), which)
+    pub def allOn(which: List[Int64], tuning: Tuning): List[Outcome] =
+        let runner = one(tuning);
+        List.map(runner, which)
 
     // -- reading the results ----------------------------------------------------------------
     //
@@ -180,12 +186,18 @@ mod Bench {
 
     /// Mean level, in tenths, so it can be reported without floating point.
     pub def meanLevelTenths(runs: List[Outcome]): Int32 =
-        if (List.isEmpty(runs)) 0
-        else (List.foldLeft((total, r) -> total + r#level, 0, runs) * 10) / List.length(runs)
+        if (List.isEmpty(runs))
+            0
+        else {
+            let totalLevel = List.foldLeft((total, r) -> total + r#level, 0, runs);
+            (totalLevel * 10) / List.length(runs)
+        }
 
     /// Returns the lowest level reached across all benchmark runs.
-    pub def worstLevel(runs: List[Outcome]): Int32 =
-        List.foldLeft((worst, r) -> Int32.min(worst, r#level), Int32.maxValue(), runs)
+    pub def worstLevel(runs: List[Outcome]): Int32 = {
+        let startWorst = Int32.maxValue();
+        List.foldLeft((worst, r) -> Int32.min(worst, r#level), startWorst, runs)
+    }
 
     /// Returns the highest level reached across all benchmark runs.
     pub def bestLevel(runs: List[Outcome]): Int32 =
@@ -354,74 +366,90 @@ mod Bench {
     /// is considered.
     ///
     def knobs(): List[List[Tuning -> Tuning]] =
-        List.map(by -> ((t: Tuning) -> { dangerWidth = scaled(t#dangerWidth, by) | t }), spread()) ::
-        List.map(by -> ((t: Tuning) -> { selfPreservation = scaled(t#selfPreservation, by) | t }), spread()) ::
-        List.map(by -> ((t: Tuning) -> { urgency = scaled(t#urgency, by) | t }), spread()) ::
-        List.map(by -> ((t: Tuning) -> { blockedCost = scaled(t#blockedCost, by) | t }), spread()) ::
-        List.map(by -> ((t: Tuning) -> { shelterRelief = scaled(t#shelterRelief, by) | t }), spread()) ::
-        List.map(by -> ((t: Tuning) -> { calm = scaled(t#calm, by) | t }), spread()) ::
-        List.map(by -> ((t: Tuning) -> { finishFlank = scaled(t#finishFlank, by) | t }), spread()) ::
-        List.map(by -> ((t: Tuning) -> { startAt = scaled(t#startAt, by) | t }), spread()) ::
-        List.map(by -> ((t: Tuning) -> { reverseAt = scaled(t#reverseAt, by) | t }), spread()) ::
-        List.map(n -> ((t: Tuning) -> { aimJitter = t#aimJitter + n | t }), bumps()) ::
-        List.map(n -> ((t: Tuning) -> { judgeFor = t#judgeFor + n * 4 | t }), bumps()) ::
-        List.map(n -> ((t: Tuning) -> { lapseFor = t#lapseFor + n | t }), bumps()) :: Nil
-
-    ///
-    /// `stragglers` is deliberately absent from `knobs`.
-    ///
-    /// The search optimises the level reached, and setting it to zero switches off flank
-    /// finishing entirely, which is worth about half a level -- so a search allowed to touch it
-    /// will always delete it. But that rule is not a number to be optimised, it is a decision
-    /// about how the demo should *look*: without it the bot digs a hole through the middle of
-    /// the formation and leaves the block at full width all game. Search tunes the numbers; it
-    /// does not get to overturn the design.
-    ///
-    /// `fireWindow` is absent for a duller reason: it is a plateau. Every value from 3 to 10
-    /// scores 5.9 to 6.1 over sixty seeds, so a search would spend its budget wandering inside
-    /// the flat part and report the wander as progress.
-    ///
-    /// The same caution applies to anything else added here. Ask first whether a worse score
-    /// would actually mean a worse demo.
-    ///
+        List.map(by -> ((t: Tuning) ->
+            let dw = scaled(t#dangerWidth, by);
+            { dangerWidth = dw | t }), spread()) ::
+        List.map(by -> ((t: Tuning) ->
+            let sp = scaled(t#selfPreservation, by);
+            { selfPreservation = sp | t }), spread()) ::
+        List.map(by -> ((t: Tuning) ->
+            let u = scaled(t#urgency, by);
+            { urgency = u | t }), spread()) ::
+        List.map(by -> ((t: Tuning) ->
+            let bc = scaled(t#blockedCost, by);
+            { blockedCost = bc | t }), spread()) ::
+        List.map(by -> ((t: Tuning) ->
+            let sr = scaled(t#shelterRelief, by);
+            { shelterRelief = sr | t }), spread()) ::
+        List.map(by -> ((t: Tuning) ->
+            let c = scaled(t#calm, by);
+            { calm = c | t }), spread()) ::
+        List.map(by -> ((t: Tuning) ->
+            let ff = scaled(t#finishFlank, by);
+            { finishFlank = ff | t }), spread()) ::
+        List.map(by -> ((t: Tuning) ->
+            let sa = scaled(t#startAt, by);
+            { startAt = sa | t }), spread()) ::
+        List.map(by -> ((t: Tuning) ->
+            let ra = scaled(t#reverseAt, by);
+            { reverseAt = ra | t }), spread()) ::
+        List.map(n -> ((t: Tuning) ->
+            { aimJitter = t#aimJitter + n | t }), bumps()) ::
+        List.map(n -> ((t: Tuning) ->
+            { judgeFor = t#judgeFor + n * 4 | t }), bumps()) ::
+        List.map(n -> ((t: Tuning) ->
+            { lapseFor = t#lapseFor + n | t }), bumps()) :: Nil
 
     // -- reporting --------------------------------------------------------------------------
 
     def pad(text: String, width: Int32): String = {
         let missing = width - String.length(text);
-        if (missing <= 0) text
-        else List.foldLeft((acc, _) -> acc + " ", "", List.range(0, missing)) + text
+        if (missing <= 0)
+            text
+        else {
+            let spaces = List.foldLeft((acc, _) -> acc + " ", "", List.range(0, missing));
+            spaces + text
+        }
     }
 
-    def row(r: Outcome): String =
+    def row(r: Outcome): String = {
+        let status = if (r#invaded) "invaded" else "out of lives";
         pad("${r#seed}", 6) + pad("${r#level}", 7) + pad("${r#score}", 8) +
         pad("${r#lives}", 7) + pad("${r#deaths}", 8) + pad("${r#kills}", 7) +
-        pad("${r#ticks}", 8) + "  " + (if (r#invaded) "invaded" else "out of lives")
+        pad("${r#ticks}", 8) + "  " + status
+    }
 
     def report(runs: List[Outcome]): Unit \ IO = {
         let ticks = totalTicks(runs);
-        println(pad("seed", 6) + pad("level", 7) + pad("score", 8) + pad("lives", 7)
-              + pad("deaths", 8) + pad("kills", 7) + pad("ticks", 8) + "  ended by");
+        let header = pad("seed", 6) + pad("level", 7) + pad("score", 8) + pad("lives", 7)
+              + pad("deaths", 8) + pad("kills", 7) + pad("ticks", 8) + "  ended by";
+        println(header);
         List.forEach(r -> println(row(r)), runs);
         println("");
-        println("  mean level      ${showTenths(meanLevelTenths(runs))}"
-              + "   (worst ${worstLevel(runs)}, best ${bestLevel(runs)})");
-        println("  deaths          ${deaths(runs)} = ${showTenths(rateTenths(deaths(runs), ticks))} per 10000 ticks");
-        println("  kills           ${kills(runs)} = ${showTenths(rateTenths(kills(runs), ticks))} per 10000 ticks");
-        println("  row drops       ${drops(runs)} = ${showTenths(rateTenths(drops(runs), ticks))} per 10000 ticks");
-        let endgame = endgame(runs);
-        println("  <=8 invaders    ${pixelsPerKill(endgame)} px/kill, ${ticksPerKill(endgame)} ticks/kill"
-              + " (${endgame#pixels} px, ${endgame#ticks} ticks, ${endgame#kills} kills)");
-        println("  ended by        ${invasions(runs)} invaded, "
-              + "${List.length(runs) - invasions(runs)} out of lives");
+        let meanMsg = "  mean level      ${showTenths(meanLevelTenths(runs))}"
+              + "   (worst ${worstLevel(runs)}, best ${bestLevel(runs)})";
+        println(meanMsg);
+        let dRate = showTenths(rateTenths(deaths(runs), ticks));
+        println("  deaths          ${deaths(runs)} = ${dRate} per 10000 ticks");
+        let kRate = showTenths(rateTenths(kills(runs), ticks));
+        println("  kills           ${kills(runs)} = ${kRate} per 10000 ticks");
+        let rRate = showTenths(rateTenths(drops(runs), ticks));
+        println("  row drops       ${drops(runs)} = ${rRate} per 10000 ticks");
+        let endg = endgame(runs);
+        let egMsg = "  <=8 invaders    ${pixelsPerKill(endg)} px/kill, ${ticksPerKill(endg)} ticks/kill"
+              + " (${endg#pixels} px, ${endg#ticks} ticks, ${endg#kills} kills)";
+        println(egMsg);
+        let endedMsg = "  ended by        ${invasions(runs)} invaded, "
+              + "${List.length(runs) - invasions(runs)} out of lives";
+        println(endedMsg);
 
-        // A game still running when the budget expired has not been measured, it has been
-        // interrupted, and every rate above is then a rate of something else.
         let cut = unfinished(runs);
-        if (cut > 0)
-            println("  WARNING         ${cut} game(s) hit the budget and were cut short; "
-                  + "raise budget() before trusting these numbers")
-        else ()
+        if (cut > 0) {
+            let warnMsg = "  WARNING         ${cut} game(s) hit the budget and were cut short; "
+                  + "raise budget() before trusting these numbers";
+            println(warnMsg)
+        } else
+            ()
     }
 
     // -- the command line --------------------------------------------------------------------
@@ -445,29 +473,31 @@ mod Bench {
     /// `--recalc` takes its round count optionally, so `--recalc` and `--recalc 5` both work
     /// and neither swallows a following flag.
     ///
-    def switches(): List[OptionDescr[Flag]] =
-        { optionIds = 'h' :: Nil,
-          optionNames = "help" :: Nil,
-          argDescriptor = ArgDescr.NoArg(Flag.Help),
-          explanation = "print this message" } ::
-        { optionIds = 'r' :: Nil,
-          optionNames = "recalc" :: Nil,
-          argDescriptor = ArgDescr.OptArg(given -> Some(Flag.Recalc(
-              given |> Option.flatMap(Int32.fromString) |> Option.getWithDefault(defaultRounds()))), "ROUNDS"),
-          explanation = "search for a better tuning (default ${defaultRounds()} rounds) and save it if it wins" } ::
-        { optionIds = 'c' :: Nil,
-          optionNames = "config" :: Nil,
-          argDescriptor = ArgDescr.ReqArg(given -> Some(Flag.Config(given)), "PATH"),
-          explanation = "use PATH instead of the file beside the high scores" } ::
-        { optionIds = 'd' :: Nil,
-          optionNames = "defaults" :: Nil,
-          argDescriptor = ArgDescr.NoArg(Flag.Defaults),
-          explanation = "ignore any config and use the tuning compiled in" } ::
-        { optionIds = 'w' :: Nil,
-          optionNames = "wide" :: Nil,
-          argDescriptor = ArgDescr.NoArg(Flag.Wide),
-          explanation = "play ${List.length(wideSeeds())} seeds instead of ${List.length(seeds())}; "
-              + "slower, and the only sample that can settle a close call" } :: Nil
+    def switches(): List[OptionDescr[Flag]] = {
+        let helpOpt = { optionIds = 'h' :: Nil,
+                        optionNames = "help" :: Nil,
+                        argDescriptor = ArgDescr.NoArg(Flag.Help),
+                        explanation = "print this message" };
+        let recalcOpt = { optionIds = 'r' :: Nil,
+                          optionNames = "recalc" :: Nil,
+                          argDescriptor = ArgDescr.OptArg(given -> Some(Flag.Recalc(
+                              given |> Option.flatMap(Int32.fromString) |> Option.getWithDefault(defaultRounds()))), "ROUNDS"),
+                          explanation = "search for a better tuning (default ${defaultRounds()} rounds) and save it if it wins" };
+        let configOpt = { optionIds = 'c' :: Nil,
+                          optionNames = "config" :: Nil,
+                          argDescriptor = ArgDescr.ReqArg(given -> Some(Flag.Config(given)), "PATH"),
+                          explanation = "use PATH instead of the file beside the high scores" };
+        let defaultsOpt = { optionIds = 'd' :: Nil,
+                            optionNames = "defaults" :: Nil,
+                            argDescriptor = ArgDescr.NoArg(Flag.Defaults),
+                            explanation = "ignore any config and use the tuning compiled in" };
+        let wideOpt = { optionIds = 'w' :: Nil,
+                        optionNames = "wide" :: Nil,
+                        argDescriptor = ArgDescr.NoArg(Flag.Wide),
+                        explanation = "play ${List.length(wideSeeds())} seeds instead of ${List.length(seeds())}; "
+                            + "slower, and the only sample that can settle a close call" };
+        helpOpt :: recalcOpt :: configOpt :: defaultsOpt :: wideOpt :: Nil
+    }
 
     def usage(): String =
         usageInfo("usage: bin/bench [options]", switches())
@@ -494,29 +524,34 @@ mod Bench {
         }
     }
 
-    def runSearch(configFile: Option[String], stored: Tuning, rounds: Int32): Unit \ { Fs.FileWrite, Sys.Env, IO } = {
+    def runSearch(configFile: Option[String], stored: Tuning, rounds: Int32)
+        : Unit \ { Fs.FileWrite, Sys.Env, IO } = {
         let before = score(stored);
+        let seedsCount = List.length(seeds());
         println("Searching from merit ${before} over at most ${rounds} round(s).");
-        println("Each round plays ${List.length(seeds())} games per candidate; this takes a while.");
+        println("Each round plays ${seedsCount} games per candidate; this takes a while.");
         let (found, foundScore) = recalc(rounds, stored);
         println("");
         report(all(found));
         println("");
-        if (foundScore <= before) println("No improvement found; the config is unchanged.")
-        else writeTuning(configFile, found)
+        if (foundScore <= before)
+            println("No improvement found; the config is unchanged.")
+        else
+            writeTuning(configFile, found)
     }
 
-    def runBenchOptions(flags: List[Flag], configFile: Option[String]): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, IO } = {
+    def runBenchOptions(flags: List[Flag], configFile: Option[String])
+        : Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, IO } = {
         let stored = startingTuning(flags, configFile);
         println(provenance(flags, configFile));
         match roundsIn(flags) {
-            case None => {
+            case None =>
                 let playing = if (List.memberOf(Flag.Wide, flags)) wideSeeds() else seeds();
                 println("Bot benchmark -- ${List.length(playing)} seeds, budget ${budget()} ticks");
                 println("");
                 report(allOn(playing, stored))
-            }
-            case Some(rounds) => runSearch(configFile, stored, rounds)
+            case Some(rounds) =>
+                runSearch(configFile, stored, rounds)
         }
     }
 
@@ -525,10 +560,12 @@ mod Bench {
     ///
     pub def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, IO } = {
         let parsed = getOpt1(ArgOrder.Permute, switches(), Sys.Env.getArgs());
-        if (not List.isEmpty(parsed#errors) or not List.isEmpty(parsed#unknowns)) {
+        let hasErrors = not List.isEmpty(parsed#errors) or not List.isEmpty(parsed#unknowns);
+        if (hasErrors) {
             List.forEach(e -> println("bench: ${e}"), List.append(parsed#errors, parsed#unknowns));
             println(usage())
-        } else if (List.memberOf(Flag.Help, parsed#options)) println(usage())
+        } else if (List.memberOf(Flag.Help, parsed#options))
+            println(usage())
         else {
             let flags = parsed#options;
             let configFile = match configIn(flags) {
@@ -562,22 +599,26 @@ mod Bench {
     /// tuning file is malformed would be a strange way to treat a tool whose whole job is to
     /// tell you whether a set of numbers is any good.
     ///
-    def startingTuning(flags: List[Flag], configFile: Option[String]): Tuning \ { Fs.FileRead, IO } =
-        if (List.memberOf(Flag.Defaults, flags)) Demo.defaults()
-        else match configFile {
-            case None => Demo.defaults()
-            case Some(file) => match Tuning.load(file) {
-                case Ok(t) => t
-                case Err(why) => {
-                    println("could not read ${file}: ${why}; using the compiled-in defaults");
-                    Demo.defaults()
+    def startingTuning(flags: List[Flag], configFile: Option[String])
+        : Tuning \ { Fs.FileRead, IO } =
+        if (List.memberOf(Flag.Defaults, flags))
+            Demo.defaults()
+        else
+            match configFile {
+                case None => Demo.defaults()
+                case Some(file) => match Tuning.load(file) {
+                    case Ok(t) => t
+                    case Err(why) =>
+                        println("could not read ${file}: ${why}; using the compiled-in defaults");
+                        Demo.defaults()
                 }
             }
-        }
 
-    def writeTuning(configFile: Option[String], t: Tuning): Unit \ { Fs.FileWrite, Sys.Env, IO } =
+    def writeTuning(configFile: Option[String], t: Tuning)
+        : Unit \ { Fs.FileWrite, Sys.Env, IO } =
         match configFile {
-            case None => println("nowhere to write a config; the tuning above was not saved")
+            case None =>
+                println("nowhere to write a config; the tuning above was not saved")
             case Some(file) => match Tuning.save(file, parentOf(file), t) {
                 case Ok(_) => println("Wrote ${file}.")
                 case Err(why) => println("could not write ${file}: ${why}")

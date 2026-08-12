@@ -13,13 +13,16 @@
 ///
 /// Run it:   ./flixw run
 ///
-def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, Sys.Exit, IO } = {
+def main(): Unit
+    \ { Fs.FileRead, Fs.FileWrite, Sys.Env, Sys.Exit, IO } = {
     let saved = readScores();
     let tuning = readTuning();
     let closed = runSession(saved, tuning);
-    // Only when somebody earned something. A session that changed nothing should not create
-    // a config directory, and should not rewrite a file it merely read.
-    if (Scores.render(closed#scores) != Scores.render(saved)) writeScores(closed#scores) else ();
+    let dirty = Scores.render(closed#scores) != Scores.render(saved);
+    if (dirty)
+        writeScores(closed#scores)
+    else
+        ();
 
     // And now stop, having finished.
     //

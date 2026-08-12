@@ -30,24 +30,31 @@ mod Scores {
     /// A line that does not parse is dropped rather than fatal: a truncated or
     /// hand-edited file should cost you the table, not the game.
     ///
-    pub def parseLine(line: String): Option[Entry] =
-        match String.splitOn(substr = separator(), line) {
+    pub def parseLine(line: String): Option[Entry] = {
+        let parts = String.splitOn(substr = separator(), line);
+        match parts {
             case name :: score :: level :: Nil =>
-                match (Int32.fromString(String.trim(score)), Int32.fromString(String.trim(level))) {
+                let sOpt = Int32.fromString(String.trim(score));
+                let lOpt = Int32.fromString(String.trim(level));
+                match (sOpt, lOpt) {
                     case (Some(s), Some(l)) =>
-                        Some({ name = clean(String.trim(name)), score = s, level = l })
+                        let cleanedName = clean(String.trim(name));
+                        Some({ name = cleanedName, score = s, level = l })
                     case _ => None
                 }
             case _ => None
         }
+    }
 
     /// Parses a list of lines from disk into a ranked high score table.
     pub def parse(lines: List[String]): List[Entry] =
         lines |> List.filterMap(parseLine) |> ranked
 
     /// Renders a list of high score entries into serializable line strings.
-    pub def render(entries: List[Entry]): List[String] =
-        List.map(e -> "${e#name}${separator()}${e#score}${separator()}${e#level}", entries)
+    pub def render(entries: List[Entry]): List[String] = {
+        let sep = separator();
+        List.map(e -> "${e#name}${sep}${e#score}${sep}${e#level}", entries)
+    }
 
     ///
     /// Sorted best first and capped at `places`.
@@ -94,8 +101,12 @@ mod Scores {
     /// Pads a name out to the full width so the table lines up.
     pub def padded(name: String): String = {
         let missing = nameLength() - String.length(name);
-        if (missing <= 0) name
-        else name + List.foldLeft((acc, _) -> acc + " ", "", List.range(0, missing))
+        if (missing <= 0)
+            name
+        else {
+            let paddingSpaces = List.foldLeft((acc, _) -> acc + " ", "", List.range(0, missing));
+            name + paddingSpaces
+        }
     }
 
     // -- where the table lives ------------------------------------------------------------
@@ -158,8 +169,11 @@ mod Scores {
     /// `mkDirs` is content when the directory already exists, so there is no existence check
     /// here -- one would be redundant, and racy besides.
     ///
-    pub def save(at: Location, entries: List[Entry]): Result[IoError, Unit] \ Fs.FileWrite =
+    pub def save(at: Location, entries: List[Entry])
+        : Result[IoError, Unit] \ Fs.FileWrite = {
+        let lines = render(ranked(entries));
         Fs.FileWrite.mkDirs(at#dir)
-            |> Result.flatMap(_ -> Fs.FileWrite.writeLines(lines = render(ranked(entries)), at#file))
+            |> Result.flatMap(_ -> Fs.FileWrite.writeLines(lines = lines, at#file))
+    }
 
 }

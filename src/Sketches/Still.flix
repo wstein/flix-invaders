@@ -59,11 +59,13 @@ mod Still {
     /// Entry point for running the still picture sketch.
     pub def main(): Unit \ IO = {
         let limit = Sketch.maxFramesFromEnv();
-        Sketch.start(
-            {title = "Static", width = 640, height = 480, seed = 0i64, hz = 60, maxFrames = limit, fontPath = None},
-            _seed -> (),
-            Sound.silent((world, _snapshot) -> world),
-            (_world, _stats) -> scene())
+        let cfg = {
+            title = "Static", width = 640, height = 480,
+            seed = 0i64, hz = 60, maxFrames = limit, fontPath = None
+        };
+        let stepFn = Sound.silent((world, _snapshot) -> world);
+        let drawFn = (_world, _stats) -> scene();
+        Sketch.start(cfg, _seed -> (), stepFn, drawFn)
     }
 
 }

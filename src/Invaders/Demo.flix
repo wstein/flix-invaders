@@ -49,6 +49,7 @@ pub type alias Tuning = {
     imminence = Float32
 }
 
+/// The imperfect player's state: RNG stream, current error, and timers for movement/lapses.
 pub type alias Hand = {
     rng = Rng,
     error = Float32,

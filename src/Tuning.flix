@@ -83,13 +83,15 @@ mod Tuning {
     /// A numeric field, or `fallback` when it is absent or not a number.
     def number(members: Map[String, Json], key: String, fallback: Float32): Float32 =
         match Map.get(key, members) {
-            case Some(Json.JNumber(value)) => Option.getWithDefault(fallback, BigDecimal.tryToFloat32(value))
+            case Some(Json.JNumber(v)) =>
+                Option.getWithDefault(fallback, BigDecimal.tryToFloat32(v))
             case _ => fallback
         }
 
     def whole(members: Map[String, Json], key: String, fallback: Int32): Int32 =
         match Map.get(key, members) {
-            case Some(Json.JNumber(value)) => Option.getWithDefault(fallback, BigDecimal.tryToInt32(value))
+            case Some(Json.JNumber(v)) =>
+                Option.getWithDefault(fallback, BigDecimal.tryToInt32(v))
             case _ => fallback
         }
 
@@ -172,8 +174,10 @@ mod Tuning {
     // -- where it lives ------------------------------------------------------------------------
 
     /// The default path, beside the high scores.
-    pub def path(): Option[String] \ Sys.Env =
-        Option.map(at -> "${at#dir}${Sys.Env.getFileSeparator()}${fileName()}", Scores.location())
+    pub def path(): Option[String] \ Sys.Env = {
+        let sep = Sys.Env.getFileSeparator();
+        Option.map(at -> "${at#dir}${sep}${fileName()}", Scores.location())
+    }
 
     ///
     /// Reads the tuning at `file`, or the shipped defaults if there is not one yet.
@@ -186,7 +190,8 @@ mod Tuning {
         }
 
     /// Serializes and writes a Tuning configuration record to disk at the specified path.
-    pub def save(file: String, dir: String, t: Tuning): Result[String, Unit] \ Fs.FileWrite =
+    pub def save(file: String, dir: String, t: Tuning)
+        : Result[String, Unit] \ Fs.FileWrite =
         Fs.FileWrite.mkDirs(dir)
             |> Result.flatMap(_ -> Fs.FileWrite.write(str = encode(t), file))
             |> Result.mapErr(why -> "${why}")

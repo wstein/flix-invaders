@@ -25,6 +25,7 @@ pub enum Screen with Eq, Order, ToString {
 ///
 pub type alias Claim = { player = Int32, entry = Entry }
 
+/// The arcade cabinet's complete state across games, players, screens, and high scores.
 pub type alias Session = {
     screen = Screen,
     players = Int32,
@@ -101,10 +102,12 @@ mod Session {
     pub def nextPlayer(current: Int32, s: Session): Option[Int32] = {
         let count = Vector.length(s#worlds);
         def look(offset) =
-            if (offset > count) None
+            if (offset > count)
+                None
             else {
                 let i = Int32.remainder(current + offset, count);
-                if (stillIn(Vector.get(i, s#worlds))) Some(i) else look(offset + 1)
+                let targetWorld = Vector.get(i, s#worlds);
+                if (stillIn(targetWorld)) Some(i) else look(offset + 1)
             };
         look(1)
     }
@@ -112,15 +115,19 @@ mod Session {
     /// What the HUD needs to know about the other player.
     /// The cabinet draws its own endings, so `View` must not draw one too.
     pub def cabinet(s: Session): Cabinet = {
+        let count = Vector.length(s#worlds);
+        let nextIdx = Int32.remainder(s#current + 1, count);
         let other =
             if (s#players < 2) 0
-            else Vector.get(Int32.remainder(s#current + 1, Vector.length(s#worlds)), s#worlds)#score;
+            else Vector.get(nextIdx, s#worlds)#score;
         { player = s#current + 1, players = s#players, otherScore = other, ownGameOver = false }
     }
 
     /// The world whose turn it is.
-    pub def active(s: Session): World =
-        Vector.get(Int32.min(s#current, Vector.length(s#worlds) - 1), s#worlds)
+    pub def active(s: Session): World = {
+        let idx = Int32.min(s#current, Vector.length(s#worlds) - 1);
+        Vector.get(idx, s#worlds)
+    }
 
     ///
     /// The world the player is looking at.
@@ -128,7 +135,7 @@ mod Session {
     /// The demo only behind the *title*. Behind the initials prompt it is the game that just
     /// ended, which is the whole point of that screen -- showing the attract game there put
     /// the demo's score in the HUD beside a banner announcing the player's, so the two
-    /// contradicted each other and neither was theirs.
+    /// blurred into one game with two scores.
     ///
     pub def onScreen(s: Session): World = match s#screen {
         case Screen.Playing => active(s)
@@ -139,13 +146,14 @@ mod Session {
     /// Starts a fresh game for `players` players.
     def begin(players: Int32, s: Session): Session = {
         let best = Scores.best(s#scores);
+        let freshWorlds = Vector.range(0, players)
+            |> Vector.map(i -> { hiScore = best | Game.initial(s#seed + Int32.toInt64(i)) });
         { screen = Screen.Playing,
           players = players,
           current = 0,
           pending = Nil,
           typing = "",
-          worlds = Vector.range(0, players)
-              |> Vector.map(i -> { hiScore = best | Game.initial(s#seed + Int32.toInt64(i)) }) | s }
+          worlds = freshWorlds | s }
     }
 
     ///
@@ -173,11 +181,16 @@ mod Session {
     ///
     /// How many players the keypress asks for, if it asks for a game at all.
     ///
-    pub def startRequest(input: Snapshot): Option[Int32] =
-        if (Set.exists(k -> Key.digit(k) == Some(1), input#pressed)) Some(1)
-        else if (Set.exists(k -> Key.digit(k) == Some(2), input#pressed)) Some(2)
-        else if (Set.memberOf(Key.Enter, input#pressed) or Set.memberOf(Key.Space, input#pressed)) Some(1)
+    pub def startRequest(input: Snapshot): Option[Int32] = {
+        let pressed = input#pressed;
+        let pOne = Set.exists(k -> Key.digit(k) == Some(1), pressed);
+        let pTwo = Set.exists(k -> Key.digit(k) == Some(2), pressed);
+        let pEnter = Set.memberOf(Key.Enter, pressed) or Set.memberOf(Key.Space, pressed);
+        if (pOne) Some(1)
+        else if (pTwo) Some(2)
+        else if (pEnter) Some(1)
         else None
+    }
 
     ///
     /// Advances the game the player is actually playing.
@@ -196,7 +209,8 @@ mod Session {
             |> List.mapWithIndex((i, w) -> (i, w))
             |> List.filter(match (_, w) -> Scores.qualifies(w#score, s#scores))
             |> List.map(match (i, w) ->
-                { player = i, entry = { name = "", score = w#score, level = w#level } });
+                let entry = { name = "", score = w#score, level = w#level };
+                { player = i, entry = entry });
         if (List.isEmpty(earned)) { screen = Screen.Table, pending = Nil | s }
         else { screen = Screen.Entering, pending = earned, typing = "" | s }
     }
@@ -255,29 +269,38 @@ mod Session {
             case Some(c) if String.length(acc) < Scores.nameLength() => acc + "${c}"
             case _ => acc
         }, s#typing, input#pressed);
+        let hasBack = Set.memberOf(Key.Backspace, input#pressed);
         let afterDelete =
-            if (Set.memberOf(Key.Backspace, input#pressed) and String.length(typed) > 0)
+            if (hasBack and String.length(typed) > 0)
                 String.dropRight(1, typed)
-            else typed;
+            else
+                typed;
         let hasEnter = Set.memberOf(Key.Enter, input#pressed);
         let hasName = String.length(afterDelete) > 0;
         if (not (hasEnter and hasName))
             { typing = afterDelete | s }
         else match s#pending {
-            case Nil => { screen = Screen.Table, typing = "" | s }
+            case Nil =>
+                { screen = Screen.Table, typing = "" | s }
             case claim :: rest => {
                 let recorded = Scores.insert({ name = afterDelete | claim#entry }, s#scores);
-                if (List.isEmpty(rest)) { screen = Screen.Table, scores = recorded, pending = Nil, typing = "" | s }
-                else { scores = recorded, pending = rest, typing = "" | s }
+                if (List.isEmpty(rest))
+                    { screen = Screen.Table, scores = recorded, pending = Nil, typing = "" | s }
+                else
+                    { scores = recorded, pending = rest, typing = "" | s }
             }
         }
     }
 
     /// The table waits for a key, then goes back to attracting.
-    def table(input: Snapshot, s: Session): Session =
-        if (Set.memberOf(Key.Enter, input#pressed) or Set.memberOf(Key.Space, input#pressed))
+    def table(input: Snapshot, s: Session): Session = {
+        let pressed = input#pressed;
+        let pressedKey = Set.memberOf(Key.Enter, pressed) or Set.memberOf(Key.Space, pressed);
+        if (pressedKey)
             { screen = Screen.Attract | s }
-        else s
+        else
+            s
+    }
 
     ///
     /// One tick of the cabinet.

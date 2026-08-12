@@ -18,8 +18,9 @@ mod Game {
         Vector.range(0, Rules.totalInvaders()) |> Vector.map(index -> {
             let column = Int32.remainder(index, Rules.columns());
             let row = index / Rules.columns();
-            { pos = { x = Rules.formationLeft() + Int32.toFloat32(column) * Rules.columnSpacing(),
-                      y = Rules.formationTopFor(level) + Int32.toFloat32(row) * Rules.rowSpacing() },
+            let fx = Rules.formationLeft() + Int32.toFloat32(column) * Rules.columnSpacing();
+            let fy = Rules.formationTopFor(level) + Int32.toFloat32(row) * Rules.rowSpacing();
+            { pos = { x = fx, y = fy },
               alive = true,
               kind = Rules.kindForRow(row),
               row = row }
@@ -103,7 +104,8 @@ mod Game {
         let half = Rules.bombSize()#x / 2.0f32;
         let sway = b ->
             if (b#kind != BombKind.Wiggly) 0.0f32
-            else if (Int32.remainder(b#age / Rules.bombWiggleTicks(), 2) == 0) Rules.bombWiggleSpeed()
+            else if (Int32.remainder(b#age / Rules.bombWiggleTicks(), 2) == 0)
+                Rules.bombWiggleSpeed()
             else -Rules.bombWiggleSpeed();
         { bombs = w#bombs
             |> List.map(b ->
@@ -257,7 +259,8 @@ mod Game {
     /// each bullet is removed the moment it meets anything.
     ///
     def resolveShotsMeetBombs(w: World): World = {
-        let pass = List.foldLeft(meetBomb, { bullets = w#bullets, rng = w#rng, kept = Nil }, w#bombs);
+        let initPass = { bullets = w#bullets, rng = w#rng, kept = Nil };
+        let pass = List.foldLeft(meetBomb, initPass, w#bombs);
         { bombs = List.reverse(pass#kept), bullets = pass#bullets, rng = pass#rng | w }
     }
 
@@ -415,7 +418,9 @@ mod Game {
             if (not List.exists(hits, w#bullets)) w
             else {
                 let points = Rules.mysteryScoreFor(w#shotsFired);
-                let blast = { pos = pos, ticksLeft = Rules.invaderBlastTicks(), kind = BlastKind.InvaderBlast };
+                let blast = { pos = pos,
+                              ticksLeft = Rules.invaderBlastTicks(),
+                              kind = BlastKind.InvaderBlast };
                 // The bonus is not only points: it also raises the cannon's shield.
                 emit(SoundCmd.MysteryDies,
                      { mystery = None,
@@ -487,7 +492,9 @@ mod Game {
     ///
     def checkEnd(w: World): World =
         if (not Vector.exists(inv -> inv#alive, w#invaders))
-            { phase = Phase.Cleared, pause = Rules.levelPauseTicks(), bullets = Nil, bombs = Nil | w }
+            { phase = Phase.Cleared,
+              pause = Rules.levelPauseTicks(),
+              bullets = Nil, bombs = Nil | w }
         else if (w#lives <= 0 or invasionComplete(w#invaders)) { phase = Phase.Lost | w }
         else w
 
@@ -529,7 +536,8 @@ mod Game {
             + "|d=${w#marchDir}|h=${w#hiScore}|v=${w#level}|p=${w#pause}"
             + "|g=${w#shield}|n=${w#nextBonusAt}|f=${w#shotsFired}|r=${w#rng}";
         let shots = List.foldLeft((acc, b) -> acc + "|b(${b#x},${b#y})", "", w#bullets);
-        let drops = List.foldLeft((acc, b) -> acc + "|m(${b#kind},${b#x},${b#y},${b#age})", "", w#bombs);
+        let drops = List.foldLeft((acc, b) ->
+            acc + "|m(${b#kind},${b#x},${b#y},${b#age})", "", w#bombs);
         let formation = Vector.foldLeft((acc, inv) ->
             let entry = if (inv#alive) "|i(${inv#pos#x},${inv#pos#y})" else "|.";
             acc + entry, "", w#invaders);

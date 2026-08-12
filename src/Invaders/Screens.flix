@@ -31,19 +31,22 @@ mod Screens {
             0.0f32, captions)
 
     /// The height the captions occupy once stacked.
-    def blockHeight(captions: List[Caption]): Float32 =
-        List.foldLeft((total, c) -> total + c#size + leading(), 0.0f32, captions) - leading()
+    def blockHeight(captions: List[Caption]): Float32 = {
+        let totalHeight = List.foldLeft((total, c) -> total + c#size + leading(), 0.0f32, captions);
+        totalHeight - leading()
+    }
 
     /// Draws a stack of centred captions, starting with the first baseline a line down.
     def stack(captions: List[Caption], top: Float32): Unit \ Canvas = {
         def draw(rest, y) = match rest {
             case Nil => ()
-            case c :: more => {
+            case c :: more =>
+                let x = View.centredX(c#text, c#size);
+                let nextY = y + c#size;
                 Canvas.fill(c#colour);
                 Canvas.textSize(c#size);
-                Canvas.text(c#text, View.centredX(c#text, c#size), y + c#size);
-                draw(more, y + c#size + leading())
-            }
+                Canvas.text(c#text, x, nextY);
+                draw(more, nextY + leading())
         };
         draw(captions, top)
     }
@@ -130,25 +133,28 @@ mod Screens {
     /// The high-score table, on its own rather than over the game.
     ///
     def table(s: Session): Unit \ Canvas = {
+        let titleSize = View.bannerSize();
+        let titleX = View.centredX("HIGH SCORES", titleSize);
         Canvas.clear(Palette.background());
         Canvas.fill(Palette.invaderGreen());
-        Canvas.textSize(View.bannerSize());
-        Canvas.text("HIGH SCORES", View.centredX("HIGH SCORES", View.bannerSize()), 64.0f32);
-
+        Canvas.textSize(titleSize);
+        Canvas.text("HIGH SCORES", titleX, 64.0f32);
         let rows =
-            if (List.isEmpty(s#scores)) caption("NOBODY YET", View.hudSize(), Palette.dim()) :: Nil
-            else List.mapWithIndex((i, e) ->
-                caption("${Scores.padded(e#name)}  ${View.scoreText(e#score)}  L${e#level}",
-                        View.hudSize(),
-                        if (i == 0) Palette.sun() else Palette.ink()), s#scores);
+            if (List.isEmpty(s#scores))
+                caption("NOBODY YET", View.hudSize(), Palette.dim()) :: Nil
+            else
+                List.mapWithIndex((i, e) ->
+                    let col = if (i == 0) Palette.sun() else Palette.ink();
+                    let nameStr = Scores.padded(e#name);
+                    let scoreStr = View.scoreText(e#score);
+                    let rowText = "${nameStr}  ${scoreStr}  L${e#level}";
+                    caption(rowText, View.hudSize(), col), s#scores);
         // No panel here: there is no game behind this screen to see through to.
         stack(rows, 110.0f32);
-
+        let promptX = View.centredX("PRESS ENTER", View.hudSize());
         Canvas.fill(Palette.invaderCyan());
         Canvas.textSize(View.hudSize());
-        Canvas.text("PRESS ENTER",
-                    View.centredX("PRESS ENTER", View.hudSize()),
-                    Rules.fieldHeight() - 40.0f32)
+        Canvas.text("PRESS ENTER", promptX, Rules.fieldHeight() - 40.0f32)
     }
 
     // -- stats for nerds ------------------------------------------------------------------
@@ -175,19 +181,22 @@ mod Screens {
     def nerds(s: Session, telemetry: Stats): Unit \ Canvas = {
         let w = Session.onScreen(s);
         let lines = nerdLines(s, w, telemetry);
-        let height = Int32.toFloat32(List.length(lines)) * nerdLine() + padding();
+        let len = Int32.toFloat32(List.length(lines));
+        let height = len * nerdLine() + padding();
+        let boxX = nerdLeft() - padding() / 2.0f32;
+        let boxY = nerdTop() - nerdLine();
 
         Canvas.fillAlpha(Palette.background(), 190);
-        Canvas.rect(nerdLeft() - padding() / 2.0f32, nerdTop() - nerdLine(),
-                    nerdWidth(), height);
+        Canvas.rect(boxX, boxY, nerdWidth(), height);
 
         Canvas.textSize(nerdSize());
         List.forEachWithIndex((i, line) -> {
             let (label, value) = line;
+            let lineY = nerdTop() + Int32.toFloat32(i) * nerdLine();
             Canvas.fill(Palette.dim());
-            Canvas.text(label, nerdLeft(), nerdTop() + Int32.toFloat32(i) * nerdLine());
+            Canvas.text(label, nerdLeft(), lineY);
             Canvas.fill(Palette.invaderCyan());
-            Canvas.text(value, nerdLeft() + 84.0f32, nerdTop() + Int32.toFloat32(i) * nerdLine())
+            Canvas.text(value, nerdLeft() + 84.0f32, lineY)
         }, lines)
     }
 
@@ -200,11 +209,16 @@ mod Screens {
     pub def nerdLines(s: Session, w: World, telemetry: Stats): List[(String, String)] = {
         let alive = Vector.count(inv -> inv#alive, w#invaders);
         let blocks = Vector.foldLeft((total, b) -> total + Bunkers.remaining(b), 0, w#bunkers);
-        ("FPS", Stats.oneDecimal(telemetry#fps)) ::
-        ("SIM", "${Stats.twoDecimals(telemetry#simMs)} MS") ::
-        ("DRAW", "${Stats.twoDecimals(telemetry#drawMs)} MS") ::
-        ("BUDGET", "${Stats.twoDecimals(telemetry#simMs + telemetry#drawMs)} / "
-                 + "${Stats.twoDecimals(1000.0f32 / Int32.toFloat32(Rules.ticksPerSecond()))} MS") ::
+        let fpsStr = Stats.oneDecimal(telemetry#fps);
+        let simStr = "${Stats.twoDecimals(telemetry#simMs)} MS";
+        let drawStr = "${Stats.twoDecimals(telemetry#drawMs)} MS";
+        let targetMs = 1000.0f32 / Int32.toFloat32(Rules.ticksPerSecond());
+        let bMsg = "${Stats.twoDecimals(telemetry#simMs + telemetry#drawMs)} / "
+                 + "${Stats.twoDecimals(targetMs)} MS";
+        ("FPS", fpsStr) ::
+        ("SIM", simStr) ::
+        ("DRAW", drawStr) ::
+        ("BUDGET", bMsg) ::
         ("STEPS", "${telemetry#steps}  CATCHUP ${telemetry#catchUps}") ::
         ("FRAMES", "${telemetry#frames}") ::
         ("SCREEN", "${s#screen}") ::
@@ -256,13 +270,16 @@ mod Screens {
     /// after the other, and an unlabelled GAME OVER between them says nothing about whose.
     ///
     def gameOver(s: Session): Unit \ Canvas = {
-        View.renderWith(Session.active(s), Session.cabinet(s));
+        let activeWorld = Session.active(s);
+        let cab = Session.cabinet(s);
+        View.renderWith(activeWorld, cab);
         let whose =
             if (s#players < 2) Nil
             else caption("PLAYER ${s#current + 1}", View.hudSize(), Palette.invaderGreen()) :: Nil;
         let captions = List.append(whose,
             caption("GAME OVER", View.bannerSize(), Palette.ink()) :: Nil);
-        block(captions, View.bannerY() - View.bannerSize())
+        let topY = View.bannerY() - View.bannerSize();
+        block(captions, topY)
     }
 
     ///

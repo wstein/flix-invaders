@@ -25,12 +25,16 @@ mod Sprite {
     ///
     /// Builds a sprite from rows of text. The width is the longest row.
     ///
-    pub def of(rows: Vector[String]): Sprite =
+    pub def of(rows: Vector[String]): Sprite = {
+        let maxW = Vector.foldLeft((widest, row) -> Int32.max(widest, String.length(row)), 0, rows);
+        let h = Vector.length(rows);
+        let parsedRuns = parse(rows);
         Sprite.Sprite(
-            { width = Vector.foldLeft((widest, row) -> Int32.max(widest, String.length(row)), 0, rows),
-              height = Vector.length(rows),
+            { width = maxW,
+              height = h,
               rows = rows,
-              runs = parse(rows) })
+              runs = parsedRuns })
+    }
 
     /// The sprite's width in cells -- the longest row.
     pub def width(sprite: Sprite): Int32 = match sprite {
@@ -52,25 +56,28 @@ mod Sprite {
         : List[(Int32, Int32, Int32)] =
         match start {
             case None => acc
-            case Some(startX) => (y, startX, x - startX) :: acc
+            case Some(startX) =>
+                let len = x - startX;
+                (y, startX, len) :: acc
         }
 
     ///
     /// The horizontal runs of lit pixels in one row, as `(row, startColumn, length)`.
     ///
     def rowRuns(y: Int32, cells: List[Char]): List[(Int32, Int32, Int32)] = {
+        let initScan = { column = 0, start = (None: Option[Int32]), runs = Nil };
         let scanned = List.foldLeft((scan, cell) ->
             if (cell == lit())
-                // Already in a run, or starting one here.
-                { column = scan#column + 1,
-                  start = Some(Option.getWithDefault(scan#column, scan#start)) | scan }
+                let nextCol = scan#column + 1;
+                let startCol = Option.getWithDefault(scan#column, scan#start);
+                { column = nextCol, start = Some(startCol) | scan }
             else
-                { column = scan#column + 1,
-                  start = None,
-                  runs = close(y, scan#column, scan#start, scan#runs) },
-            { column = 0, start = (None: Option[Int32]), runs = Nil }, cells);
-        // A run still open at the end of the row is closed by the row's edge.
-        List.reverse(close(y, scanned#column, scanned#start, scanned#runs))
+                let nextCol = scan#column + 1;
+                let closed = close(y, scan#column, scan#start, scan#runs);
+                { column = nextCol, start = None, runs = closed },
+            initScan, cells);
+        let finalRuns = close(y, scanned#column, scanned#start, scanned#runs);
+        List.reverse(finalRuns)
     }
 
     /// Collapses every row into runs. Called once per sprite, by `of`.
