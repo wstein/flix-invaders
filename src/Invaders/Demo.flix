@@ -248,6 +248,8 @@ mod Demo {
     /// makes this pay is stopping. Below the cutoff the bonus goes away and the bot returns to
     /// shooting whatever is lowest.
     ///
+    type alias FlankContext = { left = Float32, right = Float32, spread = Float32, looming = Float32 }
+
     def bestColumn(t: Tuning, w: World): Option[Vec2] = {
         let candidates = columns(w);
         let edges = List.foldLeft((acc, c) -> match acc {
@@ -259,8 +261,9 @@ mod Demo {
             case Some((left, right)) =>
                 let looming = pressure(candidates);
                 let spread = (right - left) / fullWidth();
+                let ctx = { left = left, right = right, spread = spread, looming = looming };
                 List.foldLeft((best, c) -> {
-                    let score = columnWorth(t, c, left, right, spread, looming);
+                    let score = columnWorth(t, c, ctx);
                     match best {
                         case None => Some(({ x = c#x, y = c#y }, score))
                         case Some((_, top)) =>
@@ -280,14 +283,13 @@ mod Demo {
     def fullWidth(): Float32 =
         Int32.toFloat32(Rules.columns() - 1) * Rules.columnSpacing()
 
-    def columnWorth(t: Tuning, target: Column, left: Float32, right: Float32,
-                    spread: Float32, looming: Float32): Float32 = {
+    def columnWorth(t: Tuning, target: Column, ctx: FlankContext): Float32 = {
         // Near 0 at the top of the formation, near 1 on the invasion line.
         let nearness = Float32.max(0.0f32, target#y) / Rules.playerY();
-        let onAFlank = target#x == left or target#x == right;
+        let onAFlank = target#x == ctx#left or target#x == ctx#right;
         let nearlyDone = target#depth <= t#stragglers;
-        let steady = composure(t, looming);
-        let narrowing = if (spread > t#narrowTo) t#narrowing * steady else 0.0f32;
+        let steady = composure(t, ctx#looming);
+        let narrowing = if (ctx#spread > t#narrowTo) t#narrowing * steady else 0.0f32;
         let finishing = if (nearlyDone) t#finishFlank * steady else 0.0f32;
         t#imminence * nearness + (if (onAFlank) narrowing + finishing else 0.0f32)
     }

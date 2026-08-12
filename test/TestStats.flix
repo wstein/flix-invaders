@@ -25,7 +25,8 @@ mod TestStats {
         // Blending the first sample against an initial nought would show the frame rate
         // climbing from 0 to 60 over the first second of every run, which looks like a stall
         // and is really just the average filling up.
-        let after = Stats.observe(Stats.empty(), second() / 60i64, 0i64, 0i64, 1, false);
+        let sample60 = { frameNs = second() / 60i64, simNs = 0i64, drawNs = 0i64, steps = 1, clamped = false };
+        let after = Stats.observe(Stats.empty(), sample60);
         assertTrueWithMsg(after#fps > 55.0f32 and after#fps < 65.0f32,
             "the first frame reported ${after#fps} fps instead of about 60")
     }
@@ -34,8 +35,10 @@ mod TestStats {
     def testLaterFramesAreSmoothed(): Unit \ Assert = {
         // A frame time read off a moving screen has to settle, or every digit flickers and it
         // tells you nothing.
-        let steady = Stats.observe(Stats.empty(), second() / 60i64, 0i64, 0i64, 1, false);
-        let spike = Stats.observe(steady, second() / 10i64, 0i64, 0i64, 1, false);
+        let sample60 = { frameNs = second() / 60i64, simNs = 0i64, drawNs = 0i64, steps = 1, clamped = false };
+        let sample10 = { frameNs = second() / 10i64, simNs = 0i64, drawNs = 0i64, steps = 1, clamped = false };
+        let steady = Stats.observe(Stats.empty(), sample60);
+        let spike = Stats.observe(steady, sample10);
         assertTrueWithMsg(spike#fps > 50.0f32,
             "one slow frame dragged the rate to ${spike#fps}; the average is not smoothing")
     }
@@ -50,7 +53,8 @@ mod TestStats {
 
     @Test
     def testTimingsAreReportedInMilliseconds(): Unit \ Assert = {
-        let after = Stats.observe(Stats.empty(), second() / 60i64, 2i64 * milli(), 3i64 * milli(), 1, false);
+        let sample = { frameNs = second() / 60i64, simNs = 2i64 * milli(), drawNs = 3i64 * milli(), steps = 1, clamped = false };
+        let after = Stats.observe(Stats.empty(), sample);
         assertEq(expected = 2.0f32, after#simMs);
         assertEq(expected = 3.0f32, after#drawMs)
     }
@@ -59,8 +63,10 @@ mod TestStats {
     def testFramesAndCatchUpsAccumulate(): Unit \ Assert = {
         // Steps are this frame's; frames and catch-ups are running totals, because one dropped
         // frame is noise and a rising count is a problem.
-        let one = Stats.observe(Stats.empty(), second() / 60i64, 0i64, 0i64, 1, true);
-        let two = Stats.observe(one, second() / 60i64, 0i64, 0i64, 3, false);
+        let sampleClamped = { frameNs = second() / 60i64, simNs = 0i64, drawNs = 0i64, steps = 1, clamped = true };
+        let sample3 = { frameNs = second() / 60i64, simNs = 0i64, drawNs = 0i64, steps = 3, clamped = false };
+        let one = Stats.observe(Stats.empty(), sampleClamped);
+        let two = Stats.observe(one, sample3);
         assertEq(expected = 2, two#frames);
         assertEq(expected = 1, two#catchUps);
         assertEq(expected = 3, two#steps)

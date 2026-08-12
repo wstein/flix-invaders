@@ -172,6 +172,28 @@ mod Game {
             Nil, invaders)
 
     ///
+    /// Helper to spawn a bomb when chance succeeds.
+    ///
+    def spawnBomb(candidates: List[Invader], rng: Rng, w: World): World = {
+        let count = List.length(candidates);
+        if (count == 0) { rng = rng | w }
+        else {
+            let (pick, afterPick) = Rng.nextInt32Below(count, rng);
+            match List.nth(pick, candidates) {
+                case None => { rng = afterPick | w }
+                case Some(inv) => {
+                    let (kind, afterKind) = Rules.bombKindFrom(afterPick);
+                    let bomb = { x = inv#pos#x,
+                                 y = inv#pos#y + Rules.invaderSize()#y,
+                                 kind = kind,
+                                 age = 0 };
+                    { bombs = bomb :: w#bombs, rng = afterKind | w }
+                }
+            }
+        }
+    }
+
+    ///
     /// Occasionally, one of them drops a bomb.
     ///
     /// The cap is checked before the die is rolled, so a formation already at three bombs
@@ -183,25 +205,7 @@ mod Game {
         else {
             let (drops, afterChance) = Rng.chance(Rules.bombChanceFor(w#level), w#rng);
             if (not drops) { rng = afterChance | w }
-            else {
-                let candidates = bombers(w#invaders);
-                let count = List.length(candidates);
-                if (count == 0) { rng = afterChance | w }
-                else {
-                    let (pick, afterPick) = Rng.nextInt32Below(count, afterChance);
-                    match List.nth(pick, candidates) {
-                        case None => { rng = afterPick | w }
-                        case Some(inv) => {
-                            let (kind, afterKind) = Rules.bombKindFrom(afterPick);
-                            let bomb = { x = inv#pos#x,
-                                         y = inv#pos#y + Rules.invaderSize()#y,
-                                         kind = kind,
-                                         age = 0 };
-                            { bombs = bomb :: w#bombs, rng = afterKind | w }
-                        }
-                    }
-                }
-            }
+            else spawnBomb(bombers(w#invaders), afterChance, w)
         }
 
     ///
@@ -306,32 +310,34 @@ mod Game {
     /// Half the mystery ship's width -- how far off-screen it spawns and despawns.
     def mysteryMargin(): Float32 = Rules.mysterySize()#x / 2.0f32 + 2.0f32
 
+    def stepActiveMystery(m: Mystery, w: World): World = {
+        let x = m#x + m#dir * Rules.mysterySpeed();
+        if (x < -mysteryMargin() or x > Rules.fieldWidth() + mysteryMargin())
+            { mystery = None | w }
+        else { mystery = Some({ x = x | m }) | w }
+    }
+
+    def spawnMystery(w: World): World \ Sound = {
+        if (Vector.count(inv -> inv#alive, w#invaders) <= Rules.mysteryMinInvaders()) w
+        else if (w#mysteryTimer > 1) { mysteryTimer = w#mysteryTimer - 1 | w }
+        else {
+            let (fromLeft, afterSide) = Rng.chance(2, w#rng);
+            let (jitter, next) = Rng.nextInt32Below(Rules.mysterySpread(), afterSide);
+            let dir = if (fromLeft) 1.0f32 else -1.0f32;
+            let x = if (fromLeft) -mysteryMargin() else Rules.fieldWidth() + mysteryMargin();
+            emit(SoundCmd.MysteryAppears,
+                 { mystery = Some({ x = x, dir = dir }),
+                   mysteryTimer = Rules.mysteryInterval() + jitter,
+                   rng = next | w })
+        }
+    }
+
     ///
     /// Flies the mystery ship across, or counts down to the next one.
     ///
     def moveMystery(w: World): World \ Sound = match w#mystery {
-        case Some(m) => {
-            let x = m#x + m#dir * Rules.mysterySpeed();
-            if (x < -mysteryMargin() or x > Rules.fieldWidth() + mysteryMargin())
-                { mystery = None | w }
-            else { mystery = Some({ x = x | m }) | w }
-        }
-        case None =>
-            // Once the formation is nearly gone the saucer stops coming: the last few
-            // invaders move fast enough that a bonus overhead is a distraction, not a
-            // reward. The timer holds rather than counting down, so nothing is banked.
-            if (Vector.count(inv -> inv#alive, w#invaders) <= Rules.mysteryMinInvaders()) w
-            else if (w#mysteryTimer > 1) { mysteryTimer = w#mysteryTimer - 1 | w }
-            else {
-                let (fromLeft, afterSide) = Rng.chance(2, w#rng);
-                let (jitter, next) = Rng.nextInt32Below(Rules.mysterySpread(), afterSide);
-                let dir = if (fromLeft) 1.0f32 else -1.0f32;
-                let x = if (fromLeft) -mysteryMargin() else Rules.fieldWidth() + mysteryMargin();
-                emit(SoundCmd.MysteryAppears,
-                     { mystery = Some({ x = x, dir = dir }),
-                       mysteryTimer = Rules.mysteryInterval() + jitter,
-                       rng = next | w })
-            }
+        case Some(m) => stepActiveMystery(m, w)
+        case None    => spawnMystery(w)
     }
 
     ///

@@ -64,18 +64,25 @@ mod Stats {
     pub def rateFrom(frameNs: Int64): Float32 =
         if (frameNs <= 0i64) 0.0f32 else nanosPerSecond() / Int64.toFloat32(frameNs)
 
+    pub type alias Sample = {
+        frameNs = Int64,
+        simNs = Int64,
+        drawNs = Int64,
+        steps = Int32,
+        clamped = Bool
+    }
+
     ///
     /// Folds one frame's measurements into the running figures.
     ///
-    pub def observe(previous: Stats, frameNs: Int64, simNs: Int64, drawNs: Int64,
-                    steps: Int32, clamped: Bool): Stats = {
+    pub def observe(previous: Stats, sample: Sample): Stats = {
         let first = previous#frames == 0;
-        { fps = blend(first, previous#fps, rateFrom(frameNs)),
-          simMs = blend(first, previous#simMs, millis(simNs)),
-          drawMs = blend(first, previous#drawMs, millis(drawNs)),
-          steps = steps,
+        { fps = blend(first, previous#fps, rateFrom(sample#frameNs)),
+          simMs = blend(first, previous#simMs, millis(sample#simNs)),
+          drawMs = blend(first, previous#drawMs, millis(sample#drawNs)),
+          steps = sample#steps,
           frames = previous#frames + 1,
-          catchUps = previous#catchUps + (if (clamped) 1 else 0) }
+          catchUps = previous#catchUps + (if (sample#clamped) 1 else 0) }
     }
 
     ///

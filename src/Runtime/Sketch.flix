@@ -131,6 +131,20 @@ mod Sketch {
             case _: Exception => None
         }
 
+    def setupApplet(app: PApplet, cfg: Config, hz: Int32): Unit \ IO = {
+        app.getSurface().setTitle(cfg#title);
+        app.frameRate(Int32.toFloat32(hz));
+        match cfg#fontPath {
+            case None => ()
+            case Some(path) => match loadFont(path) {
+                case None => println("could not load font ${path}; using the default")
+                case Some(font) => app.textFont(font)
+            }
+        };
+        app.textSize(14.0f32);
+        app.noStroke()
+    }
+
     ///
     /// Splits a colour into the three float channels Processing wants.
     ///
@@ -218,21 +232,7 @@ mod Sketch {
             }
 
             def setup(app: PApplet): Unit \ IO + rc = {
-                app.getSurface().setTitle(cfg#title);
-                app.frameRate(Int32.toFloat32(hz));
-                // Must be after `size()`, so `setup` and not `settings`: `textFont` goes
-                // through `g`, which does not exist until the surface is made.
-                match cfg#fontPath {
-                    case None => ()
-                    case Some(path) => match loadFont(path) {
-                        case None => println("could not load font ${path}; using the default")
-                        case Some(font) => app.textFont(font)
-                    }
-                };
-                app.textSize(14.0f32);
-                // Shapes are flat fills. Without this, Processing outlines every shape with
-                // its default 1px black stroke.
-                app.noStroke();
+                setupApplet(app, cfg, hz);
                 Ref.put(System.nanoTime(), prevNs)
             }
 
@@ -278,8 +278,9 @@ mod Sketch {
                 let drawEnd = System.nanoTime();
 
                 let taken = Int64.tryToInt32((before - Ref.get(accNs)) / stepNs) |> Option.getWithDefault(0);
-                Ref.put(Stats.observe(Ref.get(stats), elapsed, simEnd - simStart,
-                                      drawEnd - simEnd, taken, elapsed > budgetNs), stats);
+                let sample = { frameNs = elapsed, simNs = simEnd - simStart,
+                               drawNs = drawEnd - simEnd, steps = taken, clamped = elapsed > budgetNs };
+                Ref.put(Stats.observe(Ref.get(stats), sample), stats);
 
                 Ref.put(Ref.get(frames) + 1, frames);
                 match cfg#maxFrames {
