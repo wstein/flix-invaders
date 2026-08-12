@@ -53,6 +53,24 @@ mod Animation {
     def palette(): Vector[Color] =
         Vector#{Palette.coral(), Palette.mint(), Palette.sun(), Palette.azure()}
 
+    def generateBall(index: Int32, rng: Rng): (Ball, Rng) = {
+        let (jitterX, r1) = Rng.nextInt32Below(60, rng);
+        let (py, r2) = Rng.nextInt32Below(200, r1);
+        let (vx, r3) = Rng.nextInt32Below(7, r2);
+        let (vy, r4) = Rng.nextInt32Below(7, r3);
+        let tint = Vector.get(Int32.remainder(index, Vector.length(palette())), palette());
+        let lane = 80.0f32 + Int32.toFloat32(index) * 160.0f32;
+        let ball = {
+            x = lane + Int32.toFloat32(jitterX) - 30.0f32,
+            y = 120.0f32 + Int32.toFloat32(py),
+            dx = Int32.toFloat32(vx - 3) + 1.5f32,
+            dy = Int32.toFloat32(vy - 3) + 1.5f32,
+            radius = 18.0f32 + Int32.toFloat32(index) * 6.0f32,
+            tint = tint
+        };
+        (ball, r4)
+    }
+
     ///
     /// Builds `count` balls from `seed`.
     ///
@@ -62,24 +80,8 @@ mod Animation {
     def makeBalls(count: Int32, index: Int32, rng: Rng): List[Ball] =
         if (index >= count) Nil
         else {
-            let (jitterX, r1) = Rng.nextInt32Below(60, rng);
-            let (py, r2) = Rng.nextInt32Below(200, r1);
-            let (vx, r3) = Rng.nextInt32Below(7, r2);
-            let (vy, r4) = Rng.nextInt32Below(7, r3);
-            let tint = Vector.get(Int32.remainder(index, Vector.length(palette())), palette());
-            // Four lanes 160px apart, jittered by at most 30 either way, so adjacent balls
-            // start at least 100px apart -- comfortably more than the 66px the largest
-            // neighbouring pair of radii sums to.
-            let lane = 80.0f32 + Int32.toFloat32(index) * 160.0f32;
-            let ball = {
-                x = lane + Int32.toFloat32(jitterX) - 30.0f32,
-                y = 120.0f32 + Int32.toFloat32(py),
-                dx = Int32.toFloat32(vx - 3) + 1.5f32,
-                dy = Int32.toFloat32(vy - 3) + 1.5f32,
-                radius = 18.0f32 + Int32.toFloat32(index) * 6.0f32,
-                tint = tint
-            };
-            ball :: makeBalls(count, index + 1, r4)
+            let (b, nextRng) = generateBall(index, rng);
+            b :: makeBalls(count, index + 1, nextRng)
         }
 
     pub def initial(seed: Int64): Bouncing =

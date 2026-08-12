@@ -484,6 +484,24 @@ mod Demo {
     pub def fresh(seed: Int64): Hand =
         { rng = Rng.fromSeed(seed), error = 0.0f32, settled = 0, moving = 0, lapse = 0 }
 
+    def startLapse(t: Tuning, hand: Hand, rng: Rng): (Snapshot, Hand) = {
+        let (extra, next) = Rng.nextInt32Below(t#lapseSpread, rng);
+        (Input.empty(), { rng = next, lapse = t#lapseFor + extra, moving = 0 | hand })
+    }
+
+    def playTick(t: Tuning, w: World, hand: Hand, rng: Rng): (Snapshot, Hand) = {
+        let (error, settled, next) = judge(t, hand, rng);
+        match intent(t, error, w) {
+            case None =>
+                (Input.empty(), { rng = next, error = error, settled = settled, moving = 0 | hand })
+            case Some(i) => {
+                let moving = commit(t, hand#moving, i#goal);
+                (keysFor(moving, i#fire),
+                 { rng = next, error = error, settled = settled, moving = moving | hand })
+            }
+        }
+    }
+
     ///
     /// A fallible player: the same aim, blurred, and occasionally not paying attention.
     ///
@@ -496,25 +514,11 @@ mod Demo {
     ///
     pub def imperfect(t: Tuning, w: World, hand: Hand): (Snapshot, Hand) =
         if (hand#lapse > 0)
-            // Still looking away. Hands off the controls until it comes back.
             (Input.empty(), { lapse = hand#lapse - 1, moving = 0 | hand })
         else {
             let (lapsing, afterChance) = Rng.chance(t#lapseOneIn, hand#rng);
-            if (lapsing) {
-                let (extra, next) = Rng.nextInt32Below(t#lapseSpread, afterChance);
-                (Input.empty(), { rng = next, lapse = t#lapseFor + extra, moving = 0 | hand })
-            } else {
-                let (error, settled, next) = judge(t, hand, afterChance);
-                match intent(t, error, w) {
-                    case None =>
-                        (Input.empty(), { rng = next, error = error, settled = settled, moving = 0 | hand })
-                    case Some(i) => {
-                        let moving = commit(t, hand#moving, i#goal);
-                        (keysFor(moving, i#fire),
-                         { rng = next, error = error, settled = settled, moving = moving | hand })
-                    }
-                }
-            }
+            if (lapsing) startLapse(t, hand, afterChance)
+            else playTick(t, w, hand, afterChance)
         }
 
     ///

@@ -483,18 +483,10 @@ mod Game {
 
     // -- the step ---------------------------------------------------------------------
 
-    ///
-    /// Advances the game by exactly one logical tick.
-    ///
-    /// Pure. Given the same world and the same input, always the same result.
-    ///
-    pub def step(w: World, input: Snapshot): World \ Sound = {
-        match w#phase {
-        case Phase.Playing =>
-            // Everything freezes while the cannon burns, except the wreckage itself.
-            if (w#pause > 0)
-                w |> ageBlasts |> (n -> { pause = n#pause - 1, tick = n#tick + 1 | n })
-            else
+    def stepPlaying(w: World, input: Snapshot): World \ Sound =
+        if (w#pause > 0)
+            w |> ageBlasts |> (n -> { pause = n#pause - 1, tick = n#tick + 1 | n })
+        else
             w
                 |> movePlayer(input)
                 |> fire(input)
@@ -516,6 +508,15 @@ mod Game {
                 |> trackHiScore
                 |> checkEnd
                 |> (next -> { tick = next#tick + 1 | next })
+
+    ///
+    /// Advances the game by exactly one logical tick.
+    ///
+    /// Pure. Given the same world and the same input, always the same result.
+    ///
+    pub def step(w: World, input: Snapshot): World \ Sound = {
+        match w#phase {
+        case Phase.Playing => stepPlaying(w, input)
 
         case Phase.Cleared =>
             // A beat to see the field cleared, then the next level.

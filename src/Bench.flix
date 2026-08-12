@@ -253,6 +253,16 @@ mod Bench {
 
     pub def score(tuning: Tuning): Int32 = merit(all(tuning))
 
+    def tryKnob(current: (Tuning, Int32), adjust: List[Tuning -> Tuning]): (Tuning, Int32) = {
+        let (curT, curS) = current;
+        let candidates = List.map(f -> Tuning.sane(f(curT)), adjust);
+        List.foldLeft((inner, candidate) -> {
+            let (held, heldScore) = inner;
+            let trial = score(candidate);
+            if (trial > heldScore) (candidate, trial) else (held, heldScore)
+        }, (curT, curS), candidates)
+    }
+
     ///
     /// Improves one parameter at a time, keeping any change that scores better.
     ///
@@ -268,16 +278,7 @@ mod Bench {
         def sweep(remaining, best, bestScore) =
             if (remaining <= 0) (best, bestScore)
             else {
-                let (improved, improvedScore) =
-                    List.foldLeft((acc, adjust) -> {
-                        let (current, currentScore) = acc;
-                        let candidates = List.map(f -> Tuning.sane(f(current)), adjust);
-                        List.foldLeft((inner, candidate) -> {
-                            let (held, heldScore) = inner;
-                            let trial = score(candidate);
-                            if (trial > heldScore) (candidate, trial) else (held, heldScore)
-                        }, (current, currentScore), candidates)
-                    }, (best, bestScore), knobs());
+                let (improved, improvedScore) = List.foldLeft(tryKnob, (best, bestScore), knobs());
                 println("  round ${rounds - remaining + 1}: merit ${improvedScore}"
                       + (if (improvedScore > bestScore) "" else "  (no improvement)"));
                 if (improvedScore <= bestScore) (best, bestScore)
@@ -441,6 +442,32 @@ mod Bench {
         }
     }
 
+    def runSearch(configFile: Option[String], stored: Tuning, rounds: Int32): Unit \ { Fs.FileWrite, Sys.Env, IO } = {
+        let before = score(stored);
+        println("Searching from merit ${before} over at most ${rounds} round(s).");
+        println("Each round plays ${List.length(seeds())} games per candidate; this takes a while.");
+        let (found, foundScore) = recalc(rounds, stored);
+        println("");
+        report(all(found));
+        println("");
+        if (foundScore <= before) println("No improvement found; the config is unchanged.")
+        else writeTuning(configFile, found)
+    }
+
+    def runBenchOptions(flags: List[Flag], configFile: Option[String]): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, IO } = {
+        let stored = startingTuning(flags, configFile);
+        println(provenance(flags, configFile));
+        match roundsIn(flags) {
+            case None => {
+                let playing = if (List.memberOf(Flag.Wide, flags)) wideSeeds() else seeds();
+                println("Bot benchmark -- ${List.length(playing)} seeds, budget ${budget()} ticks");
+                println("");
+                report(allOn(playing, stored))
+            }
+            case Some(rounds) => runSearch(configFile, stored, rounds)
+        }
+    }
+
     ///
     /// Measures the demo player, and optionally searches for better numbers.
     ///
@@ -456,27 +483,7 @@ mod Bench {
                 case Some(given) => Some(given)
                 case None => Tuning.path()
             };
-            let stored = startingTuning(flags, configFile);
-            println(provenance(flags, configFile));
-            match roundsIn(flags) {
-                case None => {
-                    let playing = if (List.memberOf(Flag.Wide, flags)) wideSeeds() else seeds();
-                    println("Bot benchmark -- ${List.length(playing)} seeds, budget ${budget()} ticks");
-                    println("");
-                    report(allOn(playing, stored))
-                }
-                case Some(rounds) => {
-                    let before = score(stored);
-                    println("Searching from merit ${before} over at most ${rounds} round(s).");
-                    println("Each round plays ${List.length(seeds())} games per candidate; this takes a while.");
-                    let (found, foundScore) = recalc(rounds, stored);
-                    println("");
-                    report(all(found));
-                    println("");
-                    if (foundScore <= before) println("No improvement found; the config is unchanged.")
-                    else writeTuning(configFile, found)
-                }
-            }
+            runBenchOptions(flags, configFile)
         }
     }
 
