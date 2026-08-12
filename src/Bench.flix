@@ -105,6 +105,8 @@ mod Bench {
               // A cleared formation is restored to 55, which would read as negative kills.
               kills = endgame#kills + Int32.max(0, alive(before) - alive(after)) }
 
+    type alias BenchAccumulator = { deaths = Int32, kills = Int32, drops = Int32, ticks = Int32, endgame = Endgame }
+
     ///
     /// Plays one whole game and reports what happened.
     ///
@@ -115,29 +117,26 @@ mod Bench {
     /// sampling the state immediately after the reset.
     ///
     pub def one(tuning: Tuning, seed: Int64): Outcome = Sound.runWithNoOp(() -> {
-        def loop(left, w, hand, deaths, kills, drops, ticks, endgame) =
+        def loop(left, w, hand, acc: BenchAccumulator) =
             if (left <= 0 or w#phase == Phase.Lost)
                 { seed = seed, level = w#level, score = w#score, lives = w#lives,
-                  deaths = deaths, kills = kills, drops = drops, ticks = ticks,
-                  invaded = invasionReached(w), endgame = endgame }
+                  deaths = acc#deaths, kills = acc#kills, drops = acc#drops, ticks = acc#ticks,
+                  invaded = invasionReached(w), endgame = acc#endgame }
             else {
                 let (input, next) = Demo.imperfect(tuning, w, hand);
                 let stepped = Game.step(w, input);
-                // Both counters ignore the tick a level changes on. Clearing a formation
-                // restores it from nought to 55, which reads as *minus* 55 kills, and resets
-                // the march direction, which reads as a row drop. Left alone the kill count
-                // came out 55 short per level cleared -- so the configuration that cleared more
-                // levels reported fewer kills, and every rate derived from it was backwards in
-                // exactly the cases worth comparing.
                 let sameLevel = stepped#level == w#level;
-                loop(left - 1, stepped, next,
-                     deaths + (if (stepped#lives < w#lives) 1 else 0),
-                     kills + (if (sameLevel) alive(w) - alive(stepped) else 0),
-                     drops + (if (sameLevel and stepped#marchDir != w#marchDir) 1 else 0),
-                     ticks + 1,
-                     observeEndgame(w, stepped, endgame))
+                let nextAcc = {
+                    deaths = acc#deaths + (if (stepped#lives < w#lives) 1 else 0),
+                    kills = acc#kills + (if (sameLevel) alive(w) - alive(stepped) else 0),
+                    drops = acc#drops + (if (sameLevel and stepped#marchDir != w#marchDir) 1 else 0),
+                    ticks = acc#ticks + 1,
+                    endgame = observeEndgame(w, stepped, acc#endgame)
+                };
+                loop(left - 1, stepped, next, nextAcc)
             };
-        loop(budget(), Game.initial(seed), Demo.fresh(seed), 0, 0, 0, 0, emptyEndgame())
+        let initAcc = { deaths = 0, kills = 0, drops = 0, ticks = 0, endgame = emptyEndgame() };
+        loop(budget(), Game.initial(seed), Demo.fresh(seed), initAcc)
     })
 
     /// Whether the formation reached the cannon's line, as opposed to the lives running out.
