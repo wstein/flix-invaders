@@ -72,120 +72,31 @@ pub type alias Hand = {
 mod Demo {
 
     ///
+    ///
     /// The tuning the game ships with.
     ///
-    /// Every value here was measured, not chosen. The reasoning for each is below; the
-    /// evidence is in `docs/ARCHITECTURE.md` and reproducible with `bin/bench`.
+    /// Every value here was measured, not chosen. See `docs/ARCHITECTURE.md` and `bin/bench`.
     ///
     pub def defaults(): Tuning = {
-        // Small, because the error *persists* for a stretch of ticks. Drawn fresh every tick
-        // it was self-cancelling noise averaging to nothing; held, the same number is a bias
-        // the cannon acts on for half a second.
         aimJitter = 8,
-
-        // How long it sticks with one judgement, and how much that varies. Re-judging every
-        // tick is what made the cannon shake at six reversals a second.
         judgeFor = 18,
         judgeSpread = 19,
-
-        // How often it stops watching, and for how long. A pause has to read as a hesitation
-        // rather than a freeze -- and a third of a second of no input dies to a bomb.
         lapseOneIn = 200,
         lapseFor = 4,
         lapseSpread = 9,
-
-        // How far off the mark before it starts walking, and before it turns round. Turning
-        // costs more than starting, or the cannon chatters whenever it is nearly right.
         startAt = 1.5f32,
         reverseAt = 6.0f32,
-
-        // How near a bomb must pass to count as a threat. At 30 the bot only reacted once a
-        // bomb was nearly overhead, which at 4px of travel a tick against 3px of fall is far
-        // too late. Sixty cut deaths across ten games from 24 to 4.
         dangerWidth = 60.0f32,
-
-        // What one unit of danger is worth against being in position to shoot, and the
-        // distance that costs as much as one unit of danger.
         selfPreservation = 6.0f32,
         urgency = 40.0f32,
-
-        // A bunker overhead stops the bomb, but standing where it cannot shoot has to cost
-        // something -- or the safest game is the one it loses without firing.
         shelterRelief = 0.25f32,
         blockedCost = 2.0f32,
-
-        // Tidying the flanks pays only while there is a level left to spend the slower descent
-        // on. Letting it continue to three-quarters of the way down costs a whole level.
         calm = 0.25f32,
-
-        // Only a *finished* outer column moves the formation's edge, so one survivor is the
-        // case worth taking. Extending to two drops the mean from 4.5 to 3.9.
         stragglers = 1,
         finishFlank = 1.1f32,
-
-        // Narrowing the block is the only thing that buys time early, so an outer column is
-        // worth taking for its own sake until the formation is down to `narrowTo` of its
-        // starting width -- not merely when it is nearly empty, which is what `finishFlank`
-        // covers. Over sixty seeds this is worth +0.4 levels (4.52 to 4.95), and it is the
-        // largest single improvement the bot has had.
-        //
-        // The block's width sets how far it marches before it turns and drops, so clearing a
-        // flank buys a permanently slower descent: 74 row drops per 10000 ticks becomes 58, and
-        // the descent paid per invader killed falls 17%. It costs kill rate, which is why
-        // chasing flanks *in general* measured worse -- the cutoff is what makes it pay.
-        //
-        // Both numbers are a plateau rather than a peak. Anything from 1.5 to 3.0 scores
-        // 4.90-4.95 and every one of them beats not doing it at all, so this is a real effect
-        // and not a value fitted to the sample. A cutoff of 0.50 or 0.75 gives most of it back:
-        // the last few columns are where the width is worth the least and the invaders are
-        // lowest, and that is exactly when the bot should be shooting whatever is about to land.
         narrowTo = 0.30f32,
         narrowing = 2.0f32,
-
-        // How wide the "this shot will connect" window is, as a multiple of the exact
-        // bullet-meets-invader overlap. One means only shots the geometry guarantees; five
-        // means any target roughly overhead is worth a shot.
-        //
-        // Widened to 5.0 back when five shots could be aloft at once and a miss cost twelve
-        // ticks; over sixty seeds that was the largest single gain the bot ever had, mean
-        // level 5.2 to 6.0. One shot aloft inverts the economy -- a miss now costs the whole
-        // climb, about sixty-eight ticks -- and the finding inverts with it. Swept against
-        // the current game with `bin/bench --defaults`: 4.5 at 1.0, **4.6 at 2.0**, 4.1 at
-        // 3.0, 4.0 at the old 5.0 and 3.8 at 8.0, monotone in between and confirmed at 4.6
-        // over sixty seeds. Tight now beats loose by more than half a level.
-        //
-        // A plateau, not a peak -- 3, 5, 7 and 10 all score 5.9 to 6.1 and every one beats
-        // exact aiming, so this is a real effect rather than a value fitted to the sample.
-        // The old plateau -- 3, 5, 7 and 10 all scoring 5.9 to 6.1 -- is gone; this is a
-        // slope now, which is what a five-fold rise in the price of a miss should do to it.
-        //
-        // Sweep with `--defaults`. `bin/bench` alone prefers a stored tuning outside the
-        // repository, so editing this line and benchmarking measures the stored value.
         fireWindow = 2.0f32,
-
-        // What a target's nearness to the invasion line is worth, against the tidiness of
-        // clearing a flank. This was the priority the game itself set: sixty games in sixty
-        // ended by invasion and none by running out of lives, so a descending column was the only
-        // genuinely urgent thing on the screen.
-        //
-        // That premise no longer holds. With each wave starting lower than the last, eight of
-        // ten games now end out of lives and only two by invasion -- a lower formation means
-        // bombs fall a shorter way and there is less room to step aside. The weight below was
-        // chosen against the old distribution and is very likely wrong for the new one, but
-        // guessing at it is not an improvement: it wants the same sweep that produced it,
-        // and that belongs with the wider bot work the one-shot rule already called for.
-        //
-        // It was 1 by construction and never chosen -- `nearness` is a fraction, so it topped
-        // out at 1.0 while the flank bonuses reached 3.1 between them. `composure` rescued the
-        // emergency by fading those bonuses once the formation was very low, but nothing acted
-        // *before* the emergency: the bot kept tidying flanks until a column had passed 76% of
-        // the way down, by which point there is no longer time to kill it. At 4 it switches at
-        // 46%.
-        //
-        // The largest gain the bot has had: mean level 6.0 to 7.7, games reaching level seven
-        // from 20 in 60 to 52, and the worst seed from 3 to 6 -- every game now clears level
-        // six. A plateau, as usual: 3 through 10 all score 7.0 to 7.9. Four is where the worst
-        // case peaks, and the worst case is what a demo is judged on.
         imminence = 4.0f32
     }
 

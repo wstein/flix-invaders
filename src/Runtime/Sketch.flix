@@ -173,24 +173,125 @@ mod Sketch {
     def maxCatchUpSteps(): Int32 = 5
 
     ///
-    /// Opens one window and runs the simulation until it closes.
+    /// Everything one frame is allowed to change, gathered so the frame loop can be written as
+    /// ordinary functions rather than as one closure over eight separate `Ref`s.
     ///
-    /// `init` builds the starting world from `cfg`'s seed, `step` advances it by exactly one
-    /// logical tick, and `view` describes what to draw. `step` may use only `Sound` and
-    /// `view` only `Canvas`; neither can reach `IO`. That is the whole point of the
-    /// boundary, and it is enforced by these types rather than by convention.
+    /// `heldNow` is written by the keyboard callbacks and read by the frame; `heldPrev` is the
+    /// reading the last tick compared against, and the two together are what makes a press an
+    /// edge rather than a state. `accNs` is simulated time owed but not yet run, and `prevNs`
+    /// the clock reading this frame is measured from.
     ///
-    /// A step with nothing to play is lifted with `Sound.silent`.
+    type alias LoopRefs[s: Type, rc: Region] = {
+        world = Ref[s, rc],
+        heldNow = Ref[Set[Key], rc],
+        heldPrev = Ref[Set[Key], rc],
+        accNs = Ref[Int64, rc],
+        prevNs = Ref[Int64, rc],
+        frames = Ref[Int32, rc],
+        stats = Ref[Stats, rc]
+    }
+
+    def updateClock(budgetNs: Int64, refs: LoopRefs[s, rc]): (Int64, Int64) \ IO + rc = {
+        let now = System.nanoTime();
+        let elapsed = now - Ref.get(refs#prevNs);
+        let capped = if (elapsed < 0i64) 0i64 else if (elapsed > budgetNs) budgetNs else elapsed;
+        Ref.put(now, refs#prevNs);
+        Ref.put(Ref.get(refs#accNs) + capped, refs#accNs);
+        (now, elapsed)
+    }
+
+    def sampleInput(app: PApplet, stepNs: Int64, refs: LoopRefs[s, rc]): (Snapshot, Int32) \ IO + rc = {
+        let current = Ref.get(refs#heldNow);
+        let snapshot = Input.diff(previous = Ref.get(refs#heldPrev), current = current,
+                                  mouseX = app.mouseX, mouseY = app.mouseY);
+        let due = Input.ticksDue(Ref.get(refs#accNs), stepNs, maxCatchUpSteps());
+        if (due > 0) Ref.put(current, refs#heldPrev) else ();
+        (snapshot, due)
+    }
+
+    def stepSimulation(voices: Audio.Voices, stepNs: Int64, snapshot: Snapshot, due: Int32,
+                       step: ((s, Snapshot) -> s \ Sound), refs: LoopRefs[s, rc]
+    ): (Int64, Int64, Int64) \ IO + rc = {
+        let simStart = System.nanoTime();
+        let before = Ref.get(refs#accNs);
+        runWithClips(voices, () ->
+            advance(step, refs#world, refs#accNs, stepNs, Input.acrossTicks(due, snapshot)));
+        let simEnd = System.nanoTime();
+        (simStart, simEnd, before)
+    }
+
+    def renderAndRecord(app: PApplet, elapsed: Int64, budgetNs: Int64, stepNs: Int64,
+                        simStart: Int64, simEnd: Int64, before: Int64,
+                        view: ((s, Stats) -> Unit \ Canvas), refs: LoopRefs[s, rc]
+    ): Unit \ IO + rc = {
+        runWithSurface(app, () -> view(Ref.get(refs#world), Ref.get(refs#stats)));
+        let drawEnd = System.nanoTime();
+        let taken = Int64.tryToInt32((before - Ref.get(refs#accNs)) / stepNs) |> Option.getWithDefault(0);
+        let sample = { frameNs = elapsed, simNs = simEnd - simStart,
+                       drawNs = drawEnd - simEnd, steps = taken,
+                       clamped = elapsed > budgetNs };
+        Ref.put(Stats.observe(Ref.get(refs#stats), sample), refs#stats)
+    }
+
+    def checkFrameLimit(app: PApplet, cfg: Config, refs: LoopRefs[s, rc]): Unit \ IO + rc = {
+        Ref.put(Ref.get(refs#frames) + 1, refs#frames);
+        match cfg#maxFrames {
+            case Some(limit) => if (Ref.get(refs#frames) >= limit) app.exit() else ()
+            case None => ()
+        }
+    }
+
+    type alias FrameContext = {
+        elapsed = Int64,
+        snapshot = Snapshot,
+        due = Int32,
+        simStart = Int64,
+        simEnd = Int64,
+        before = Int64
+    }
+
+    def initFrame(budgetNs: Int64, refs: LoopRefs[s, rc]): FrameContext \ IO + rc = {
+        let (_, elapsed) = updateClock(budgetNs, refs);
+        { elapsed = elapsed, snapshot = Input.empty(), due = 0, simStart = 0i64, simEnd = 0i64, before = 0i64 }
+    }
+
+    def withInput(app: PApplet, stepNs: Int64, refs: LoopRefs[s, rc], ctx: FrameContext): FrameContext \ IO + rc = {
+        let (snapshot, due) = sampleInput(app, stepNs, refs);
+        { snapshot = snapshot, due = due | ctx }
+    }
+
+    def withSimulation(voices: Audio.Voices, stepNs: Int64, step: ((s, Snapshot) -> s \ Sound), refs: LoopRefs[s, rc], ctx: FrameContext): FrameContext \ IO + rc = {
+        let (simStart, simEnd, before) = stepSimulation(voices, stepNs, ctx#snapshot, ctx#due, step, refs);
+        { simStart = simStart, simEnd = simEnd, before = before | ctx }
+    }
+
+    def withRender(app: PApplet, budgetNs: Int64, stepNs: Int64, view: ((s, Stats) -> Unit \ Canvas), refs: LoopRefs[s, rc], ctx: FrameContext): Unit \ IO + rc = {
+        renderAndRecord(app, ctx#elapsed, budgetNs, stepNs, ctx#simStart, ctx#simEnd, ctx#before, view, refs)
+    }
+
     ///
-    /// The simulation advances on a fixed timestep, so behaviour does not depend on frame
-    /// rate or machine speed. That is what makes a recorded input script replay exactly.
+    /// Executes one frame iteration: updates telemetry, samples keyboard input, advances the
+    /// simulation across owed ticks, and renders the current world to the Processing canvas.
     ///
-    /// Returns the state the window closed on, so a caller can persist something the player
-    /// earned. It is read after `park` returns, by which point the Animation Thread has
-    /// stopped writing it.
+    def drawFrame(app: PApplet, cfg: Config, stepNs: Int64, budgetNs: Int64,
+                  voices: Audio.Voices, refs: LoopRefs[s, rc],
+                  step: ((s, Snapshot) -> s \ Sound),
+                  view: ((s, Stats) -> Unit \ Canvas)
+    ): Unit \ IO + rc = {
+        let ctx = initFrame(budgetNs, refs)
+            |> withInput(app, stepNs, refs)
+            |> withSimulation(voices, stepNs, step, refs);
+        withRender(app, budgetNs, stepNs, view, refs, ctx);
+        checkFrameLimit(app, cfg, refs)
+    }
+
     ///
-    /// `view` is also handed the runtime's own performance figures, because the frame loop is
-    /// the only thing that can measure them and the view is the only thing that can show them.
+    /// Drives a Processing Core window from a pure state function.
+    ///
+    /// Opens the window, instantiates the sound engine, and runs until the window closes.
+    ///
+    /// Telemetry for the frame loop (rate, simulation time, draw time, catch-up steps) is
+    /// measured automatically and passed to `view` as a `Stats` record on every frame.
     /// They describe the *previous* frame -- this one is not finished being drawn -- which is
     /// what any such display shows.
     ///
@@ -200,100 +301,42 @@ mod Sketch {
                   view: ((s, Stats) -> Unit \ Canvas)
     ): s \ IO = region rc {
 
-        // `Config` is a public record anyone can build, and an hz of nought divides by zero
-        // before the window even opens. A negative one runs the clock backwards, and anything
-        // above a billion rounds `stepNs` down to nought and divides by zero again on the
-        // frame-timing arithmetic below. None of those are worth a crash in a game, so the
-        // rate is brought into a range a display can plausibly be asked for.
         let hz = Int32.max(minimumHz(), Int32.min(maximumHz(), cfg#hz));
         let stepNs = 1000000000i64 / Int32.toInt64(hz);
         let budgetNs = stepNs * Int32.toInt64(maxCatchUpSteps());
 
-        let world = Ref.fresh(rc, init(cfg#seed));
-        let heldNow = Ref.fresh(rc, (Set.empty(): Set[Key]));
-        let heldPrev = Ref.fresh(rc, (Set.empty(): Set[Key]));
-        let accNs = Ref.fresh(rc, 0i64);
-        let prevNs = Ref.fresh(rc, 0i64);
-        let frames = Ref.fresh(rc, 0);
+        let refs = {
+            world = Ref.fresh(rc, init(cfg#seed)),
+            heldNow = Ref.fresh(rc, (Set.empty(): Set[Key])),
+            heldPrev = Ref.fresh(rc, (Set.empty(): Set[Key])),
+            accNs = Ref.fresh(rc, 0i64),
+            prevNs = Ref.fresh(rc, 0i64),
+            frames = Ref.fresh(rc, 0),
+            stats = Ref.fresh(rc, Stats.empty())
+        };
         let done = Ref.fresh(rc, false);
-        let stats = Ref.fresh(rc, Stats.empty());
-
-        // Opened once. An empty pool means the machine has no usable audio device, and every
-        // Audio call then does nothing.
         let voices = Audio.open();
 
         let sketch = new PApplet {
 
             def settings(app: PApplet): Unit \ IO = {
                 app.size(cfg#width, cfg#height);
-                // Outside the PDE, size/pixelDensity/fullScreen/smooth are legal ONLY here.
-                // Pinning the density keeps geometry identical on HiDPI and standard displays.
                 app.pixelDensity(1)
             }
 
             def setup(app: PApplet): Unit \ IO + rc = {
                 setupApplet(app, cfg, hz);
-                Ref.put(System.nanoTime(), prevNs)
+                Ref.put(System.nanoTime(), refs#prevNs)
             }
 
-            def draw(app: PApplet): Unit \ IO + rc = {
-                // Monotonic; NOT Time.Clock, whose handler is wall-clock currentTimeMillis
-                // and can jump backwards on an NTP correction.
-                let now = System.nanoTime();
-                let elapsed = now - Ref.get(prevNs);
-                let capped = if (elapsed < 0i64) 0i64 else if (elapsed > budgetNs) budgetNs else elapsed;
-                Ref.put(now, prevNs);
-                Ref.put(Ref.get(accNs) + capped, accNs);
-
-                // Captured once and frozen, so every tick this frame drives sees one reading
-                // of the keyboard rather than whatever the Animation Thread has done since.
-                let current = Ref.get(heldNow);
-                let snapshot = Input.diff(previous = Ref.get(heldPrev), current = current,
-                                          mouseX = app.mouseX, mouseY = app.mouseY);
-
-                // How many ticks this frame owes, worked out before any of them run, because
-                // the edges belong to the first of them and the previous key state may only
-                // be retired once one has actually consumed it.
-                let due = Input.ticksDue(Ref.get(accNs), stepNs, maxCatchUpSteps());
-
-                // A frame that owes no tick leaves `heldPrev` alone. Retiring it here would
-                // hand the press to nobody: the next frame would compare against a set that
-                // already contains the key, see no transition, and the press would be gone.
-                // At a display faster than the simulation that is most frames.
-                if (due > 0) Ref.put(current, heldPrev) else ();
-
-                // Bracketing the work rather than the frame. Processing sleeps to hold the
-                // target rate, so timing a whole frame measures the rate limiter and reports
-                // ~16.7ms at 60Hz whatever the sketch actually costs.
-                let simStart = System.nanoTime();
-                let before = Ref.get(accNs);
-                runWithClips(voices, () ->
-                    advance(step, world, accNs, stepNs, Input.acrossTicks(due, snapshot)));
-                let simEnd = System.nanoTime();
-
-                // Installed here, inside the callback, on purpose: handlers are stack-scoped
-                // and `draw` runs on Processing's Animation Thread, so a handler installed
-                // around `runSketch` on the main thread would be invisible.
-                runWithSurface(app, () -> view(Ref.get(world), Ref.get(stats)));
-                let drawEnd = System.nanoTime();
-
-                let taken = Int64.tryToInt32((before - Ref.get(accNs)) / stepNs) |> Option.getWithDefault(0);
-                let sample = { frameNs = elapsed, simNs = simEnd - simStart,
-                               drawNs = drawEnd - simEnd, steps = taken, clamped = elapsed > budgetNs };
-                Ref.put(Stats.observe(Ref.get(stats), sample), stats);
-
-                Ref.put(Ref.get(frames) + 1, frames);
-                match cfg#maxFrames {
-                    case Some(limit) => if (Ref.get(frames) >= limit) app.exit() else ()
-                    case None => ()
-                }
-            }
+            def draw(app: PApplet): Unit \ IO + rc =
+                drawFrame(app, cfg, stepNs, budgetNs, voices, refs, step, view)
 
             def keyPressed(app: PApplet): Unit \ IO + rc =
-                Ref.put(Set.insert(Key.fromCode(app.keyCode), Ref.get(heldNow)), heldNow)
+                Ref.put(Set.insert(Key.fromCode(app.keyCode), Ref.get(refs#heldNow)), refs#heldNow)
 
             def keyReleased(app: PApplet): Unit \ IO + rc =
-                Ref.put(Set.remove(Key.fromCode(app.keyCode), Ref.get(heldNow)), heldNow)
+                Ref.put(Set.remove(Key.fromCode(app.keyCode), Ref.get(refs#heldNow)), refs#heldNow)
 
             // The only System.exit(0) in PApplet, and the documented embedding hook.
             // Overriding it hands control back to `main` instead of killing the JVM
@@ -317,7 +360,7 @@ mod Sketch {
         // `draw` is still reading and writing these Refs on the Animation Thread.
         park(done);
         Audio.close(voices);
-        Ref.get(world)
+        Ref.get(refs#world)
     }
 
     ///
