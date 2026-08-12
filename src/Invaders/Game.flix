@@ -210,15 +210,29 @@ mod Game {
             else spawnBomb(bombers(w#invaders), afterChance, w)
         }
 
-    def processBombShot(bomb: Bomb, bullets: List[Vec2], rng: Rng, kept: List[Bomb]): (List[Vec2], Rng, List[Bomb]) = {
+    ///
+    /// What one pass over the bombs carries.
+    ///
+    /// A named record rather than a tuple, so that the fold below reads as what it does to
+    /// each field instead of as three values kept in the right order by hand. `kept` is
+    /// newest-first, as an accumulated list is, and reversed once at the end.
+    ///
+    type alias ShotPass = { bullets = List[Vec2], rng = Rng, kept = List[Bomb] }
+
+    ///
+    /// One bomb against the shots still in flight.
+    ///
+    def meetBomb(pass: ShotPass, bomb: Bomb): ShotPass = {
         let struck = b -> Collide.overlaps(aPos = b, aSize = Rules.bulletSize(),
                                            bPos = { x = bomb#x, y = bomb#y },
                                            bSize = Rules.bombSize());
-        if (not List.exists(struck, bullets)) (bullets, rng, bomb :: kept)
+        if (not List.exists(struck, pass#bullets)) { kept = bomb :: pass#kept | pass }
         else {
             // The shot is spent either way; only the bomb's fate is a die roll.
-            let (survives, next) = Rng.chance(Rules.bombSurvivesShot(), rng);
-            (List.filter(b -> not struck(b), bullets), next, if (survives) bomb :: kept else kept)
+            let (survives, next) = Rng.chance(Rules.bombSurvivesShot(), pass#rng);
+            { bullets = List.filter(b -> not struck(b), pass#bullets),
+              rng = next,
+              kept = if (survives) bomb :: pass#kept else pass#kept }
         }
     }
 
@@ -233,15 +247,8 @@ mod Game {
     /// each bullet is removed the moment it meets anything.
     ///
     def resolveShotsMeetBombs(w: World): World = {
-        def loop(remaining, bullets, rng, kept) = match remaining {
-            case Nil => (List.reverse(kept), bullets, rng)
-            case bomb :: rest => {
-                let (nextBullets, nextRng, nextKept) = processBombShot(bomb, bullets, rng, kept);
-                loop(rest, nextBullets, nextRng, nextKept)
-            }
-        };
-        let (bombs, bullets, rng) = loop(w#bombs, w#bullets, w#rng, Nil);
-        { bombs = bombs, bullets = bullets, rng = rng | w }
+        let pass = List.foldLeft(meetBomb, { bullets = w#bullets, rng = w#rng, kept = Nil }, w#bombs);
+        { bombs = List.reverse(pass#kept), bullets = pass#bullets, rng = pass#rng | w }
     }
 
     /// The index of the first living invader this bullet hits.
@@ -259,28 +266,47 @@ mod Game {
     }
 
     ///
+    /// What one pass over the bullets carries: the shots that missed, and what the hits did.
+    ///
+    type alias BulletPass = { kept = List[Vec2],
+                              invaders = Vector[Invader],
+                              score = Int32,
+                              blasts = List[Blast] }
+
+    ///
+    /// One bullet against the formation.
+    ///
+    /// A bullet that hits is gone -- it is not added to `kept` -- which is what stops one shot
+    /// clearing two invaders: the fold never offers it to a second one.
+    ///
+    def meetInvader(pass: BulletPass, bullet: Vec2): BulletPass =
+        match hitIndex(bullet, pass#invaders) {
+            case None => { kept = bullet :: pass#kept | pass }
+            case Some(i) => {
+                let hit = Vector.get(i, pass#invaders);
+                let struck = { alive = false | hit };
+                let blast = { pos = hit#pos,
+                              ticksLeft = Rules.invaderBlastTicks(),
+                              kind = BlastKind.InvaderBlast };
+                { invaders = Vector.update(i, struck, pass#invaders),
+                  score = pass#score + Rules.pointsFor(hit#kind),
+                  blasts = blast :: pass#blasts | pass }
+            }
+        }
+
+    ///
     /// Bullets meet invaders.
     ///
     /// A bullet is spent on the first invader it hits, so one shot can never clear two.
     ///
     def resolveBullets(w: World): World \ Sound = {
-        let (bullets, invaders, score, blasts) = List.foldLeft((acc, bullet) -> match acc {
-            case (kept, invs, scr, blsts) => match hitIndex(bullet, invs) {
-                case None => (bullet :: kept, invs, scr, blsts)
-                case Some(i) => {
-                    let hit = Vector.get(i, invs);
-                    let struck = { alive = false | hit };
-                    let blast = { pos = hit#pos,
-                                  ticksLeft = Rules.invaderBlastTicks(),
-                                  kind = BlastKind.InvaderBlast };
-                    (kept, Vector.update(i, struck, invs), scr + Rules.pointsFor(hit#kind), blast :: blsts)
-                }
-            }
-        }, (Nil, w#invaders, w#score, w#blasts), w#bullets);
-        let killed = List.length(blasts) - List.length(w#blasts);
+        let start = { kept = Nil, invaders = w#invaders, score = w#score, blasts = w#blasts };
+        let pass = List.foldLeft(meetInvader, start, w#bullets);
+        let killed = List.length(pass#blasts) - List.length(w#blasts);
         // One noise per kill: two bullets landing in one tick must be heard twice.
         List.forEach(_ -> Sound.play(SoundCmd.InvaderDies), List.range(0, killed));
-        { bullets = List.reverse(bullets), invaders = invaders, score = score, blasts = blasts | w }
+        { bullets = List.reverse(pass#kept), invaders = pass#invaders,
+          score = pass#score, blasts = pass#blasts | w }
     }
 
     ///

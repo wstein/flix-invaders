@@ -188,6 +188,39 @@ mod TestGame {
         assertEq(expected = Rules.pointsFor(Vector.get(0, start()#invaders)#kind), w#score)
     }
 
+    ///
+    /// Shots that miss come out of a step in the order they went in.
+    ///
+    /// Nothing in the rules depends on the order, which is exactly why it is worth pinning:
+    /// both lists are built by folding into an accumulator and reversing once at the end, and
+    /// dropping that reverse changes the world silently. `Game.digest` hashes the bullets, so
+    /// a flipped list would show up later as a replay that no longer matches -- a long way
+    /// from the line that caused it.
+    ///
+    @Test
+    def testMissingShotsKeepTheirOrder(): Unit \ Assert = {
+        let heights = 300.0f32 :: 220.0f32 :: 140.0f32 :: Nil;
+        let aloft = List.map(y -> { x = 5.0f32, y = y }, heights);
+        let after = stepped({ bullets = aloft | start() }, Input.empty());
+        let risen = List.map(y -> y - Rules.bulletSpeed(), heights);
+        assertEq(expected = risen, List.map(b -> b#y, after#bullets))
+    }
+
+    ///
+    /// And so do bombs that nothing shot down.
+    ///
+    @Test
+    def testUnstruckBombsKeepTheirOrder(): Unit \ Assert = {
+        let falling = Rules.bombAt({ x = 100.0f32, y = 120.0f32 }, BombKind.Slow) ::
+            Rules.bombAt({ x = 200.0f32, y = 160.0f32 }, BombKind.Slow) ::
+            Rules.bombAt({ x = 300.0f32, y = 200.0f32 }, BombKind.Slow) :: Nil;
+        let after = stepped({ bombs = falling | start() }, Input.empty());
+        // `invaderFire` may add one of its own at the head, so compare only the tail.
+        let xs = List.map(b -> b#x, after#bombs);
+        let dropped = List.length(xs) - List.length(falling);
+        assertEq(expected = 100.0f32 :: 200.0f32 :: 300.0f32 :: Nil, List.drop(dropped, xs))
+    }
+
     @Test
     def testABulletThatMissesChangesNothing(): Unit \ Assert = {
         let miss = { x = 5.0f32, y = 300.0f32 };

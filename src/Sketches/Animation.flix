@@ -150,6 +150,9 @@ mod Animation {
     ///
     type alias CollisionNorm = { nx = Float32, ny = Float32, closing = Float32 }
 
+    /// The two masses in a collision, named so the caller cannot pass them the wrong way round.
+    type alias Masses = { a = Float32, b = Float32 }
+
     ///
     /// Exchanges momentum along the collision normal.
     ///
@@ -157,15 +160,14 @@ mod Animation {
     /// has done that by the time this is called. Without the check a pair can get stuck,
     /// flipping their velocities every step and vibrating in place instead of parting.
     ///
-    def bounceBalls(a1: Ball, b1: Ball, masses: (Float32, Float32), norm: CollisionNorm): (Ball, Ball) = match masses {
-        case (massA, massB) =>
-            if (norm#closing >= 0.0f32) (a1, b1)
-            else {
-                let impulse = -2.0f32 * norm#closing / (1.0f32 / massA + 1.0f32 / massB);
-                ({ dx = a1#dx - impulse / massA * norm#nx, dy = a1#dy - impulse / massA * norm#ny | a1 },
-                 { dx = b1#dx + impulse / massB * norm#nx, dy = b1#dy + impulse / massB * norm#ny | b1 })
-            }
-    }
+    def bounceBalls(a1: Ball, b1: Ball, masses: Masses, norm: CollisionNorm): (Ball, Ball) =
+        if (norm#closing >= 0.0f32) (a1, b1)
+        else {
+            let (massA, massB) = (masses#a, masses#b);
+            let impulse = -2.0f32 * norm#closing / (1.0f32 / massA + 1.0f32 / massB);
+            ({ dx = a1#dx - impulse / massA * norm#nx, dy = a1#dy - impulse / massA * norm#ny | a1 },
+             { dx = b1#dx + impulse / massB * norm#nx, dy = b1#dy + impulse / massB * norm#ny | b1 })
+        }
 
     ///
     /// Resolves an elastic collision between two balls.
@@ -204,7 +206,7 @@ mod Animation {
 
             // Closing speed along the normal. Negative means they are approaching.
             let closing = (b#dx - a#dx) * nx + (b#dy - a#dy) * ny;
-            bounceBalls(a1, b1, (massA, massB), { nx = nx, ny = ny, closing = closing })
+            bounceBalls(a1, b1, { a = massA, b = massB }, { nx = nx, ny = ny, closing = closing })
         }
     }
 
