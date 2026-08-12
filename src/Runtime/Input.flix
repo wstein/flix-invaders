@@ -19,17 +19,6 @@ pub enum Key with Eq, Order, ToString {
 
 mod Key {
 
-    // Processing reports java.awt.event.KeyEvent.VK_* values in PApplet.keyCode.
-    def vkBackspace(): Int32 = 8
-    def vkF3(): Int32 = 114
-    def vkEnter(): Int32 = 10
-    def vkEscape(): Int32 = 27
-    def vkSpace(): Int32 = 32
-    def vkLeft(): Int32 = 37
-    def vkUp(): Int32 = 38
-    def vkRight(): Int32 = 39
-    def vkDown(): Int32 = 40
-
     ///
     /// The digit a key stands for, if it is one of the number keys.
     ///
@@ -73,17 +62,18 @@ mod Key {
     ///
     /// Translates a Processing key code.
     ///
-    pub def fromCode(code: Int32): Key =
-        if (code == vkBackspace()) Key.Backspace
-        else if (code == vkLeft()) Key.Left
-        else if (code == vkRight()) Key.Right
-        else if (code == vkUp()) Key.Up
-        else if (code == vkDown()) Key.Down
-        else if (code == vkSpace()) Key.Space
-        else if (code == vkEnter()) Key.Enter
-        else if (code == vkEscape()) Key.Escape
-        else if (code == vkF3()) Key.F3
-        else Key.Other(code)
+    pub def fromCode(code: Int32): Key = match code {
+        case 8   => Key.Backspace
+        case 10  => Key.Enter
+        case 27  => Key.Escape
+        case 32  => Key.Space
+        case 37  => Key.Left
+        case 38  => Key.Up
+        case 39  => Key.Right
+        case 40  => Key.Down
+        case 114 => Key.F3
+        case _   => Key.Other(code)
+    }
 
 }
 
