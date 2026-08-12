@@ -85,12 +85,14 @@ mod Animation {
     /// Pure, and identical for the same seed -- the generator is threaded through rather
     /// than being drawn from a global source.
     ///
-    def makeBalls(count: Int32, index: Int32, rng: Rng): List[Ball] =
-        if (index >= count) Nil
-        else {
-            let (b, nextRng) = generateBall(index, rng);
-            b :: makeBalls(count, index + 1, nextRng)
-        }
+    def makeBalls(count: Int32, index: Int32, rng: Rng): List[Ball] = {
+        let (balls, _) = List.range(index, count) |> List.foldLeft((acc, idx) -> match acc {
+            case (ballsAcc, currentRng) =>
+                let (b, r) = generateBall(idx, currentRng);
+                (b :: ballsAcc, r)
+        }, (Nil, rng));
+        List.reverse(balls)
+    }
 
     ///
     /// The starting world: four balls from `seed`, and nothing being pushed yet.

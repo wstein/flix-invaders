@@ -489,13 +489,8 @@ mod Sketch {
     ///
     def advance(step: ((s, Snapshot) -> s \ Sound),
                 world: Ref[s, r],
-                inputs: List[Snapshot]): Unit \ Sound + r = match inputs {
-        case Nil => ()
-        case snapshot :: rest => {
-            Ref.put(step(Ref.get(world), snapshot), world);
-            advance(step, world, rest)
-        }
-    }
+                inputs: List[Snapshot]): Unit \ Sound + r =
+        List.forEach(snapshot -> Ref.put(step(Ref.get(world), snapshot), world), inputs)
 
     ///
     /// Parks the main thread until the sketch reports that it has exited.
