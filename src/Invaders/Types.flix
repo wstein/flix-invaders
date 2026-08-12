@@ -548,7 +548,6 @@ mod Rules {
     pub def mysteryMinInvaders(): Int32 = 8
 
     ///
-    ///
     /// Score needed for an extra life.
     ///
     /// The original awarded one bonus ship at a threshold set by a dip switch. This game

@@ -254,12 +254,7 @@ mod Bunkers {
     }
 
     ///
-    /// Offers a whole list of shots to the bunkers.
-    ///
-    /// Returns the damaged bunkers and the shots that got through.
-    ///
-    ///
-    /// The same, for bombs, which carry their own crater size.
+    /// Offers a whole list of bombs to the bunkers, which carry their own crater size.
     ///
     /// Separate from `absorbAll` rather than generalising it: the crater is a property of the
     /// individual bomb here, not of the batch, and threading a per-item function through the
@@ -279,6 +274,13 @@ mod Bunkers {
         loop(bombs, bunkers, Nil)
     }
 
+    ///
+    /// Offers a whole list of shots to the bunkers.
+    ///
+    /// Returns the damaged bunkers and the shots that got through, in the order they arrived.
+    /// One shot damages at most one bunker: `absorb` stops at the first it makes contact with,
+    /// so a bullet cannot bore through two shelters standing in a line.
+    ///
     pub def absorbAll(bunkers: Vector[Bunker], shots: List[Vec2], size: Vec2, crater: Float32): (Vector[Bunker], List[Vec2]) = {
         def loop(remainingShots, acc, kept) = match remainingShots {
             case Nil => (acc, List.reverse(kept))

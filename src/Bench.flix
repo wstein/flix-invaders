@@ -108,16 +108,18 @@ mod Bench {
     type alias BenchAccumulator = { deaths = Int32, kills = Int32, drops = Int32, ticks = Int32, endgame = Endgame }
 
     ///
-    /// Plays one whole game and reports what happened.
-    ///
-    /// The stopping condition is the same for every run -- the game ends, or the budget does.
-    /// Nothing is allowed to stop early on a condition that a change under test could itself
-    /// affect. Stopping at "level 2 reached" is how a measurement of bunker damage once
-    /// reported every bunker perfectly intact: levels reset the bunkers, so the probe was
-    /// sampling the state immediately after the reset.
+    /// One run in progress: the ticks left in its budget, the world, the bot's hand, and the
+    /// figures gathered so far.
     ///
     type alias BenchState = { left = Int32, world = World, hand = Hand, acc = BenchAccumulator }
 
+    ///
+    /// One tick of a run: the bot decides, the world steps, and the figures take note.
+    ///
+    /// Kills and row drops are counted only while the level does not change, because a cleared
+    /// formation is replaced wholesale -- counting across that boundary reads the restock as
+    /// fifty-five invaders coming back to life.
+    ///
     def stepBench(tuning: Tuning, st: BenchState): BenchState \ Sound = {
         let w = st#world;
         let acc = st#acc;
@@ -134,6 +136,18 @@ mod Bench {
         { left = st#left - 1, world = stepped, hand = nextHand, acc = nextAcc }
     }
 
+    ///
+    /// Plays one whole game and reports what happened.
+    ///
+    /// The stopping condition is the same for every run -- the game ends, or the budget does.
+    /// Nothing is allowed to stop early on a condition that a change under test could itself
+    /// affect. Stopping at "level 2 reached" is how a measurement of bunker damage once
+    /// reported every bunker perfectly intact: levels reset the bunkers, so the probe was
+    /// sampling the state immediately after the reset.
+    ///
+    /// A run that ends on the budget is reported as unfinished rather than as a result: it was
+    /// interrupted, not measured. See `unfinished`.
+    ///
     pub def one(tuning: Tuning, seed: Int64): Outcome = Sound.runWithNoOp(() -> {
         def loop(st: BenchState) =
             if (st#left <= 0 or st#world#phase == Phase.Lost)
@@ -232,10 +246,22 @@ mod Bench {
               ticks = total#ticks + r#endgame#ticks,
               kills = total#kills + r#endgame#kills }, emptyEndgame(), runs)
 
+    ///
+    /// How far the cannon walked, and how long it took, per invader killed in the endgame.
+    ///
+    /// The pair is the point. A change that makes the bot walk less is only an improvement if
+    /// it does not take longer to kill: down-weighting hard-to-reach targets once cut pixels
+    /// per kill from 139 to 130 while raising ticks per kill from 72 to 76, and was rejected
+    /// on exactly that reading. Both are rates, so neither can be flattered by a shorter game.
+    ///
+    /// Nought when nothing was killed, which is the honest answer to a ratio with no
+    /// denominator -- an infinity here would sort as the best run ever measured.
+    ///
     pub def pixelsPerKill(endgame: Endgame): Float32 =
         if (endgame#kills <= 0) 0.0f32
         else endgame#pixels / Int32.toFloat32(endgame#kills)
 
+    /// The other half of the pair above.
     pub def ticksPerKill(endgame: Endgame): Float32 =
         if (endgame#kills <= 0) 0.0f32
         else Int32.toFloat32(endgame#ticks) / Int32.toFloat32(endgame#kills)
@@ -266,6 +292,14 @@ mod Bench {
             - rateTenths(deaths(runs), ticks)
     }
 
+    ///
+    /// The merit of a tuning over the standard seeds, which is what the search maximises.
+    ///
+    /// Always the same seeds, so two tunings are compared on the same games rather than on
+    /// their luck. `bin/bench --wide` then plays a set that shares no seed with this one, and
+    /// that is what a claim has to survive: a win here alone may only mean the tuning has been
+    /// fitted to these ten games.
+    ///
     pub def score(tuning: Tuning): Int32 = merit(all(tuning))
 
     def tryKnob(current: (Tuning, Int32), adjust: List[Tuning -> Tuning]): (Tuning, Int32) = {
