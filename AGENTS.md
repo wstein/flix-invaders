@@ -51,7 +51,10 @@ own. `./flixw -- <args>` forces the compiler for anything ambiguous.
 
 - `src/Runtime/` — the effect boundary. `Runtime/Sketch.flix` (window) and
   `Runtime/Audio.flix` (sound card) are the **only** files that touch Java
-- `src/Sketches/` — teaching sketches
+- `src/Sketches/` — teaching sketches. Entry points, reached through `bin/sketch` and never
+  imported, so nothing in `src/` depends on them and an "unused module" report will say so.
+  `test/TestStill.flix` and `test/TestAnimation.flix` are what keeps them honest; a sketch
+  with no test is the one drawing in the project nothing ever checks
 - `src/Invaders/` — the pure game model, and the pure cabinet around it (`Session`, `Screens`,
   `Demo`); no `IO`, no window
 - `src/Main.flix` — the only file that reads or writes a file, and only the score table
