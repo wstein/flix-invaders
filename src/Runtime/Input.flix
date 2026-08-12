@@ -127,12 +127,9 @@ mod Input {
     ///
     /// The two key sets are named -- transposing them inverts every edge, turning presses
     /// into releases -- and so are the two mouse coordinates.
-    pub def diff(
-        previous: {previous = Set[Key]},
-        current: {current = Set[Key]},
-        mouseX: {mouseX = Int32},
-        mouseY: {mouseY = Int32}
-    ): Snapshot = {
+    pub def diff(previous: {previous = Set[Key]}, current: {current = Set[Key]},
+                 mouseX: {mouseX = Int32}, mouseY: {mouseY = Int32})
+        : Snapshot = {
         let before = previous#previous;
         let now = current#current;
         { held = now,

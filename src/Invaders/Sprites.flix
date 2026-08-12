@@ -48,12 +48,8 @@ mod Sprite {
     }
 
     /// Closes off a run that was in progress, if any.
-    def close(
-        y: Int32,
-        x: Int32,
-        start: Option[Int32],
-        acc: List[(Int32, Int32, Int32)]
-    ): List[(Int32, Int32, Int32)] =
+    def close(y: Int32, x: Int32, start: Option[Int32], acc: List[(Int32, Int32, Int32)])
+        : List[(Int32, Int32, Int32)] =
         match start {
             case None => acc
             case Some(startX) => (y, startX, x - startX) :: acc

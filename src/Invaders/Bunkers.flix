@@ -268,12 +268,8 @@ mod Bunkers {
     ///
     /// `findMap` stops at the first bunker the shot meets, which is what keeps one shot from
     /// damaging two shelters standing in a line.
-    pub def absorb(
-        bunkers: Vector[Bunker],
-        pos: Vec2,
-        size: Vec2,
-        crater: Float32
-    ): (Vector[Bunker], Bool) = {
+    pub def absorb(bunkers: Vector[Bunker], pos: Vec2, size: Vec2, crater: Float32)
+        : (Vector[Bunker], Bool) = {
         let struck = which ->
             contact(Vector.get(which, bunkers), pos, size) |> Option.map(cell -> (which, cell));
         match Vector.findMap(struck, Vector.range(0, Vector.length(bunkers))) {
@@ -316,12 +312,8 @@ mod Bunkers {
     /// One shot damages at most one bunker: `absorb` stops at the first it makes contact with,
     /// so a bullet cannot bore through two shelters standing in a line.
     ///
-    pub def absorbAll(
-        bunkers: Vector[Bunker],
-        shots: List[Vec2],
-        size: Vec2,
-        crater: Float32
-    ): (Vector[Bunker], List[Vec2]) = {
+    pub def absorbAll(bunkers: Vector[Bunker], shots: List[Vec2], size: Vec2, crater: Float32)
+        : (Vector[Bunker], List[Vec2]) = {
         let pass = List.foldLeft((acc, shot) -> {
             let (damaged, wasHit) = absorb(acc#bunkers, shot, size, crater);
             let nextKept = if (wasHit) acc#kept else shot :: acc#kept;
