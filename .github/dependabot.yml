@@ -1,0 +1,16 @@
+# The workflow pins its actions to commit digests, which is what makes a tag
+# move meaningless here. Digests do not update themselves, so this is the other
+# half of that decision: without it the pins rot into permanently stale actions.
+#
+# The Flix compiler is deliberately absent. It is pinned in .flixw/lock.toml
+# with a SHA-256 that Dependabot has no ecosystem for; `./flixw pin <version>`
+# is how that moves.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci

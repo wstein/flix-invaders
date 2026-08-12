@@ -1,0 +1,159 @@
+name: Update Flix
+
+# Dependabot has no ecosystem for a compiler pinned by URL and SHA-256 in
+# .flixw/lock.toml, so this is its counterpart: resolve the newest upstream
+# release, re-pin, verify, and open a pull request for a human to read.
+#
+# It never pushes to the default branch. The digest in a re-pinned lock is
+# computed by the runner from the jar it downloaded, and a machine-computed
+# digest is exactly the thing that should be reviewed rather than merged.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays, 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-flix
+  cancel-in-progress: false
+
+jobs:
+  update-flix:
+    name: Re-pin the compiler
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install JDK 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Resolve the newest release
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # `./flixw pin latest` is refused on purpose -- a pin is an exact
+          # version, never a range or an alias -- so the concrete one is
+          # resolved here instead.
+          tag=$(gh api repos/flix/flix/releases/latest --jq .tag_name)
+          latest=${tag#v}
+
+          # The tag is third-party data. flixw validates it again before it
+          # reaches the lock, but it names a git branch first, so its shape is
+          # checked here rather than trusted for that.
+          if ! [[ $latest =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::unexpected release tag from flix/flix: $tag"
+            exit 1
+          fi
+
+          # The wrapper's own reading of its lock, rather than a second parser
+          # in this file that could disagree with it.
+          current=$(./flixw info | awk '$1 == "compiler" && $2 ~ /^[0-9]/ { print $2; exit }')
+          if [ -z "$current" ]; then
+            echo "::error::could not read the current pin from ./flixw info"
+            exit 1
+          fi
+
+          {
+            echo "current=$current"
+            echo "latest=$latest"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$current" = "$latest" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Flix $current is the newest release; nothing to do."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Flix $current -> $latest"
+          fi
+
+      # The same three commands Build and Test runs, before anything is pushed:
+      # an upgrade that does not compile should never reach a pull request.
+      - name: Pin and verify
+        if: steps.resolve.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.resolve.outputs.latest }}
+        run: |
+          set -euo pipefail
+          ./flixw pin "$VERSION"
+          ./flixw validate
+          ./flixw check
+          ./flixw test
+
+      - name: Open a pull request
+        if: steps.resolve.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.resolve.outputs.latest }}
+          CURRENT: ${{ steps.resolve.outputs.current }}
+        run: |
+          set -euo pipefail
+
+          # pin owns the lock and nothing else, so the lock is the whole diff.
+          if git diff --quiet -- .flixw/lock.toml; then
+            echo "::warning::pin left .flixw/lock.toml unchanged; nothing to open"
+            exit 0
+          fi
+
+          # Version-named, so a re-run lands on the same branch instead of
+          # opening a second pull request for the same upgrade.
+          branch="flixw/pin-$VERSION"
+
+          # Asked before any git work: if the pull request is already open there
+          # is nothing to do, and nothing to push over.
+          if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+            echo "a pull request for $branch is already open; leaving it alone"
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git add .flixw/lock.toml
+          git commit -m "chore(flixw): pin Flix $VERSION"
+
+          # --force rather than --force-with-lease: checkout fetches only the
+          # default branch, so there is no remote-tracking ref for this branch
+          # to lease against and the lease would fail on the second attempt at
+          # the same version. It is safe here because the check above proved no
+          # open pull request uses this branch, and nothing but this workflow
+          # ever writes a flixw/pin-* ref.
+          git push --force -u origin "$branch"
+
+          gh pr create --title "chore(flixw): pin Flix $VERSION" --body "$(cat <<BODY
+          Newest \`flix/flix\` release: **$CURRENT → $VERSION**.
+
+          \`./flixw pin\` rewrote \`.flixw/lock.toml\` with the release URL and the
+          SHA-256 of the jar this runner downloaded. Read that digest before merging;
+          it is the whole trust boundary.
+
+          \`flix.toml\` is untouched, by design. It states the *lowest* Flix this
+          project accepts and the new pin still satisfies it. Raise the floor by hand
+          if this release becomes a requirement.
+
+          Verified on this runner before the pull request was opened:
+
+          - \`./flixw validate\`
+          - \`./flixw check\`
+          - \`./flixw test\`
+
+          Those ran on Linux only. Pull requests opened with \`GITHUB_TOKEN\` do not
+          start other workflows, so Build and Test will not run here by itself — close
+          and reopen this pull request, or push to the branch, to get the macOS and
+          Windows legs.
+          BODY
+          )"

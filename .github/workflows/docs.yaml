@@ -1,0 +1,191 @@
+name: API Documentation
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build API Documentation
+    runs-on: ubuntu-latest
+
+    outputs:
+      pages: ${{ steps.pages.outcome }}
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install JDK 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Restore the pinned compiler
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/flixw
+            ~/Library/Caches/flixw
+            ~\AppData\Local\flixw
+          key: ${{ runner.os }}-flixw-${{ hashFiles('.flixw/lock.toml') }}
+
+      - name: Generate
+        run: ./flixw doc
+
+      # `flix doc` renders the whole standard library alongside this project --
+      # 300-odd pages whose index.html is the stdlib's own Prelude -- and has no
+      # option to narrow that down: --Xlib decides what is *compiled*, and
+      # without the library nothing compiles at all. So the narrowing happens
+      # here, and only this project's pages are published.
+      - name: Assemble the site
+        run: |
+          set -euo pipefail
+
+          # Which pages are this project's is not guessed from a module name
+          # that a copy of this template will rename. Every definition gets a
+          # "Source" link, and for this project's definitions that link carries
+          # the absolute path of the file inside this workspace; a standard
+          # library page never does.
+          matched=$(grep -lF "$PWD/src/" build/doc/*.html | xargs -n1 basename | sort)
+
+          # index.html always matches, and is never wanted: it is the standard
+          # library's Prelude page, and `main` is folded into it because Flix
+          # requires the entry point at the root namespace. Publishing 26
+          # library definitions in order to document one `main` is not a trade
+          # worth making, and the landing page generated below takes that
+          # filename anyway.
+          pages=$(printf '%s\n' "$matched" | grep -vx 'index.html' || true)
+
+          # Fail closed. If the source-link format ever changes upstream this
+          # finds nothing, and publishing an empty site quietly would be far
+          # worse than stopping here.
+          if [ -z "$pages" ]; then
+            echo "::error::no project pages found in build/doc -- the flix doc source-link format may have changed"
+            exit 1
+          fi
+          echo "publishing: $(echo "$pages" | tr '\n' ' ')"
+
+          rm -rf site && mkdir site
+          cp build/doc/styles.css build/doc/index.js build/doc/favicon.png site/
+          while IFS= read -r p; do cp "build/doc/$p" "site/$p"; done <<<"$pages"
+
+          # Every definition gets a "Source" link, and flix doc builds it by
+          # appending the documented file's path to the standard library's own
+          # base URL on flix/flix. For a library file that is right; for this
+          # project's files it produces a 404 against flix/flix with the build
+          # machine's absolute path embedded in it. Rewrite those into
+          # permalinks at the commit being published.
+          #
+          # The workspace path goes into a regex, so its metacharacters are
+          # escaped -- a dot matching any character would be a silent near-miss.
+          escaped=$(printf '%s' "$PWD" | sed 's|[.[\*^$/]|\\&|g')
+          from="https://github.com/flix/flix/blob/master/main/src/library/$escaped/"
+          to="https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_SHA/"
+          while IFS= read -r p; do
+            sed "s|$from|$to|g" "site/$p" > "site/$p.tmp" && mv "site/$p.tmp" "site/$p"
+          done <<<"$pages"
+
+          # Fail closed: nothing published may still carry a filesystem path.
+          if grep -lF "$PWD" site/*.html; then
+            echo "::error::a published page still contains a build-machine path"
+            exit 1
+          fi
+
+          # The landing page is generated rather than committed, so it lists
+          # whatever modules the project actually has instead of a name that
+          # would drift the first time someone renames one.
+          version=$(./flixw info | awk '$1 == "compiler" && $2 ~ /^[0-9]/ { print $2; exit }')
+          {
+            cat <<HEAD
+          <!doctype html>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>$GITHUB_REPOSITORY | API documentation</title>
+          <link rel="icon" href="favicon.png">
+          <style>
+            :root { color-scheme: light dark; }
+            body { margin: 0 auto; padding: 3rem 1.5rem; max-width: 42rem;
+                   font: 16px/1.6 Inter, system-ui, sans-serif; }
+            h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+            p { color: GrayText; }
+            ul { list-style: none; padding: 0; }
+            li { margin: .4rem 0; }
+            a { color: LinkText; }
+            footer { margin-top: 3rem; font-size: .875rem; color: GrayText; }
+          </style>
+          <h1>$GITHUB_REPOSITORY</h1>
+          <p>API documentation, generated by <code>flix doc</code> from the
+             compiler this project pins &mdash; Flix $version.</p>
+          <h2>Modules</h2>
+          <ul>
+          HEAD
+            while IFS= read -r p; do
+              printf '<li><a href="%s">%s</a></li>\n' "$p" "${p%.html}"
+            done <<<"$pages"
+            cat <<TAIL
+          </ul>
+          <footer><a href="https://github.com/$GITHUB_REPOSITORY">Source on GitHub</a></footer>
+          TAIL
+          } > site/index.html
+
+          # Nothing published may point at a page that was not published. The
+          # module pages here link only to index.html and the assets, but a
+          # richer project can link to a standard library page, and that would
+          # 404 silently without this.
+          broken=0
+          for f in site/*.html; do
+            while IFS= read -r target; do
+              [ -n "$target" ] || continue
+              if [ ! -f "site/$target" ]; then
+                echo "::error::$(basename "$f") links to $target, which is not published"
+                broken=1
+              fi
+            done < <(grep -oE "href='[A-Za-z0-9_.-]+\.html'" "$f" | sed "s/^href='//; s/'$//" | sort -u)
+          done
+          [ "$broken" -eq 0 ]
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+        continue-on-error: true
+        with:
+          enablement: true
+
+      - name: Report that publishing was skipped
+        if: steps.pages.outcome != 'success'
+        run: echo "::warning::Pages is not enabled for this repository, so the documentation was built but not published. Turn it on once under Settings > Pages with source 'GitHub Actions', or delete .github/workflows/docs.yaml."
+
+      - name: Upload
+        if: steps.pages.outcome == 'success'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    name: Publish to Pages
+    needs: build
+    if: needs.build.outputs.pages == 'success'
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
