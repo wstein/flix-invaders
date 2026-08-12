@@ -166,15 +166,15 @@ mod Audio {
     ///
     pub def play(voices: Voices, cmd: SoundCmd): Unit \ IO =
         try {
-            def loop(rest) = match rest {
-                case Nil => ()
-                case (owner, clip) :: more =>
-                    if (owner == cmd and not clip.isRunning()) {
-                        clip.setFramePosition(0);
-                        clip.start()
-                    } else loop(more)
-            };
-            loop(voices)
+            // `findLeft` stops at the first idle voice, so a sound with three lines free does
+            // not restart all three.
+            match List.findLeft(entry -> fst(entry) == cmd and not snd(entry).isRunning(), voices) {
+                case None => ()
+                case Some((_, clip)) => {
+                    clip.setFramePosition(0);
+                    clip.start()
+                }
+            }
         } catch {
             case _: Exception => ()
         }

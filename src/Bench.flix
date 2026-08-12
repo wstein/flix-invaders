@@ -149,6 +149,9 @@ mod Bench {
     /// interrupted, not measured. See `unfinished`.
     ///
     pub def one(tuning: Tuning, seed: Int64): Outcome = Sound.runWithNoOp(() -> {
+        // A recursion rather than a fold over the budget: this stops when the *game* ends,
+        // which is usually a third of the way in. Folding `budget()` steps would keep calling
+        // a no-op stage for the remaining twenty thousand ticks of every run.
         def loop(st: BenchState) =
             if (st#left <= 0 or st#world#phase == Phase.Lost)
                 { seed = seed, level = st#world#level, score = st#world#score, lives = st#world#lives,

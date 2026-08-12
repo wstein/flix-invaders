@@ -495,6 +495,9 @@ mod Sketch {
     ///
     /// Parks the main thread until the sketch reports that it has exited.
     ///
+    /// A recursion because there is no sequence to traverse: it waits on a flag another
+    /// thread will set, and how many times it looks is not known in advance.
+    ///
     def park(done: Ref[Bool, r]): Unit \ IO + r =
         if (Ref.get(done)) ()
         else { Thread.sleep(20i64); park(done) }

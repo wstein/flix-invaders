@@ -194,3 +194,13 @@ The mistakes that show up most often:
 
 Prefer effects and handlers to callbacks or hand-written CPS, and standard library effects
 to Java interop.
+
+Prefer higher-order functions to hand-written recursion and index loops. `foldLeft`,
+`exists`, `forAll`, `findLeft`, `findMap` and `findIndexOfLeft` name the traversal instead of
+hiding it in plumbing, and the last four short-circuit, so early exit is not a reason to
+write a loop. Two things are worth knowing before reaching for one: `Vector.indices` returns
+a `Range`, which has no `exists`, so an index-aware search needs `Vector.range(0, n)` and
+pays one index vector per call — measured on `Bunkers.touches`, the hottest such search in
+the game, that cost is inside the run-to-run noise. And where there is no sequence to
+traverse — a fixed point (`Bench.one`), or waiting on another thread (`Sketch.park`) — the
+recursion is the honest form; say so in a comment.

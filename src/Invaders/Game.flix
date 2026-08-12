@@ -252,18 +252,11 @@ mod Game {
     }
 
     /// The index of the first living invader this bullet hits.
-    def hitIndex(bullet: Vec2, invaders: Vector[Invader]): Option[Int32] = {
-        def loop(i) =
-            if (i >= Vector.length(invaders)) None
-            else {
-                let inv = Vector.get(i, invaders);
-                if (inv#alive and Collide.overlaps(aPos = bullet, aSize = Rules.bulletSize(),
-                                                   bPos = inv#pos, bSize = Rules.invaderSize()))
-                    Some(i)
-                else loop(i + 1)
-            };
-        loop(0)
-    }
+    def hitIndex(bullet: Vec2, invaders: Vector[Invader]): Option[Int32] =
+        Vector.findIndexOfLeft(inv ->
+            inv#alive and Collide.overlaps(aPos = bullet, aSize = Rules.bulletSize(),
+                                           bPos = inv#pos, bSize = Rules.invaderSize()),
+            invaders)
 
     ///
     /// What one pass over the bullets carries: the shots that missed, and what the hits did.

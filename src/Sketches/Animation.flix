@@ -213,18 +213,18 @@ mod Animation {
     ///
     /// Resolves every pair once per step.
     ///
+    /// Each unordered pair exactly once: `j` starts past `i`, so no pair is resolved twice and
+    /// no ball is checked against itself.
     def resolveCollisions(balls: Vector[Ball]): Vector[Ball] = {
         let count = Vector.length(balls);
-        def inner(i, j, acc) =
-            if (j >= count) acc
-            else {
-                let (a, b) = resolvePair(Vector.get(i, acc), Vector.get(j, acc));
-                inner(i, j + 1, Vector.update(j, b, Vector.update(i, a, acc)))
-            };
-        def outer(i, acc) =
-            if (i >= count) acc
-            else outer(i + 1, inner(i, i + 1, acc));
-        outer(0, balls)
+        let resolveInto = (acc, i, j) -> {
+            let (a, b) = resolvePair(Vector.get(i, acc), Vector.get(j, acc));
+            Vector.update(j, b, Vector.update(i, a, acc))
+        };
+        Vector.foldLeft((afterEarlier, i) ->
+            Vector.foldLeft((acc, j) -> resolveInto(acc, i, j), afterEarlier,
+                            Vector.range(i + 1, count)),
+            balls, Vector.range(0, count))
     }
 
     ///
