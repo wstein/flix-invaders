@@ -18,13 +18,17 @@ mod TestScoresFile {
     /// all, not even to ask what time it is.
     ///
 
-    def onMemoryFS(f: Unit -> a \ ef): a \ (ef - Fs.FileRead - Fs.FileWrite - Fs.FileSystem - Time.Clock) =
+    type alias FsEffects = Fs.FileRead + Fs.FileWrite + Fs.FileSystem + Time.Clock
+
+    def onMemoryFS(f: Unit -> a \ ef)
+        : a \ (ef - FsEffects) =
         frozenClock(() ->
             Fs.FileSystem.withInMemoryFS(() ->
                 Fs.FileWrite.runWithFileSystem(() ->
                     Fs.FileRead.runWithFileSystem(f))))
 
-    def frozenClock(f: Unit -> a \ ef): a \ (ef - Time.Clock) =
+    def frozenClock(f: Unit -> a \ ef)
+        : a \ (ef - Time.Clock) =
         run {
             f()
         } with handler Time.Clock {
@@ -35,7 +39,8 @@ mod TestScoresFile {
     def somewhere(): Scores.Location =
         { dir = "/nowhere/flix-invaders", file = "/nowhere/flix-invaders/scores.txt" }
 
-    def entry(name: String, score: Int32): Entry = { name = name, score = score, level = 3 }
+    def entry(name: String, score: Int32): Entry =
+        { name = name, score = score, level = 3 }
 
     def shown(e: Entry): String = "${e#name}/${e#score}/${e#level}"
     def shownAll(es: List[Entry]): List[String] = List.map(shown, es)
@@ -49,7 +54,7 @@ mod TestScoresFile {
 
     def saved(at: Scores.Location, entries: List[Entry]): Unit \ Fs.FileWrite + Assert =
         match Scores.save(at, entries) {
-            case Ok(_) => ()
+            case Ok() => ()
             case Err(why) => Assert.fail("save failed: ${why}")
         }
 

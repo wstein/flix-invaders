@@ -525,7 +525,10 @@ mod TestGame {
     /// A world with a bomb sitting exactly on the cannon.
     def aboutToBeHit(): World = {
         let base = start();
-        { bombs = Rules.bombAt({ x = base#playerX, y = Rules.playerY() }, BombKind.Slow) :: Nil | base }
+        let px = base#playerX;
+        let py = Rules.playerY();
+        let hitBomb = Rules.bombAt({ x = px, y = py }, BombKind.Slow);
+        { bombs = hitBomb :: Nil | base }
     }
 
     @Test
@@ -1304,8 +1307,11 @@ mod TestGame {
     /// Lives left after a bomb of `kind` lands squarely on the cannon.
     def livesAfter(kind: BombKind): Int32 = {
         let base = { lives = 3 | start() };
-        let onTarget = Rules.bombAt({ x = base#playerX, y = Rules.playerY() }, kind);
-        stepped({ bombs = onTarget :: Nil | base }, Input.empty())#lives
+        let px = base#playerX;
+        let py = Rules.playerY();
+        let onTarget = Rules.bombAt({ x = px, y = py }, kind);
+        let nextW = stepped({ bombs = onTarget :: Nil | base }, Input.empty());
+        nextW#lives
     }
 
     /// "Most powerful" means the shelters, not the cannon.

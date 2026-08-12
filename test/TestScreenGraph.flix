@@ -38,8 +38,11 @@ mod TestScreenGraph {
     /// only the road to `Table` -- which is how the first draft of this test managed to report
     /// `Entering` as unreachable.
     ///
-    def gameOver(s: Session): Session =
-        { worlds = Vector.map(w -> { phase = Phase.Lost, score = 9999 | w }, s#worlds) | s }
+    def gameOver(s: Session): Session = {
+        let updateWorld = w -> { phase = Phase.Lost, score = 9999 | w };
+        let newWorlds = Vector.map(updateWorld, s#worlds);
+        { worlds = newWorlds | s }
+    }
 
     ///
     /// A session sitting on each screen, in a state where that screen has something to do.
@@ -48,12 +51,13 @@ mod TestScreenGraph {
     /// to decide.
     ///
     def fixtures(): List[(Screen, Session)] = {
-        let base = Session.withScores(seed(), { name = "OLD", score = 10, level = 1 } :: Nil);
+        let oldScore = { name = "OLD", score = 10, level = 1 };
+        let base = Session.withScores(seed(), oldScore :: Nil);
         let playing = gameOver({ screen = Screen.Playing, players = 1 | base });
-        // A score worth entering initials for, so `Entering` has a name to collect.
+        let pEntry = { player = 0, entry = { name = "", score = 9999, level = 4 } };
         let entering =
             { screen = Screen.Entering,
-              pending = { player = 0, entry = { name = "", score = 9999, level = 4 } } :: Nil,
+              pending = pEntry :: Nil,
               typing = "AB" | base };
         (Screen.Attract, base) ::
         (Screen.Playing, playing) ::
@@ -67,10 +71,14 @@ mod TestScreenGraph {
     /// The demo runs inside `Session.step`, so this needs a `Sound` handler -- `runWithNoOp`,
     /// because what the attract screen would have played is not the subject here.
     ///
-    def discoveredEdges(): List[(Screen, Screen)] =
-        Sound.runWithNoOp(() ->
-            fixtures() |> List.flatMap(match (source, s) ->
-                inputs() |> List.map(input -> (source, Session.step(s, input)#screen))))
+    def discoveredEdges(): List[(Screen, Screen)] = {
+        let sampleEdges = () ->
+            List.flatMap(match (source, s) ->
+                List.map(input ->
+                    let nextS = Session.step(s, input);
+                    (source, nextS#screen), inputs()), fixtures());
+        Sound.runWithNoOp(sampleEdges)
+    }
 
     /// Which screens are reachable from which, by one or more transitions.
     def reachable(edges: List[(Screen, Screen)]): Vector[(Screen, Screen)] = {

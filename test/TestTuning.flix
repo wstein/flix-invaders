@@ -15,9 +15,14 @@ mod TestTuning {
     /// Records have no `Eq`, so tunings are compared by their own rendering.
     def shown(t: Tuning): String = Tuning.encode(t)
 
-    def decoded(text: String): Tuning \ Assert = match Tuning.decode(Demo.defaults(), text) {
-        case Ok(t) => t
-        case Err(why) => { Assert.fail("decode failed: ${why}"); Demo.defaults() }
+    def decoded(text: String): Tuning \ Assert = {
+        let res = Tuning.decode(Demo.defaults(), text);
+        match res {
+            case Ok(t) => t
+            case Err(why) =>
+                Assert.fail("decode failed: ${why}");
+                Demo.defaults()
+        }
     }
 
     // -- the round trip ---------------------------------------------------------------------

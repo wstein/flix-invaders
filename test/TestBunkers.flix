@@ -22,19 +22,29 @@ mod TestBunkers {
         drilledFrom(columnCentre(column), bunkers)
 
     def drilledFrom(x: Float32, bunkers: Vector[Bunker]): Vector[Bunker] = {
-        let floor = Rules.bunkerTop() + Int32.toFloat32(Rules.bunkerRows()) * Rules.bunkerCell();
+        let bTop = Rules.bunkerTop();
+        let bRows = Int32.toFloat32(Rules.bunkerRows());
+        let bCell = Rules.bunkerCell();
+        let floor = bTop + bRows * bCell;
         def shoot(acc) = {
-            def rise(y, seen) =
-                if (y < Rules.bunkerTop() - Rules.bulletSize()#y) seen
+            def rise(y, seen) = {
+                let minY = bTop - Rules.bulletSize()#y;
+                if (y < minY)
+                    seen
                 else {
+                    let shotPos = { x = x, y = y };
                     let (damaged, hit) =
-                        Bunkers.absorb(seen, { x = x, y = y }, Rules.bulletSize(), Rules.bulletCrater());
+                        Bunkers.absorb(seen, shotPos, Rules.bulletSize(), Rules.bulletCrater());
                     if (hit) damaged else rise(y - 2.0f32, seen)
-                };
+                }
+            };
             rise(floor, acc)
         };
         def drill(n, acc) =
-            if (n <= 0 or not Bunkers.blocks(acc, x)) acc else drill(n - 1, shoot(acc));
+            if (n <= 0 or not Bunkers.blocks(acc, x))
+                acc
+            else
+                drill(n - 1, shoot(acc));
         drill(60, bunkers)
     }
 

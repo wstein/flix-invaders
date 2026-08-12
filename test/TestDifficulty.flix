@@ -36,8 +36,11 @@ mod TestDifficulty {
             playShakyRaw(budget - 1, Game.step(w, input), next)
         }
 
-    def playShaky(budget: Int32, seed: Int64): World =
-        Sound.runWithNoOp(() -> playShakyRaw(budget, Game.initial(seed), Demo.fresh(seed)))
+    def playShaky(budget: Int32, seed: Int64): World = {
+        let initW = Game.initial(seed);
+        let initHand = Demo.fresh(seed);
+        Sound.runWithNoOp(() -> playShakyRaw(budget, initW, initHand))
+    }
 
     /// Long enough for a good run to end on its own rather than on the budget.
     def wholeGame(): Int32 = 30000
@@ -47,8 +50,12 @@ mod TestDifficulty {
     /// How long the formation takes to land if nothing shoots it and bombs are ignored.
     def descentTicks(): Int32 = {
         def loop(n, w) =
-            if (n <= 0 or w#phase == Phase.Lost) n
-            else loop(n - 1, Game.step({ lives = 99, bombs = Nil | w }, Input.empty()));
+            if (n <= 0 or w#phase == Phase.Lost)
+                n
+            else {
+                let steppedW = Game.step({ lives = 99, bombs = Nil | w }, Input.empty());
+                loop(n - 1, steppedW)
+            };
         20000 - Sound.runWithNoOp(() -> loop(20000, Game.initial(1i64)))
     }
 

@@ -18,19 +18,22 @@ mod TestSession {
     /// The digit keys, as the runtime delivers them.
     def digit(n: Int32): Snapshot = Input.holding(Key.Other(48 + n) :: Nil)
 
-    def rectCount(s: Session): Int32 =
+    def rectCount(s: Session): Int32 = {
+        let cmds = Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty()));
         List.count(cmd -> match cmd {
             case DrawCmd.Rect(_, _, _, _) => true
             case _ => false
-        }, Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty())))
+        }, cmds)
+    }
 
     /// Every string the cabinet draws for this session.
-    def texts(s: Session): List[String] =
-        Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty()))
-            |> List.filterMap(cmd -> match cmd {
-                case DrawCmd.Text(t, _, _) => Some(t)
-                case _ => None
-            })
+    def texts(s: Session): List[String] = {
+        let cmds = Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty()));
+        List.filterMap(cmd -> match cmd {
+            case DrawCmd.Text(t, _, _) => Some(t)
+            case _ => None
+        }, cmds)
+    }
 
     // -- the attract loop --------------------------------------------------------------
 
@@ -369,14 +372,18 @@ mod TestSession {
 
     // -- initials and the table ----------------------------------------------------------
 
-    def letters(word: String): Snapshot =
-        Input.holding(String.toList(word) |> List.map(c -> Key.Other(Char.toBmpCodePoint(c))))
+    def letters(word: String): Snapshot = {
+        let keyList = String.toList(word) |> List.map(c -> Key.Other(Char.toBmpCodePoint(c)));
+        Input.holding(keyList)
+    }
 
     /// A finished two-player game where player one earned a place.
     def qualified(): Session = {
         let s = twoPlayer();
-        let scored = Vector.update(0, { phase = Phase.Lost, score = 2500 | Vector.get(0, s#worlds) },
-                                   Vector.update(1, { phase = Phase.Lost | Vector.get(1, s#worlds) }, s#worlds));
+        let p0 = { phase = Phase.Lost, score = 2500 | Vector.get(0, s#worlds) };
+        let p1 = { phase = Phase.Lost | Vector.get(1, s#worlds) };
+        let w0 = Vector.update(0, p0, s#worlds);
+        let scored = Vector.update(1, p1, w0);
         tick({ worlds = scored | s }, Input.empty())
     }
 

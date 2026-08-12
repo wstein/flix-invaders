@@ -5,7 +5,8 @@ mod TestAnimation {
     use Assert.assertNeq
 
     def ball(x: Float32, y: Float32, dx: Float32, dy: Float32): Ball =
-        { x = x, y = y, dx = dx, dy = dy, radius = 10.0f32, tint = Color.white() }
+        { x = x, y = y, dx = dx, dy = dy,
+          radius = 10.0f32, tint = Color.white() }
 
     def worldOf(b: Ball): Bouncing =
         { balls = b :: Nil, nudge = 0.0f32 }
@@ -283,8 +284,14 @@ mod TestAnimation {
     /// Mass goes with area, matching the sketch.
     def massOf(b: Ball): Float64 = Float32.toFloat64(b#radius * b#radius)
 
-    def momentumX(w: Bouncing): Float64 =
-        List.foldLeft((acc, b) -> acc + massOf(b) * Float32.toFloat64(b#dx), 0.0, w#balls)
+    def momentumX(w: Bouncing): Float64 = {
+        let addMomentum = (acc, b) -> {
+            let m = massOf(b);
+            let vx = Float32.toFloat64(b#dx);
+            acc + m * vx
+        };
+        List.foldLeft(addMomentum, 0.0, w#balls)
+    }
 
     def kineticEnergy(w: Bouncing): Float64 =
         List.foldLeft((acc, b) -> {
@@ -294,9 +301,11 @@ mod TestAnimation {
         }, 0.0, w#balls)
 
     /// A heavy ball overlapping a light one, closing head-on.
-    def heavyMeetsLight(): Bouncing =
-        worldOfTwo(ballR({ pos = (300.0f32, 240.0f32), vel = (4.0f32, 0.0f32), r = 30.0f32 }),
-                   ballR({ pos = (338.0f32, 240.0f32), vel = (-4.0f32, 0.0f32), r = 10.0f32 }))
+    def heavyMeetsLight(): Bouncing = {
+        let b1 = ballR({ pos = (300.0f32, 240.0f32), vel = (4.0f32, 0.0f32), r = 30.0f32 });
+        let b2 = ballR({ pos = (338.0f32, 240.0f32), vel = (-4.0f32, 0.0f32), r = 10.0f32 });
+        worldOfTwo(b1, b2)
+    }
 
     @Test
     def testHeavyBallIsDeflectedLessThanLightBall(): Unit \ Assert = {

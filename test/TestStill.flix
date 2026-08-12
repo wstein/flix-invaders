@@ -25,7 +25,9 @@ mod TestStill {
     /// Whether a box overlaps the canvas at all, however little.
     def visible(x: Float32, y: Float32, w: Float32, h: Float32): Bool = {
         let (cw, ch) = canvas();
-        x + w > 0.0f32 and x < Int32.toFloat32(cw) and y + h > 0.0f32 and y < Int32.toFloat32(ch)
+        let xVis = x + w > 0.0f32 and x < Int32.toFloat32(cw);
+        let yVis = y + h > 0.0f32 and y < Int32.toFloat32(ch);
+        xVis and yVis
     }
 
     @Test
