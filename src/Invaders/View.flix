@@ -217,6 +217,12 @@ mod View {
     pub def rightAlignedX(s: String, size: Float32, margin: Float32): Float32 =
         Rules.fieldWidth() - textWidth(s, size) - margin
 
+    ///
+    /// The three headings across the top.
+    ///
+    /// The player whose turn it is gets the bright label; the other is dimmed. On a one-player
+    /// game there is nobody to contrast with, so both stay bright.
+    ///
     def drawHudLabels(c: Cabinet, margin: Float32): Unit \ Canvas = {
         let lit = n -> if (c#players < 2 or c#player == n) Palette.ink() else Palette.dim();
         Canvas.fill(lit(1));
@@ -227,6 +233,13 @@ mod View {
         Canvas.text("SCORE<2>", rightAlignedX("SCORE<2>", hudSize(), margin), 26.0f32)
     }
 
+    ///
+    /// The three numbers under those headings.
+    ///
+    /// Each value sits centred under its own label, which is what `under` works out. The
+    /// active player's score comes from the live world; the other from the cabinet, because
+    /// the world that earned it is put aside while it is not that player's turn.
+    ///
     def drawHudScores(w: World, c: Cabinet, margin: Float32): Unit \ Canvas = {
         let under = (label, value) -> {
             let labelWidth = textWidth(label, hudSize());

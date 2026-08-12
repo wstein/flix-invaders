@@ -45,16 +45,11 @@ mod Animation {
     /// sketch resized in one place cannot end up with balls bouncing off an edge that is no
     /// longer where the frame is.
     ///
-    /// The width of the animation field in pixels.
     pub def fieldWidthPx(): Int32 = 640
-
-    /// The height of the animation field in pixels.
     pub def fieldHeightPx(): Int32 = 480
 
-    /// The width of the animation field in floating point units.
+    /// The same two, as the floats the geometry actually works in.
     pub def fieldWidth(): Float32 = Int32.toFloat32(fieldWidthPx())
-
-    /// The height of the animation field in floating point units.
     pub def fieldHeight(): Float32 = Int32.toFloat32(fieldHeightPx())
 
     /// Constant downward acceleration. Set this to something like 0.15 to add gravity.
@@ -148,25 +143,19 @@ mod Animation {
     def mass(b: Ball): Float32 = b#radius * b#radius
 
     ///
-    /// Resolves an elastic collision between two balls.
+    /// The line a collision acts along, and how fast the pair is closing on it.
     ///
-    /// Two things happen, and both are needed. The balls are pushed apart along the line
-    /// between their centres so they cannot overlap, and an impulse is applied along that
-    /// line. Velocity perpendicular to the line is untouched, so a glancing blow deflects
-    /// rather than stopping the balls dead.
+    /// `nx`/`ny` is the unit vector from one centre to the other; `closing` is the relative
+    /// velocity projected onto it, negative when the balls are approaching.
     ///
-    /// Both parts are weighted by mass. The impulse is
-    /// `-2 * closing / (1/ma + 1/mb)`, the standard result for a perfectly elastic
-    /// collision, which conserves both momentum and kinetic energy; and the separation
-    /// moves each ball by the *other* one's share of the total mass, so the lighter ball
-    /// gives way. With equal masses this reduces to simply exchanging the normal
-    /// components of the two velocities.
     type alias CollisionNorm = { nx = Float32, ny = Float32, closing = Float32 }
 
     ///
-    /// Balls that overlap but are already moving apart are only separated. Without that
-    /// check a pair can get stuck, flipping their velocities every step and vibrating in
-    /// place instead of parting.
+    /// Exchanges momentum along the collision normal.
+    ///
+    /// Balls that overlap but are already moving apart are only separated -- `resolvePair`
+    /// has done that by the time this is called. Without the check a pair can get stuck,
+    /// flipping their velocities every step and vibrating in place instead of parting.
     ///
     def bounceBalls(a1: Ball, b1: Ball, masses: (Float32, Float32), norm: CollisionNorm): (Ball, Ball) = match masses {
         case (massA, massB) =>
@@ -178,6 +167,20 @@ mod Animation {
             }
     }
 
+    ///
+    /// Resolves an elastic collision between two balls.
+    ///
+    /// Two things happen, and both are needed. The balls are pushed apart along the line
+    /// between their centres so they cannot overlap, and an impulse is applied along that
+    /// line. Velocity perpendicular to the line is untouched, so a glancing blow deflects
+    /// rather than stopping the balls dead.
+    ///
+    /// Both parts are weighted by mass. The impulse is `-2 * closing / (1/ma + 1/mb)`, the
+    /// standard result for a perfectly elastic collision, which conserves both momentum and
+    /// kinetic energy; and the separation moves each ball by the *other* one's share of the
+    /// total mass, so the lighter ball gives way. With equal masses this reduces to simply
+    /// exchanging the normal components of the two velocities.
+    ///
     def resolvePair(a: Ball, b: Ball): (Ball, Ball) = {
         let dx = b#x - a#x;
         let dy = b#y - a#y;
@@ -191,11 +194,15 @@ mod Animation {
             let massA = mass(a);
             let massB = mass(b);
             let total = massA + massB;
+
+            // Separate them, the lighter ball giving way by the larger share.
             let overlap = touching - distance;
             let shareA = overlap * (massB / total);
             let shareB = overlap * (massA / total);
             let a1 = { x = a#x - nx * shareA, y = a#y - ny * shareA | a };
             let b1 = { x = b#x + nx * shareB, y = b#y + ny * shareB | b };
+
+            // Closing speed along the normal. Negative means they are approaching.
             let closing = (b#dx - a#dx) * nx + (b#dy - a#dy) * ny;
             bounceBalls(a1, b1, (massA, massB), { nx = nx, ny = ny, closing = closing })
         }

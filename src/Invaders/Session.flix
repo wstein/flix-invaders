@@ -198,6 +198,17 @@ mod Session {
         else { screen = Screen.Entering, pending = earned, typing = "" | s }
     }
 
+    ///
+    /// Steps the world whose turn it is, and starts the GAME OVER hold when that world ends.
+    ///
+    /// A turn is a whole game: player one plays down to their last life before player two
+    /// starts. Losing a cannon costs a life and nothing else.
+    ///
+    /// The arcade original hands over on every destroyed cannon, and that was built first. It
+    /// is a different game rather than a better or worse one -- alternating keeps both players
+    /// watching and neither able to hold a run together, and this way round trades the second
+    /// for the first.
+    ///
     def advanceWorld(input: Snapshot, s: Session): Session \ Sound = {
         let stepped = Game.step(active(s), input);
         let worlds = Vector.update(s#current, stepped, s#worlds);

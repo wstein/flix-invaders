@@ -216,6 +216,7 @@ mod Game {
                                            bSize = Rules.bombSize());
         if (not List.exists(struck, bullets)) (bullets, rng, bomb :: kept)
         else {
+            // The shot is spent either way; only the bomb's fate is a die roll.
             let (survives, next) = Rng.chance(Rules.bombSurvivesShot(), rng);
             (List.filter(b -> not struck(b), bullets), next, if (survives) bomb :: kept else kept)
         }

@@ -334,6 +334,30 @@ mod Sketch {
         }
     }
 
+    ///
+    /// Drives a Processing Core window from a pure state function.
+    ///
+    /// Opens the window, instantiates the sound engine, and runs until the window closes.
+    ///
+    /// `init` builds the starting world from `cfg`'s seed, `step` advances it by exactly one
+    /// logical tick, and `view` describes what to draw. `step` may use only `Sound` and
+    /// `view` only `Canvas`; neither can reach `IO`. That is the whole point of the boundary,
+    /// and it is enforced by these types rather than by convention.
+    ///
+    /// A step with nothing to play is lifted with `Sound.silent`.
+    ///
+    /// The simulation advances on a fixed timestep, so behaviour does not depend on frame rate
+    /// or machine speed. That is what makes a recorded input script replay exactly.
+    ///
+    /// Returns the state the window closed on, so a caller can persist something the player
+    /// earned. It is read after `park` returns, by which point the Animation Thread has
+    /// stopped writing it.
+    ///
+    /// `view` is also handed the runtime's own performance figures, because the frame loop is
+    /// the only thing that can measure them and the view is the only thing that can show them.
+    /// They describe the *previous* frame -- this one is not finished being drawn -- which is
+    /// what any such display shows.
+    ///
     pub def start(cfg: Config,
                   init: (Int64 -> s),
                   step: ((s, Snapshot) -> s \ Sound),
@@ -368,9 +392,12 @@ mod Sketch {
         let loop = { cfg = cfg, stepNs = stepNs, budgetNs = budgetNs, voices = voices,
                      refs = refs, step = step, view = view };
 
-        def createApplet() = new PApplet {
+        let sketch = new PApplet {
+
             def settings(app: PApplet): Unit \ IO = {
                 app.size(cfg#width, cfg#height);
+                // Outside the PDE, size/pixelDensity/fullScreen/smooth are legal ONLY here.
+                // Pinning the density keeps geometry identical on HiDPI and standard displays.
                 app.pixelDensity(1)
             }
 
@@ -388,13 +415,17 @@ mod Sketch {
             def keyReleased(app: PApplet): Unit \ IO + rc =
                 Ref.put(Set.remove(Key.fromCode(app.keyCode), Ref.get(refs#heldNow)), refs#heldNow)
 
+            // The only System.exit(0) in PApplet, and the documented embedding hook.
+            // Overriding it hands control back to `main` instead of killing the JVM
+            // mid-frame -- `flix run` does not fork. It can fire more than once, so setting
+            // an already-set flag must be harmless.
             def exitActual(_app: PApplet): Unit \ rc =
                 Ref.put(true, done)
         };
 
-        let sketch = createApplet();
-
-        // Processing resolves its renderer via Thread.currentThread().getContextClassLoader(),
+        // Processing resolves its renderer (processing.awt.PGraphicsJava2D) and its macOS
+        // helper (processing.core.ThinkDifferent) through
+        //     Thread.currentThread().getContextClassLoader().loadClass(...)
         // but Flix loads jar dependencies through its own ExternalJarLoader, whose parent is
         // the *platform* loader. Without this line Processing cannot find its own classes and
         // dies with "The processing.awt.PGraphicsJava2D renderer is not in the class path."
