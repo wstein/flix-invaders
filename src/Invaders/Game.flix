@@ -317,20 +317,48 @@ mod Game {
         else { mystery = Some({ x = x | m }) | w }
     }
 
-    def spawnMystery(w: World): World \ Sound = {
-        if (Vector.count(inv -> inv#alive, w#invaders) <= Rules.mysteryMinInvaders()) w
-        else if (w#mysteryTimer > 1) { mysteryTimer = w#mysteryTimer - 1 | w }
-        else {
-            let (fromLeft, afterSide) = Rng.chance(2, w#rng);
-            let (jitter, next) = Rng.nextInt32Below(Rules.mysterySpread(), afterSide);
-            let dir = if (fromLeft) 1.0f32 else -1.0f32;
-            let x = if (fromLeft) -mysteryMargin() else Rules.fieldWidth() + mysteryMargin();
-            emit(SoundCmd.MysteryAppears,
-                 { mystery = Some({ x = x, dir = dir }),
-                   mysteryTimer = Rules.mysteryInterval() + jitter,
-                   rng = next | w })
-        }
+    ///
+    /// Whether the formation has been thinned past the point where a saucer is welcome.
+    ///
+    /// See `Rules.mysteryMinInvaders`: the last few invaders race, and a bonus dangled then
+    /// arrives at the worst possible moment.
+    ///
+    def formationTooThin(w: World): Bool =
+        Vector.count(inv -> inv#alive, w#invaders) <= Rules.mysteryMinInvaders()
+
+    ///
+    /// Where a saucer entering from one side starts, and which way it then flies.
+    ///
+    /// One answer rather than two: the x and the direction are the same decision, and asking
+    /// the same question twice is how they drift apart into a ship flying off its own edge.
+    /// It starts a margin clear of the screen so it slides in rather than appearing whole.
+    ///
+    def mysteryEntry(fromLeft: Bool): Mystery =
+        if (fromLeft) { x = -mysteryMargin(), dir = 1.0f32 }
+        else { x = Rules.fieldWidth() + mysteryMargin(), dir = -1.0f32 }
+
+    ///
+    /// Launches a saucer from a randomly chosen side and sets the wait for the next one.
+    ///
+    /// The generator is threaded through both draws and returned in the world, so the whole
+    /// sequence -- side, then jitter -- replays exactly from the same seed.
+    ///
+    def launchMystery(w: World): World \ Sound = {
+        let (fromLeft, afterSide) = Rng.chance(2, w#rng);
+        let (jitter, next) = Rng.nextInt32Below(Rules.mysterySpread(), afterSide);
+        emit(SoundCmd.MysteryAppears,
+             { mystery = Some(mysteryEntry(fromLeft)),
+               mysteryTimer = Rules.mysteryInterval() + jitter,
+               rng = next | w })
     }
+
+    ///
+    /// Counts down to the next saucer, and launches it when the count runs out.
+    ///
+    def spawnMystery(w: World): World \ Sound =
+        if (formationTooThin(w)) w
+        else if (w#mysteryTimer > 1) { mysteryTimer = w#mysteryTimer - 1 | w }
+        else launchMystery(w)
 
     ///
     /// Flies the mystery ship across, or counts down to the next one.

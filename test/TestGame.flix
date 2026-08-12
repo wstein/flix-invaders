@@ -602,6 +602,43 @@ mod TestGame {
         assertTrue(launched#mysteryTimer < Rules.mysteryInterval() + Rules.mysterySpread())
     }
 
+    ///
+    /// Whichever side it is drawn for, a saucer starts off-screen and flies inwards.
+    ///
+    /// The side decides two numbers, and the risk is that they stop agreeing: a ship placed
+    /// off the right edge but flying right is gone the frame it appears, and no test that only
+    /// ever launches one saucer would notice. Twenty seeds is enough to draw both sides --
+    /// `testBothSidesAreUsed` below pins that they really are both drawn.
+    ///
+    @Test
+    def testALaunchedShipAlwaysEntersTheField(): Unit \ Assert =
+        List.forEach(n -> {
+            let nearly = { mysteryTimer = 1 | Game.initial(seed() + Int32.toInt64(n)) };
+            match stepped(nearly, Input.empty())#mystery {
+                case None => assertTrueWithMsg(false, "seed ${n} launched no ship")
+                case Some(m) => {
+                    let offScreen = m#x < 0.0f32 or m#x > Rules.fieldWidth();
+                    assertTrueWithMsg(offScreen, "seed ${n} started on screen at ${m#x}");
+                    let inwards = if (m#x < 0.0f32) m#dir > 0.0f32 else m#dir < 0.0f32;
+                    assertTrueWithMsg(inwards, "seed ${n} entered at ${m#x} flying ${m#dir}")
+                }
+            }
+        }, List.range(0, 20))
+
+    ///
+    /// Both entry sides are actually reachable, so the test above is not proving one of them
+    /// twenty times over.
+    ///
+    @Test
+    def testBothSidesAreUsed(): Unit \ Assert = {
+        let entries = List.range(0, 20) |> List.filterMap(n -> {
+            let nearly = { mysteryTimer = 1 | Game.initial(seed() + Int32.toInt64(n)) };
+            stepped(nearly, Input.empty())#mystery
+        });
+        assertTrue(List.exists(m -> m#dir > 0.0f32, entries));
+        assertTrue(List.exists(m -> m#dir < 0.0f32, entries))
+    }
+
     @Test
     def testTheShipCrossesTheScreen(): Unit \ Assert = {
         let w = stepped(withMystery(100.0f32), Input.empty());
