@@ -21,19 +21,32 @@ mod TestReplay {
     /// needs to prove, so they must not be limited by how the list is built.
     ///
     def script(n: Int32, rng: Rng): List[Snapshot] = {
+        let table = keyChoices();
         def loop(remaining, generator, acc) =
             if (remaining <= 0) List.reverse(acc)
             else {
-                let (choice, next) = Rng.nextInt32Below(5, generator);
-                let keys =
-                    if (choice == 0) Key.Left :: Nil
-                    else if (choice == 1) Key.Right :: Nil
-                    else if (choice == 2) Key.Space :: Nil
-                    else if (choice == 3) Key.Left :: Key.Space :: Nil
-                    else Nil;
-                loop(remaining - 1, next, Input.holding(keys) :: acc)
+                let (choice, next) = Rng.nextInt32Below(Vector.length(table), generator);
+                loop(remaining - 1, next, Input.holding(Vector.get(choice, table)) :: acc)
             };
         loop(n, rng, Nil)
+    }
+
+    ///
+    /// What a scripted tick can hold: one entry per outcome the generator draws.
+    ///
+    /// A table rather than a ladder of `else if`, so the count and the cases cannot drift
+    /// apart -- the loop draws below `Vector.length`, so a sixth line here is exercised the
+    /// moment it is written rather than sitting unreachable behind a stale constant.
+    ///
+    /// Holding nothing is one of the entries on purpose. A script that pressed something every
+    /// tick would never leave the quiet gaps that are most of what these tests replay.
+    ///
+    def keyChoices(): Vector[List[Key]] = Vector#{
+        Key.Left :: Nil,
+        Key.Right :: Nil,
+        Key.Space :: Nil,
+        Key.Left :: Key.Space :: Nil,
+        Nil
     }
 
     def demoScript(n: Int32): List[Snapshot] = script(n, Rng.fromSeed(99i64))
