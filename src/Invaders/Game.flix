@@ -469,9 +469,11 @@ mod Game {
     /// merely being drawn in its way.
     ///
     def resolveBunkers(w: World): World = {
-        let (afterBullets, bullets) = Bunkers.absorbAll(w#bunkers, w#bullets, Rules.bulletSize(), Rules.bulletCrater());
+        let (afterBullets, bullets) =
+            Bunkers.absorbAll(w#bunkers, w#bullets, Rules.bulletSize(), Rules.bulletCrater());
         let (afterBombs, bombs) = Bunkers.absorbBombs(afterBullets, w#bombs);
-        { bunkers = Bunkers.erode(afterBombs, w#invaders), bullets = bullets, bombs = bombs | w }
+        let finalBunkers = Bunkers.erode(afterBombs, w#invaders);
+        { bunkers = finalBunkers, bullets = bullets, bombs = bombs | w }
     }
 
     /// The hi-score is the best score seen so far.

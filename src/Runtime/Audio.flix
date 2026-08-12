@@ -110,13 +110,20 @@ mod Audio {
     /// The waveform for one sound.
     ///
     def samplesFor(rc: Region[r], cmd: SoundCmd): Array[Int8, r] \ r = match cmd {
-        case SoundCmd.Shoot => sweep(rc, { startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32 })
-        case SoundCmd.InvaderDies => burst(rc, 190, 0.7f32)
-        case SoundCmd.PlayerDies => burst(rc, 620, 1.0f32)
-        case SoundCmd.MysteryAppears => sweep(rc, { startHz = 620.0f32, endHz = 900.0f32, millis = 220, volume = 0.4f32 })
-        case SoundCmd.MysteryDies => sweep(rc, { startHz = 900.0f32, endHz = 180.0f32, millis = 380, volume = 0.6f32 })
-        case SoundCmd.ShieldBlock => sweep(rc, { startHz = 300.0f32, endHz = 1100.0f32, millis = 130, volume = 0.5f32 })
-        case SoundCmd.ExtraLife => sweep(rc, { startHz = 500.0f32, endHz = 1600.0f32, millis = 420, volume = 0.6f32 })
+        case SoundCmd.Shoot =>
+            sweep(rc, { startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32 })
+        case SoundCmd.InvaderDies =>
+            burst(rc, 190, 0.7f32)
+        case SoundCmd.PlayerDies =>
+            burst(rc, 620, 1.0f32)
+        case SoundCmd.MysteryAppears =>
+            sweep(rc, { startHz = 620.0f32, endHz = 900.0f32, millis = 220, volume = 0.4f32 })
+        case SoundCmd.MysteryDies =>
+            sweep(rc, { startHz = 900.0f32, endHz = 180.0f32, millis = 380, volume = 0.6f32 })
+        case SoundCmd.ShieldBlock =>
+            sweep(rc, { startHz = 300.0f32, endHz = 1100.0f32, millis = 130, volume = 0.5f32 })
+        case SoundCmd.ExtraLife =>
+            sweep(rc, { startHz = 500.0f32, endHz = 1600.0f32, millis = 420, volume = 0.6f32 })
         case SoundCmd.MarchStep(note) => {
             let hz = marchHz(note);
             sweep(rc, { startHz = hz, endHz = hz * 0.92f32, millis = 110, volume = 0.85f32 })

@@ -297,12 +297,14 @@ mod Bunkers {
     /// batch version would make the common case -- bullets, all identical -- read worse to
     /// buy nothing.
     ///
-    pub def absorbBombs(bunkers: Vector[Bunker], bombs: List[Bomb]): (Vector[Bunker], List[Bomb]) = {
+    pub def absorbBombs(bunkers: Vector[Bunker], bombs: List[Bomb])
+        : (Vector[Bunker], List[Bomb]) = {
         let pass = List.foldLeft((acc, bomb) -> {
-            let (damaged, wasHit) =
-                absorb(acc#bunkers, { x = bomb#x, y = bomb#y }, Rules.bombSize(),
-                       Rules.bombCraterFor(bomb#kind));
-            { bunkers = damaged, kept = if (wasHit) acc#kept else bomb :: acc#kept }
+            let pos = { x = bomb#x, y = bomb#y };
+            let crater = Rules.bombCraterFor(bomb#kind);
+            let (damaged, wasHit) = absorb(acc#bunkers, pos, Rules.bombSize(), crater);
+            let nextKept = if (wasHit) acc#kept else bomb :: acc#kept;
+            { bunkers = damaged, kept = nextKept }
         }, { bunkers = bunkers, kept = (Nil: List[Bomb]) }, bombs);
         (pass#bunkers, List.reverse(pass#kept))
     }

@@ -257,9 +257,12 @@ mod View {
         let own = if (c#player == 1) mine else theirs;
         let other = if (c#player == 1) theirs else mine;
         let best = scoreText(w#hiScore);
-        Canvas.text(own, margin + under("SCORE<1>", own), 48.0f32);
-        Canvas.text(best, centredX("HI-SCORE", hudSize()) + under("HI-SCORE", best), 48.0f32);
-        Canvas.text(other, rightAlignedX("SCORE<2>", hudSize(), margin) + under("SCORE<2>", other), 48.0f32)
+        let p1X = margin + under("SCORE<1>", own);
+        let hiX = centredX("HI-SCORE", hudSize()) + under("HI-SCORE", best);
+        let p2X = rightAlignedX("SCORE<2>", hudSize(), margin) + under("SCORE<2>", other);
+        Canvas.text(own, p1X, 48.0f32);
+        Canvas.text(best, hiX, 48.0f32);
+        Canvas.text(other, p2X, 48.0f32)
     }
 
     def drawHud(w: World, c: Cabinet): Unit \ Canvas = {

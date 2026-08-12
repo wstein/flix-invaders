@@ -159,8 +159,10 @@ mod Session {
         let (botInput, nextHand) = Demo.imperfect(s#tuning, s#demo, s#demoHand);
         let advanced = Sound.runWithNoOp(() -> Game.step(s#demo, botInput));
         let restarted =
-            if (advanced#phase == Phase.Lost) Game.initial(demoSeed(s#seed) + Int32.toInt64(advanced#score) + 1i64)
-            else advanced;
+            if (advanced#phase == Phase.Lost) {
+                let nextSeed = demoSeed(s#seed) + Int32.toInt64(advanced#score) + 1i64;
+                Game.initial(nextSeed)
+            } else advanced;
         let waiting = { demo = restarted, demoHand = nextHand | s };
         match startRequest(input) {
             case Some(players) => begin(players, waiting)
@@ -257,7 +259,9 @@ mod Session {
             if (Set.memberOf(Key.Backspace, input#pressed) and String.length(typed) > 0)
                 String.dropRight(1, typed)
             else typed;
-        if (not (Set.memberOf(Key.Enter, input#pressed) and String.length(afterDelete) > 0))
+        let hasEnter = Set.memberOf(Key.Enter, input#pressed);
+        let hasName = String.length(afterDelete) > 0;
+        if (not (hasEnter and hasName))
             { typing = afterDelete | s }
         else match s#pending {
             case Nil => { screen = Screen.Table, typing = "" | s }

@@ -142,7 +142,9 @@ mod TestAnimation {
     def separation(w: Bouncing): Float32 = {
         let a = at(0, w);
         let b = at(1, w);
-        Float32.pow(base = (b#x - a#x) * (b#x - a#x) + (b#y - a#y) * (b#y - a#y), 0.5f32)
+        let dx = b#x - a#x;
+        let dy = b#y - a#y;
+        Float32.pow(base = dx * dx + dy * dy, 0.5f32)
     }
 
     @Test
@@ -268,7 +270,14 @@ mod TestAnimation {
     type alias BallSpec = { pos = (Float32, Float32), vel = (Float32, Float32), r = Float32 }
 
     def ballR(spec: BallSpec): Ball = match (spec#pos, spec#vel) {
-        case ((x, y), (dx, dy)) => { x = x, y = y, dx = dx, dy = dy, radius = spec#r, tint = Color.white() }
+        case ((x, y), (dx, dy)) => {
+            x = x,
+            y = y,
+            dx = dx,
+            dy = dy,
+            radius = spec#r,
+            tint = Color.white()
+        }
     }
 
     /// Mass goes with area, matching the sketch.
