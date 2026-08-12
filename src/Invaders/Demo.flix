@@ -72,7 +72,6 @@ pub type alias Hand = {
 mod Demo {
 
     ///
-    ///
     /// The tuning the game ships with.
     ///
     /// Every value here was measured, not chosen. See `docs/ARCHITECTURE.md` and `bin/bench`.
