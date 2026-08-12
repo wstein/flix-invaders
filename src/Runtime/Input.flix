@@ -114,16 +114,25 @@ mod Input {
     ///
     /// A snapshot with nothing held and the mouse at the origin.
     ///
-    pub def empty(): Snapshot =
-        { held = Set.empty(), pressed = Set.empty(), released = Set.empty(), mouseX = 0, mouseY = 0 }
+    pub def empty(): Snapshot = {
+        held = Set.empty(),
+        pressed = Set.empty(),
+        released = Set.empty(),
+        mouseX = 0,
+        mouseY = 0
+    }
 
     ///
     /// Builds a snapshot by comparing the keys held now against the keys held last step.
     ///
     /// The two key sets are named -- transposing them inverts every edge, turning presses
     /// into releases -- and so are the two mouse coordinates.
-    pub def diff(previous: {previous = Set[Key]}, current: {current = Set[Key]},
-                 mouseX: {mouseX = Int32}, mouseY: {mouseY = Int32}): Snapshot = {
+    pub def diff(
+        previous: {previous = Set[Key]},
+        current: {current = Set[Key]},
+        mouseX: {mouseX = Int32},
+        mouseY: {mouseY = Int32}
+    ): Snapshot = {
         let before = previous#previous;
         let now = current#current;
         { held = now,

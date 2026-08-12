@@ -26,7 +26,9 @@ mod Screens {
 
     /// The width of the widest caption.
     def blockWidth(captions: List[Caption]): Float32 =
-        List.foldLeft((widest, c) -> Float32.max(widest, View.textWidth(c#text, c#size)), 0.0f32, captions)
+        List.foldLeft((widest, c) ->
+            Float32.max(widest, View.textWidth(c#text, c#size)),
+            0.0f32, captions)
 
     /// The height the captions occupy once stacked.
     def blockHeight(captions: List[Caption]): Float32 =

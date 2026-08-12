@@ -64,7 +64,12 @@ mod Tuning {
 
     /// Encodes a Tuning configuration record into formatted JSON text.
     pub def encode(t: Tuning): String =
-        String.unlines("{" :: (aimGroup(t) ::: "" :: lapseGroup(t) ::: "" :: movementGroup(t) ::: "" :: dangerGroup(t) ::: "" :: targetGroup(t)) ::: "}" :: Nil)
+        let groups = aimGroup(t) ::: "" ::
+                     lapseGroup(t) ::: "" ::
+                     movementGroup(t) ::: "" ::
+                     dangerGroup(t) ::: "" ::
+                     targetGroup(t);
+        String.unlines("{" :: groups ::: "}" :: Nil)
 
     // -- reading -----------------------------------------------------------------------------
 

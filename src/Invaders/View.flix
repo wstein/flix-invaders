@@ -84,8 +84,10 @@ mod View {
         // One fill for all three bombs: they are told apart by shape, not colour, so that a
         // player who cannot separate the palette's coral from its shot colour still can.
         Canvas.fill(Palette.coral());
-        List.forEach(b -> Sprite.draw(Sprites.bombFor(b#kind), { x = b#x, y = b#y },
-                                      Rules.spriteScale()), w#bombs)
+        List.forEach(b -> {
+            let pos = { x = b#x, y = b#y };
+            Sprite.draw(Sprites.bombFor(b#kind), pos, Rules.spriteScale())
+        }, w#bombs)
     }
 
     ///
@@ -113,7 +115,8 @@ mod View {
         if (List.exists(b -> b#kind == BlastKind.PlayerBlast, w#blasts)) ()
         else {
             Canvas.fill(Palette.cannonGreen());
-            Sprite.draw(Sprites.cannon(), { x = w#playerX, y = Rules.playerY() }, Rules.cannonScale())
+            let pos = { x = w#playerX, y = Rules.playerY() };
+            Sprite.draw(Sprites.cannon(), pos, Rules.cannonScale())
         }
 
     def drawMystery(w: World): Unit \ Canvas = match w#mystery {
@@ -121,7 +124,7 @@ mod View {
         case Some(m) => {
             Canvas.fill(Palette.invaderMagenta());
             Sprite.drawScaled(Sprites.mystery(), { x = m#x, y = Rules.mysteryY() },
-                              scaleX = Rules.mysteryScaleX(), scaleY = Rules.mysteryScaleY())
+                               scaleX = Rules.mysteryScaleX(), scaleY = Rules.mysteryScaleY())
         }
     }
 
@@ -150,7 +153,8 @@ mod View {
     ///
     def drawShield(w: World): Unit \ Canvas =
         if (w#shield <= 0) ()
-        else if (w#shield < Rules.shieldWarningTicks() and Int32.remainder(w#shield / 8, 2) == 0) ()
+        else if (w#shield < Rules.shieldWarningTicks()
+            and Int32.remainder(w#shield / 8, 2) == 0) ()
         else {
             let count = shieldSegments();
             let half = Rules.playerSize()#x / 2.0f32 + shieldSpan();

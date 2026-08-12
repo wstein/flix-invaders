@@ -164,7 +164,8 @@ mod Demo {
         let candidates = columns(w);
         let edges = List.foldLeft((acc, c) -> match acc {
             case None => Some((c#x, c#x))
-            case Some((left, right)) => Some((Float32.min(left, c#x), Float32.max(right, c#x)))
+            case Some((left, right)) =>
+                Some((Float32.min(left, c#x), Float32.max(right, c#x)))
         }, None, candidates);
         match edges {
             case None => None

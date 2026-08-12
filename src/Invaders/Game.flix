@@ -141,12 +141,15 @@ mod Game {
                 let sounded = beat(Float32.abs(stepX), w);
                 let hitsWall = (lo + stepX) < half or (hi + stepX) > (Rules.fieldWidth() - half);
                 if (hitsWall)
-                    { marchDir = -sounded#marchDir,
-                      invaders = Vector.map(inv -> { pos = { y = inv#pos#y + Rules.marchDrop() | inv#pos } | inv },
-                                            sounded#invaders) | sounded }
+                    let updatedInvaders = Vector.map(inv -> {
+                        pos = { y = inv#pos#y + Rules.marchDrop() | inv#pos } | inv
+                    }, sounded#invaders);
+                    { marchDir = -sounded#marchDir, invaders = updatedInvaders | sounded }
                 else
-                    { invaders = Vector.map(inv -> { pos = { x = inv#pos#x + stepX | inv#pos } | inv },
-                                            sounded#invaders) | sounded }
+                    let updatedInvaders = Vector.map(inv -> {
+                        pos = { x = inv#pos#x + stepX | inv#pos } | inv
+                    }, sounded#invaders);
+                    { invaders = updatedInvaders | sounded }
             }
         }
     }
@@ -166,9 +169,16 @@ mod Game {
     /// The lowest living invader in each column is the only one that can drop a bomb.
     def bombers(invaders: Vector[Invader]): List[Invader] =
         Vector.foldLeft((acc, inv) ->
-            if (not inv#alive) acc
-            else if (List.exists(other -> other#pos#x == inv#pos#x and other#pos#y > inv#pos#y, acc)) acc
-            else inv :: List.filter(other -> other#pos#x != inv#pos#x, acc),
+            if (not inv#alive)
+                acc
+            else {
+                let covered = List.exists(other ->
+                    other#pos#x == inv#pos#x and other#pos#y > inv#pos#y, acc);
+                if (covered)
+                    acc
+                else
+                    inv :: List.filter(other -> other#pos#x != inv#pos#x, acc)
+            },
             Nil, invaders)
 
     def placeBomb(inv: Invader, rng: Rng, w: World): World = {
@@ -519,11 +529,14 @@ mod Game {
         let shots = List.foldLeft((acc, b) -> acc + "|b(${b#x},${b#y})", "", w#bullets);
         let drops = List.foldLeft((acc, b) -> acc + "|m(${b#kind},${b#x},${b#y},${b#age})", "", w#bombs);
         let formation = Vector.foldLeft((acc, inv) ->
-            acc + (if (inv#alive) "|i(${inv#pos#x},${inv#pos#y})" else "|."), "", w#invaders);
+            let entry = if (inv#alive) "|i(${inv#pos#x},${inv#pos#y})" else "|.";
+            acc + entry, "", w#invaders);
         let shelters = Vector.foldLeft((acc, bunker) ->
-            acc + "|k${Bunkers.remaining(bunker)}", "", w#bunkers);
+            let entry = "|k${Bunkers.remaining(bunker)}";
+            acc + entry, "", w#bunkers);
         let debris = List.foldLeft((acc, b) ->
-            acc + "|e(${b#kind},${b#pos#x},${b#pos#y},${b#ticksLeft})", "", w#blasts);
+            let entry = "|e(${b#kind},${b#pos#x},${b#pos#y},${b#ticksLeft})";
+            acc + entry, "", w#blasts);
         let ufo = match w#mystery {
             case None => "|u-${w#mysteryTimer}"
             case Some(m) => "|u(${m#x},${m#dir})"
