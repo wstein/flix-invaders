@@ -38,9 +38,17 @@ pub type alias Bouncing = {
 
 mod Animation {
 
+    ///
+    /// The field the balls bounce in, which is also the window `main` opens.
+    ///
+    /// One pair of numbers: the walls, the window and the tests all read them here, so a
+    /// sketch resized in one place cannot end up with balls bouncing off an edge that is no
+    /// longer where the frame is.
+    ///
     pub def fieldWidthPx(): Int32 = 640
     pub def fieldHeightPx(): Int32 = 480
 
+    /// The same two, as the floats the geometry actually works in.
     pub def fieldWidth(): Float32 = Int32.toFloat32(fieldWidthPx())
     pub def fieldHeight(): Float32 = Int32.toFloat32(fieldHeightPx())
 
@@ -84,6 +92,12 @@ mod Animation {
             b :: makeBalls(count, index + 1, nextRng)
         }
 
+    ///
+    /// The starting world: four balls from `seed`, and nothing being pushed yet.
+    ///
+    /// The same seed gives the same four balls, so a run of this sketch can be repeated
+    /// exactly -- the reason the tests can assert about it at all.
+    ///
     pub def initial(seed: Int64): Bouncing =
         { balls = makeBalls(4, 0, Rng.fromSeed(seed)), nudge = 0.0f32 }
 
