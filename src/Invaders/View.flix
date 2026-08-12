@@ -197,6 +197,7 @@ mod View {
     /// The HUD type size. Press Start 2P is a pixel font: whole multiples look best.
     pub def hudSize(): Float32 = 12.0f32
 
+    /// The font size used for large screen banners (e.g. GAME OVER, READY).
     pub def bannerSize(): Float32 = 24.0f32
 
     ///
@@ -302,7 +303,10 @@ mod View {
     ///
     pub def bannerY(): Float32 = 128.0f32
     def bannerHintY(): Float32 = 156.0f32
+    /// Vertical baseline coordinate for rendering the countdown digit.
     pub def countdownY(): Float32 = 170.0f32
+
+    /// Font size used for rendering the ready countdown digits.
     pub def countdownSize(): Float32 = 30.0f32
 
     ///

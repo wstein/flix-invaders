@@ -89,6 +89,7 @@ mod Sketch {
         case _ => None
     }
 
+    /// Generates a fresh random seed from system nanoTime or reads FLIX_INVADERS_SEED.
     pub def freshSeed(): Int64 \ IO = match seedFromEnv() {
         case Some(n) => n
         case None => System.nanoTime()

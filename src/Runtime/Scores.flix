@@ -21,6 +21,7 @@ mod Scores {
 
     def separator(): String = "|"
 
+    /// An empty high score table with no entries.
     pub def empty(): List[Entry] = Nil
 
     ///
@@ -40,9 +41,11 @@ mod Scores {
             case _ => None
         }
 
+    /// Parses a list of lines from disk into a ranked high score table.
     pub def parse(lines: List[String]): List[Entry] =
         lines |> List.filterMap(parseLine) |> ranked
 
+    /// Renders a list of high score entries into serializable line strings.
     pub def render(entries: List[Entry]): List[String] =
         List.map(e -> "${e#name}${separator()}${e#score}${separator()}${e#level}", entries)
 
@@ -63,9 +66,11 @@ mod Scores {
         else if (List.length(entries) < places()) true
         else List.exists(e -> score > e#score, entries)
 
+    /// Inserts a new high score entry into the table and returns the re-ranked list.
     pub def insert(entry: Entry, entries: List[Entry]): List[Entry] =
         ranked(entry :: entries)
 
+    /// Returns the highest score value currently in the high score table, or 0 if empty.
     pub def best(entries: List[Entry]): Int32 =
         List.foldLeft((top, e) -> Int32.max(top, e#score), 0, entries)
 

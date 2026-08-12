@@ -128,21 +128,34 @@ pub type alias World = {
 ///
 mod Rules {
 
+    /// Playfield boundary width in screen pixels.
     pub def fieldWidth(): Float32 = 640.0f32
+
+    /// Playfield boundary height in screen pixels.
     pub def fieldHeight(): Float32 = 480.0f32
 
     /// Matches the cannon sprite at `spriteScale` x 3: 13 x 8 pixels.
     pub def playerSize(): Vec2 = { x = 39.0f32, y = 24.0f32 }
+
+    /// The fixed vertical baseline Y position of the player cannon.
     pub def playerY(): Float32 = 436.0f32
+
+    /// The horizontal movement speed of the player cannon in pixels per tick.
     pub def playerSpeed(): Float32 = 4.0f32
+
+    /// Number of lives a player starts with at the beginning of a game.
     pub def startingLives(): Int32 = 3
 
+    /// Bounding size of a player cannon bullet.
     pub def bulletSize(): Vec2 = { x = 4.0f32, y = 12.0f32 }
 
     /// Screen pixels per sprite pixel.
     pub def spriteScale(): Float32 = 2.0f32
 
+    /// Scale multiplier applied to the cannon sprite.
     pub def cannonScale(): Float32 = 3.0f32
+
+    /// Upward flight speed of a player bullet in pixels per tick.
     pub def bulletSpeed(): Float32 = 7.0f32
 
     ///
@@ -172,6 +185,7 @@ mod Rules {
             Float32.ceil((playerY() - playerSize()#y + bulletSize()#y) / bulletSpeed()))
             |> Option.getWithDefault(1)
 
+    /// Bounding size of an invader bomb.
     pub def bombSize(): Vec2 = { x = 6.0f32, y = 14.0f32 }
 
     ///
@@ -229,30 +243,32 @@ mod Rules {
     /// One hit box for every kind, so a squid is no harder to hit than an octopus.
     pub def invaderSize(): Vec2 = { x = 24.0f32, y = 16.0f32 }
 
+    /// Number of columns of invaders in a full formation.
     pub def columns(): Int32 = 11
+
+    /// Number of rows of invaders in a full formation.
     pub def rows(): Int32 = 5
+
+    /// Horizontal spacing between invader origins in pixels.
     pub def columnSpacing(): Float32 = 40.0f32
+
+    /// Vertical spacing between invader origins in pixels.
     pub def rowSpacing(): Float32 = 32.0f32
+
+    /// X coordinate of the leftmost invader column at spawn.
     pub def formationLeft(): Float32 = 120.0f32
+
+    /// Default Y coordinate of the top invader row at spawn on level 1.
     pub def formationTop(): Float32 = 96.0f32
+
+    /// Additional vertical drop distance applied to initial formation per level wave.
+    pub def descentPerWave(): Float32 = 8.0f32
 
     ///
     /// How much lower each wave starts than the one before, and how many waves before the
     /// cycle resets.
     ///
-    /// The guide: screen 1 "need[s] to drop 11 lines to reach the bottom", screens 2 through 9
-    /// "start progressively lower down the screen", and "at screen 10 the game reverts to the
-    /// screen 1 start position and the cycle begins again".
-    ///
-    /// This is a different kind of difficulty from the two the game already had. Speed and
-    /// bomb rate make a wave harder to *survive*; a lower start makes it shorter, which is
-    /// harder to *finish* -- there is simply less time before the formation lands, whatever
-    /// the player's skill. Eight pixels a wave leaves the ninth still needing seven row drops,
-    /// so the hardest wave in the cycle is tight rather than impossible.
-    ///
     pub def wavesPerCycle(): Int32 = 9
-
-    pub def descentPerWave(): Float32 = 8.0f32
 
     /// Where the formation's top row starts on a given level. Cycles every `wavesPerCycle`.
     pub def formationTopFor(level: Int32): Float32 = {
@@ -264,6 +280,7 @@ mod Rules {
     pub def formationBottomFor(level: Int32): Float32 =
         formationTopFor(level) + Int32.toFloat32(rows() - 1) * rowSpacing()
 
+    /// Y coordinate of the bottom invader row at level 1 spawn.
     pub def formationBottom(): Float32 = formationBottomFor(1)
 
     ///
@@ -275,6 +292,7 @@ mod Rules {
         else if (row <= 2) InvaderKind.Crab
         else InvaderKind.Octopus
 
+    /// Point value awarded for destroying an invader of the given kind.
     pub def pointsFor(kind: InvaderKind): Int32 = match kind {
         case InvaderKind.Squid => 30
         case InvaderKind.Crab => 20
@@ -289,9 +307,16 @@ mod Rules {
     /// One block of a bunker, in screen pixels.
     pub def bunkerCell(): Float32 = 4.0f32
 
+    /// Number of block columns per bunker shelter.
     pub def bunkerColumns(): Int32 = 12
+
+    /// Number of block rows per bunker shelter.
     pub def bunkerRows(): Int32 = 8
+
+    /// Number of bunker shelters spaced across the screen.
     pub def bunkerCount(): Int32 = 4
+
+    /// Y position of top edge of bunkers.
     pub def bunkerTop(): Float32 = 366.0f32
 
     /// The x of the left edge of bunker `index`.
@@ -351,6 +376,7 @@ mod Rules {
     ///
     pub def bombWiggleSpeed(): Float32 = 1.1f32
 
+    /// Number of ticks for a full half-sweep oscillation of a wiggly bomb.
     pub def bombWiggleTicks(): Int32 = 14
 
     ///
@@ -506,6 +532,7 @@ mod Rules {
 
     /// The saucer is stretched horizontally: three times the width, unchanged height.
     pub def mysteryScaleX(): Float32 = 3.0f32
+    /// The saucer scale factor on the Y axis.
     pub def mysteryScaleY(): Float32 = 2.0f32
 
     ///
@@ -523,6 +550,7 @@ mod Rules {
     /// High enough to be clear of the formation's starting row.
     pub def mysteryY(): Float32 = 70.0f32
 
+    /// Speed at which the mystery saucer flies horizontally.
     pub def mysterySpeed(): Float32 = 1.6f32
 
     ///
@@ -536,6 +564,7 @@ mod Rules {
     /// old rate a player barely had time to reach the 23rd shot between appearances.
     pub def mysteryInterval(): Int32 = 1500
 
+    /// Random jitter range added to mysteryInterval.
     pub def mysterySpread(): Int32 = 320
 
     ///
@@ -556,6 +585,7 @@ mod Rules {
     ///
     pub def bonusLifeScore(): Int32 = 2500
 
+    /// Maximum cap on accumulated player lives.
     pub def maxLives(): Int32 = 6
 
     ///
@@ -589,12 +619,14 @@ mod Rules {
     ///
     pub def mysteryFirstBonusShot(): Int32 = 23
 
+    /// Interval of shots after the first bonus shot that awards 300 points.
     pub def mysteryBonusEvery(): Int32 = 15
 
     /// The lesser values, walked by shot count. Fixed order, so it can be learned.
     def mysteryTable(): Vector[Int32] =
         Vector#{50, 100, 50, 100, 150, 100, 100, 50, 150, 100, 50, 100, 150, 50, 100}
 
+    /// Computes the score value awarded for hitting the mystery ship on `shotsFired`.
     pub def mysteryScoreFor(shotsFired: Int32): Int32 =
         if (shotsFired >= mysteryFirstBonusShot()
             and Int32.remainder(shotsFired - mysteryFirstBonusShot(), mysteryBonusEvery()) == 0)
@@ -632,6 +664,7 @@ mod Rules {
     /// Invaders reaching this line end the game.
     pub def invasionLine(): Float32 = playerY() - invaderSize()#y
 
+    /// Total count of invaders in a full initial formation.
     pub def totalInvaders(): Int32 = columns() * rows()
 
 }

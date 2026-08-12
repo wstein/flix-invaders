@@ -135,6 +135,7 @@ mod Sprite {
 ///
 mod Sprites {
 
+    /// Top row invader (squid), animation frame A.
     pub def squidA(): Sprite = Sprite.of(Vector#{
         "...##...",
         "..####..",
@@ -146,6 +147,7 @@ mod Sprites {
         "#.#..#.#"
     })
 
+    /// Top row invader (squid), animation frame B.
     pub def squidB(): Sprite = Sprite.of(Vector#{
         "...##...",
         "..####..",
@@ -157,6 +159,7 @@ mod Sprites {
         ".#....#."
     })
 
+    /// Middle row invader (crab), animation frame A.
     pub def crabA(): Sprite = Sprite.of(Vector#{
         "..#.....#..",
         "...#...#...",
@@ -168,6 +171,7 @@ mod Sprites {
         "...##.##..."
     })
 
+    /// Middle row invader (crab), animation frame B.
     pub def crabB(): Sprite = Sprite.of(Vector#{
         "..#.....#..",
         "#..#...#..#",
@@ -179,6 +183,7 @@ mod Sprites {
         ".#.......#."
     })
 
+    /// Bottom row invader (octopus), animation frame A.
     pub def octopusA(): Sprite = Sprite.of(Vector#{
         "....####....",
         ".##########.",
@@ -190,6 +195,7 @@ mod Sprites {
         ".##......##."
     })
 
+    /// Bottom row invader (octopus), animation frame B.
     pub def octopusB(): Sprite = Sprite.of(Vector#{
         "....####....",
         ".##########.",
@@ -201,6 +207,7 @@ mod Sprites {
         "..##....##.."
     })
 
+    /// Player defense cannon sprite.
     pub def cannon(): Sprite = Sprite.of(Vector#{
         "......#......",
         ".....###.....",
@@ -212,6 +219,7 @@ mod Sprites {
         "#############"
     })
 
+    /// Single laser bullet fired by player cannon.
     pub def bullet(): Sprite = Sprite.of(Vector#{
         "#",
         "#",
@@ -309,6 +317,7 @@ mod Sprites {
         "#.#.#####.#.#"
     })
 
+    /// Explosion artwork for player destruction, frame B.
     pub def playerBlastB(): Sprite = Sprite.of(Vector#{
         "#.#...#...#.#",
         "..#.#...#.#..",

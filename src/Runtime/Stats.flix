@@ -27,6 +27,7 @@ pub type alias Stats = {
 ///
 mod Stats {
 
+    /// Initial zeroed telemetry statistics record.
     pub def empty(): Stats =
         { fps = 0.0f32, simMs = 0.0f32, drawMs = 0.0f32, steps = 0, frames = 0, catchUps = 0 }
 
@@ -52,6 +53,7 @@ mod Stats {
     def nanosPerSecond(): Float32 = 1000000000.0f32
     def nanosPerMilli(): Float32 = 1000000.0f32
 
+    /// Converts a duration in nanoseconds to milliseconds as a Float32.
     pub def millis(nanos: Int64): Float32 = Int64.toFloat32(nanos) / nanosPerMilli()
 
     ///

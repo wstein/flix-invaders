@@ -30,9 +30,13 @@ mod Color {
         case Color.Rgb(_, _, b) => channel(b)
     }
 
+    /// Creates a grayscale color with identical red, green, and blue components.
     pub def grey(v: Int32): Color = Color.Rgb(v, v, v)
 
+    /// Solid black color (RGB 0, 0, 0).
     pub def black(): Color = Color.Rgb(0, 0, 0)
+
+    /// Solid white color (RGB 255, 255, 255).
     pub def white(): Color = Color.Rgb(255, 255, 255)
 
     ///

@@ -62,6 +62,7 @@ mod Tuning {
         "  \"fireWindow\":       ${t#fireWindow}," ::
         "  \"imminence\":        ${t#imminence}" :: Nil
 
+    /// Encodes a Tuning configuration record into formatted JSON text.
     pub def encode(t: Tuning): String =
         String.unlines("{" :: (aimGroup(t) ::: "" :: lapseGroup(t) ::: "" :: movementGroup(t) ::: "" :: dangerGroup(t) ::: "" :: targetGroup(t)) ::: "}" :: Nil)
 
@@ -135,6 +136,7 @@ mod Tuning {
     def withinF(low: Float32, high: Float32, value: Float32): Float32 =
         Float32.max(low, Float32.min(high, value))
 
+    /// Clamps all values of a Tuning record to their legal bounds to prevent unplayable state.
     pub def sane(t: Tuning): Tuning = {
         aimJitter = within(0, 60, t#aimJitter),
         judgeFor = within(1, 300, t#judgeFor),
@@ -178,6 +180,7 @@ mod Tuning {
             case Err(other) => Err("${other}")
         }
 
+    /// Serializes and writes a Tuning configuration record to disk at the specified path.
     pub def save(file: String, dir: String, t: Tuning): Result[String, Unit] \ Fs.FileWrite =
         Fs.FileWrite.mkDirs(dir)
             |> Result.flatMap(_ -> Fs.FileWrite.write(str = encode(t), file))

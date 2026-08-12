@@ -34,6 +34,9 @@ mod Key {
     ///
     def alphabet(): String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
+    ///
+    /// Converts a key press to an uppercase ASCII letter char ('A'-'Z'), if applicable.
+    ///
     pub def letter(k: Key): Option[Char] = match k {
         case Key.Other(code) if code >= 65 and code <= 90 =>
             Some(String.charAt(code - 65, alphabet()))
@@ -54,6 +57,9 @@ mod Key {
 
     def digits(): String = "0123456789"
 
+    ///
+    /// Converts a key press to a numeric digit (0-9), if applicable.
+    ///
     pub def digit(k: Key): Option[Int32] = match k {
         case Key.Other(code) if code >= 48 and code <= 57 => Some(code - 48)
         case _ => None

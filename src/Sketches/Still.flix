@@ -56,6 +56,7 @@ mod Still {
         Canvas.text("a still picture -- no state, no time", 24.0f32, height - 28.0f32)
     }
 
+    /// Entry point for running the still picture sketch.
     pub def main(): Unit \ IO = {
         let limit = Sketch.maxFramesFromEnv();
         Sketch.start(

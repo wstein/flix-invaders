@@ -20,18 +20,34 @@ mod Palette {
     /// Large blocks drawn against the background, such as the skyline.
     pub def silhouette(): Color = Color.Rgb(98, 104, 136)
 
+    /// Yellow accent for the sun and banners.
     pub def sun(): Color = Color.Rgb(245, 205, 110)
 
-    // Arcade colours. The original was black and white; cabinets faked colour with a strip
-    // of coloured cellophane over the screen, which is why the rows are banded.
+    /// Bright green for top invader row.
     pub def invaderGreen(): Color = Color.Rgb(92, 240, 116)
+
+    /// Cyan for middle invader row.
     pub def invaderCyan(): Color = Color.Rgb(96, 226, 240)
+
+    /// Magenta for bottom invader row.
     pub def invaderMagenta(): Color = Color.Rgb(236, 118, 224)
+
+    /// Green for the player cannon.
     pub def cannonGreen(): Color = Color.Rgb(92, 240, 116)
+
+    /// Green for ground line.
     pub def ground(): Color = Color.Rgb(60, 200, 90)
+
+    /// White for player and invader shots.
     pub def shot(): Color = Color.Rgb(240, 240, 240)
+
+    /// Coral red accent color.
     pub def coral(): Color = Color.Rgb(240, 122, 112)
+
+    /// Soft mint green accent color.
     pub def mint(): Color = Color.Rgb(126, 217, 168)
+
+    /// Azure blue accent color.
     pub def azure(): Color = Color.Rgb(130, 182, 246)
 
     ///

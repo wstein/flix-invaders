@@ -54,6 +54,7 @@ mod Session {
     /// The seed the attract game runs from, offset so it never mirrors a real game.
     def demoSeed(seed: Int64): Int64 = seed + 977i64
 
+    /// Initializes a fresh cabinet session with default scores and seed.
     pub def initial(seed: Int64): Session = withScores(seed, Scores.empty())
 
     ///
@@ -286,6 +287,7 @@ mod Session {
     ///
     pub def togglesNerds(input: Snapshot): Bool = Set.memberOf(Key.F3, input#pressed)
 
+    /// Advances the cabinet session by one tick given user input.
     pub def step(s: Session, input: Snapshot): Session \ Sound = {
         let shown = if (togglesNerds(input)) not s#nerds else s#nerds;
         { nerds = shown | advance(s, input) }
