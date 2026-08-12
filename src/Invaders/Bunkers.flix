@@ -262,16 +262,13 @@ mod Bunkers {
     /// buy nothing.
     ///
     pub def absorbBombs(bunkers: Vector[Bunker], bombs: List[Bomb]): (Vector[Bunker], List[Bomb]) = {
-        def loop(remaining, acc, kept) = match remaining {
-            case Nil => (acc, List.reverse(kept))
-            case bomb :: rest => {
-                let (damaged, wasHit) =
-                    absorb(acc, { x = bomb#x, y = bomb#y }, Rules.bombSize(),
-                           Rules.bombCraterFor(bomb#kind));
-                loop(rest, damaged, if (wasHit) kept else bomb :: kept)
-            }
-        };
-        loop(bombs, bunkers, Nil)
+        let pass = List.foldLeft((acc, bomb) -> {
+            let (damaged, wasHit) =
+                absorb(acc#bunkers, { x = bomb#x, y = bomb#y }, Rules.bombSize(),
+                       Rules.bombCraterFor(bomb#kind));
+            { bunkers = damaged, kept = if (wasHit) acc#kept else bomb :: acc#kept }
+        }, { bunkers = bunkers, kept = (Nil: List[Bomb]) }, bombs);
+        (pass#bunkers, List.reverse(pass#kept))
     }
 
     ///
@@ -282,14 +279,11 @@ mod Bunkers {
     /// so a bullet cannot bore through two shelters standing in a line.
     ///
     pub def absorbAll(bunkers: Vector[Bunker], shots: List[Vec2], size: Vec2, crater: Float32): (Vector[Bunker], List[Vec2]) = {
-        def loop(remainingShots, acc, kept) = match remainingShots {
-            case Nil => (acc, List.reverse(kept))
-            case shot :: rest => {
-                let (damaged, wasHit) = absorb(acc, shot, size, crater);
-                loop(rest, damaged, if (wasHit) kept else shot :: kept)
-            }
-        };
-        loop(shots, bunkers, Nil)
+        let pass = List.foldLeft((acc, shot) -> {
+            let (damaged, wasHit) = absorb(acc#bunkers, shot, size, crater);
+            { bunkers = damaged, kept = if (wasHit) acc#kept else shot :: acc#kept }
+        }, { bunkers = bunkers, kept = (Nil: List[Vec2]) }, shots);
+        (pass#bunkers, List.reverse(pass#kept))
     }
 
     ///

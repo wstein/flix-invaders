@@ -58,18 +58,18 @@ mod Sprite {
     /// The horizontal runs of lit pixels in one row, as `(row, startColumn, length)`.
     ///
     def rowRuns(y: Int32, cells: List[Char]): List[(Int32, Int32, Int32)] = {
-        def go(x, start, acc, rest) = match rest {
-            case Nil => close(y, x, start, acc)
-            case cell :: more =>
-                if (cell == lit())
-                    go(x + 1, (match start {
-                        case None => Some(x)
-                        case some => some
-                    }), acc, more)
-                else
-                    go(x + 1, None, close(y, x, start, acc), more)
-        };
-        List.reverse(go(0, None, Nil, cells))
+        let scanned = List.foldLeft((scan, cell) ->
+            if (cell == lit())
+                // Already in a run, or starting one here.
+                { column = scan#column + 1,
+                  start = Some(Option.getWithDefault(scan#column, scan#start)) | scan }
+            else
+                { column = scan#column + 1,
+                  start = None,
+                  runs = close(y, scan#column, scan#start, scan#runs) },
+            { column = 0, start = (None: Option[Int32]), runs = Nil }, cells);
+        // A run still open at the end of the row is closed by the row's edge.
+        List.reverse(close(y, scanned#column, scanned#start, scanned#runs))
     }
 
     /// Collapses every row into runs. Called once per sprite, by `of`.
