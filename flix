@@ -13,13 +13,45 @@ done
 root=$(CDPATH= cd -- "$(dirname -- "$self")" && pwd -P)
 src=$root/.flix-wrapper/flix.java
 
+# The cache is resolved before the java search, because a JDK flixw installed
+# earlier lives in it and is the last thing worth trying.
+if [ -n "${FLIX_CACHE_HOME:-}" ]; then cache=$FLIX_CACHE_HOME
+else
+  case $(uname -s) in
+    Darwin) cache=$HOME/Library/Caches/flixw ;;
+    *)      cache=${XDG_CACHE_HOME:-$HOME/.cache}/flixw ;;
+  esac
+fi
+
+# `chosen` marks an explicitly named JDK. Those are obeyed exactly as given, right
+# down to failing: stage 0's contract is that an explicit setting fails loudly
+# rather than being quietly replaced by a JVM the caller did not ask for.
+chosen=yes
 if [ -n "${FLIX_JAVA_HOME:-}" ]; then java0=$FLIX_JAVA_HOME/bin/java
 elif [ -n "${JAVA_HOME:-}" ]; then java0=$JAVA_HOME/bin/java
-else java0=$(command -v java 2>/dev/null || true); fi
+else java0=$(command -v java 2>/dev/null || true); chosen=no; fi
+
+# Nothing on PATH: fall back to the JDK flixw installed, if there is one. Its path
+# is read from a file rather than guessed, because every vendor nests differently.
+if [ -z "$java0" ] && [ -r "$cache/jdks/default" ]; then
+  java0=$(cat "$cache/jdks/default" 2>/dev/null || true)
+  # It names something the shim will execute, so it may only name something
+  # inside the directory flixw unpacks into.
+  case $java0 in "$cache/jdks/"*) ;; *) java0= ;; esac
+  [ -x "$java0" ] || java0=
+fi
 
 if [ -z "$java0" ]; then
-  echo "FLIXW003: no java executable found." >&2
-  echo "          Flix needs Java 21+. Set JAVA_HOME or put java on PATH." >&2
+  echo "FLIXW003: no java executable found. Flix needs Java 21+." >&2
+  echo "          Install a JDK -- Eclipse Temurin is the usual choice:" >&2
+  case $(uname -s) in
+    Darwin) echo "            brew install temurin@21" >&2 ;;
+    *)      echo "            apt install temurin-21-jdk    (or your package manager)" >&2 ;;
+  esac
+  echo "            https://adoptium.net/temurin/releases/?version=21" >&2
+  echo "          Then set JAVA_HOME, or put its bin directory on PATH." >&2
+  echo "          With any Java 21+ present, ./flix wrapper --install-jdk will" >&2
+  echo "          fetch and verify one into the flixw cache for this project." >&2
   exit 127
 fi
 if [ ! -x "$java0" ]; then
@@ -47,14 +79,24 @@ if [ -r "$jhome/release" ]; then
   jfeature=$(sed -n 's/^JAVA_VERSION="\([0-9][0-9]*\).*/\1/p' "$jhome/release" 2>/dev/null)
 fi
 
-# Content-keyed compiled stage 0.  Versioned interface with stage 0; see README.
-if [ -n "${FLIX_CACHE_HOME:-}" ]; then cache=$FLIX_CACHE_HOME
-else
-  case $(uname -s) in
-    Darwin) cache=$HOME/Library/Caches/flixw ;;
-    *)      cache=${XDG_CACHE_HOME:-$HOME/.cache}/flixw ;;
-  esac
+# A java below the floor is worse than none: below 15 it cannot even compile stage
+# 0, so nothing flixw knows -- its own installed JDK included -- is ever reached.
+# When one is recorded, prefer it and let stage 0 speak.
+if [ "$chosen" = no ] && [ -n "$jfeature" ] && [ "$jfeature" -lt 21 ] \
+   && [ -r "$cache/jdks/default" ]; then
+  mine=$(cat "$cache/jdks/default" 2>/dev/null || true)
+  case $mine in "$cache/jdks/"*) ;; *) mine= ;; esac
+  if [ -n "$mine" ] && [ -x "$mine" ]; then
+    java0=$mine
+    jhome=${mine%/bin/java}
+    jfeature=
+    if [ -r "$jhome/release" ]; then
+      jfeature=$(sed -n 's/^JAVA_VERSION="\([0-9][0-9]*\).*/\1/p' "$jhome/release" 2>/dev/null)
+    fi
+  fi
 fi
+
+# Content-keyed compiled stage 0.  Versioned interface with stage 0; see README.
 h=
 if command -v shasum >/dev/null 2>&1; then h=$(shasum -a 256 "$src" 2>/dev/null | cut -d' ' -f1)
 elif command -v sha256sum >/dev/null 2>&1; then h=$(sha256sum "$src" 2>/dev/null | cut -d' ' -f1)
