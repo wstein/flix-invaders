@@ -15,7 +15,7 @@ jobs:
       FLIX_CACHE_HOME: ${{ github.workspace }}/.flix-cache
     steps:
       - name: Check out
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install JDK 21
         uses: actions/setup-java@v5
