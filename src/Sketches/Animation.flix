@@ -42,14 +42,16 @@ mod Animation {
     /// The field the balls bounce in, which is also the window `main` opens.
     ///
     /// One pair of numbers: the walls, the window and the tests all read them here, so a
-    /// sketch resized in one place cannot end up with balls bouncing off an edge that is no
-    /// longer where the frame is.
-    ///
+    /// The width of the animation canvas in pixels.
     pub def fieldWidthPx(): Int32 = 640
+
+    /// The height of the animation canvas in pixels.
     pub def fieldHeightPx(): Int32 = 480
 
-    /// The same two, as the floats the geometry actually works in.
+    /// The width of the animation canvas as a Float32 for geometric calculations.
     pub def fieldWidth(): Float32 = Int32.toFloat32(fieldWidthPx())
+
+    /// The height of the animation canvas as a Float32 for geometric calculations.
     pub def fieldHeight(): Float32 = Int32.toFloat32(fieldHeightPx())
 
     /// Constant downward acceleration. Set this to something like 0.15 to add gravity.

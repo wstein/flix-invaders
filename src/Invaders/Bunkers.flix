@@ -56,6 +56,9 @@ mod Bunkers {
           y = bunker#origin#y + (Int32.toFloat32(row) + 0.5f32) * Rules.bunkerCell() }
     }
 
+    ///
+    /// The size of a single bunker cell block as a 2D vector.
+    ///
     pub def cellSize(): Vec2 = { x = Rules.bunkerCell(), y = Rules.bunkerCell() }
 
     /// The whole bunker's footprint, used to reject distant shots cheaply.
@@ -164,9 +167,15 @@ mod Bunkers {
             }
         }, bunkers)
 
+    ///
+    /// The number of intact, surviving blocks in a single bunker.
+    ///
     pub def remaining(bunker: Bunker): Int32 =
         Vector.count(alive -> alive, bunker#cells)
 
+    ///
+    /// The total number of intact, surviving blocks across all bunkers in the vector.
+    ///
     pub def totalRemaining(bunkers: Vector[Bunker]): Int32 =
         Vector.foldLeft((total, bunker) -> total + remaining(bunker), 0, bunkers)
 
