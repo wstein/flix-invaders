@@ -209,9 +209,31 @@ mod Bunkers {
         }
     }
 
+    ///
     /// Whether anything of `bunker` still overlaps the given box.
-    def touches(bunker: Bunker, pos: Vec2, size: Vec2): Bool =
-        not Option.isEmpty(contact(bunker, pos, size))
+    ///
+    /// Asks the same question as `contact` and stops at the first answer. `contact` cannot:
+    /// it has to see every overlapping block to return the *nearest*, which is what centres a
+    /// crater correctly, and a caller that only wants "yes" pays for all 96 cells to throw the
+    /// index away. `erode` asks this of every living invader against every bunker on every
+    /// tick once the formation is that low, so the difference is not academic.
+    ///
+    /// A recursion rather than `Vector.exists`, which would want a `Vector.range` of indices
+    /// built per call: the cell's index is needed to place it, and the point here is to stop
+    /// allocating, not to start.
+    ///
+    def touches(bunker: Bunker, pos: Vec2, size: Vec2): Bool = {
+        // Same footprint rejection `contact` opens with, and for the same reason.
+        let (centre, footprint) = bounds(bunker);
+        def scan(i) =
+            if (i >= Vector.length(bunker#cells)) false
+            else if (Vector.get(i, bunker#cells)
+                     and Collide.overlaps(aPos = pos, aSize = size,
+                                          bPos = cellCentre(bunker, i), bSize = cellSize()))
+                true
+            else scan(i + 1);
+        Collide.overlaps(aPos = pos, aSize = size, bPos = centre, bSize = footprint) and scan(0)
+    }
 
     ///
     /// Removes every block within `radius` of `at`.
@@ -294,8 +316,13 @@ mod Bunkers {
     ///
     pub def erode(bunkers: Vector[Bunker], invaders: Vector[Invader]): Vector[Bunker] = {
         let lowest = Vector.foldLeft((low, inv) ->
-            if (inv#alive) Float32.max(low, inv#pos#y) else low, 0.0f32, invaders);
-        if (lowest + Rules.invaderSize()#y / 2.0f32 < Rules.bunkerTop()) bunkers
+            if (inv#alive)
+                Float32.max(low, inv#pos#y)
+            else
+                low,
+            0.0f32, invaders);
+        if (lowest + Rules.invaderSize()#y / 2.0f32 < Rules.bunkerTop())
+            bunkers
         else
             Vector.map(bunker ->
                 Vector.foldLeft((acc, inv) ->
