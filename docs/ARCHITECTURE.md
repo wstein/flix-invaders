@@ -172,6 +172,30 @@ handled rather than walled off.
 `Audio.flix` owns waveform synthesis and a pool of `javax.sound.sampled` clips. Nothing else
 in `src/` imports a Java class.
 
+A frame is written as five beats, one function each, and `Sketch.drawFrame` is the list of
+them in order:
+
+| beat | what it does | what it returns |
+| --- | --- | --- |
+| `accumulate` | reads the monotonic clock, adds the gap to the time owed | the whole gap |
+| `readKeyboard` | freezes one reading of the keys, decides how many ticks are due | the count and the snapshot |
+| `simulate` | spends those ticks' time, runs them under the `Sound` handler | what they cost |
+| `paint` | runs `view` under the `Canvas` handler | what that cost |
+| `countFrame` | counts the frame, closes the window at `maxFrames` | -- |
+
+Each beat returns what the next one needs, so the order in `drawFrame` is the data flow
+rather than a convention that could quietly drift. `observe` then folds the two costs into
+`Stats`. The beats share one `Loop` record — the settings fixed when the window opened, plus
+the `Ref`s a frame may write — because handing each beat the five or six values it happens to
+want is how a frame loop acquires an eight-argument function nobody can call from memory.
+
+Two things are deliberate and easy to undo by accident. The clamp applies to the time *owed*
+and not to the gap *reported*, so a stall cannot make the simulation catch up all at once but
+still shows up in the frame rate. And the accumulator is spent in `simulate`, in one line, for
+exactly the number of ticks `readKeyboard` decided — the count is known before the walk
+starts, so nothing is learned by paying per tick and then measuring the accumulator to find
+out how many ran.
+
 `Main.flix` is a third file that reaches outside the process, though not through Java: it
 reads and writes the high-score file through `Fs`. See *Persistence*.
 
