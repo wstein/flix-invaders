@@ -65,6 +65,6 @@ The font is loaded at runtime from a file path and is not embedded in any build 
 
 ## Flix compiler
 
-The Flix compiler (`./flix` downloads `flix.jar` into a digest-addressed user cache) is
+The Flix compiler (`./flixw` downloads `flix.jar` into a digest-addressed user cache) is
 Apache-2.0 licensed and is a **build tool** — it is not redistributed as part of this
 project. See https://github.com/flix/flix.

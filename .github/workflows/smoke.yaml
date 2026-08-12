@@ -41,7 +41,7 @@ jobs:
           path: |
             .flix-cache
             lib
-          key: flix-${{ runner.os }}-${{ hashFiles('flix.toml', '.flix-wrapper/lock.toml') }}
+          key: flix-${{ runner.os }}-${{ hashFiles('flix.toml', '.flixw/lock.toml') }}
 
       # Linux runners have no display. Without Xvfb, Processing's ShimAWT hits a
       # HeadlessException and calls System.exit(1) -- a bare exit code with no stack trace.

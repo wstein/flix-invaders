@@ -35,14 +35,14 @@ jobs:
           path: |
             .flix-cache
             lib
-          key: flix-${{ runner.os }}-${{ hashFiles('flix.toml', '.flix-wrapper/lock.toml') }}
+          key: flix-${{ runner.os }}-${{ hashFiles('flix.toml', '.flixw/lock.toml') }}
 
       # A release must not ship something the tests have not seen.
       - name: Check
-        run: ./flix check
+        run: ./flixw check
 
       - name: Test
-        run: ./flix test
+        run: ./flixw test
 
       # `build-jar` packages whatever is in build/class, and Flix leaves the classes of
       # earlier builds behind -- a working copy that has been built a few dozen times
@@ -65,7 +65,7 @@ jobs:
       - name: Build the jar
         run: |
           rm -rf build artifact
-          ./flix build-jar
+          ./flixw build-jar
           # Flix names the artifact after the checkout directory rather than the package, so
           # this depends on what the clone is called: on a runner it is already right, in a
           # working copy named anything else it is not.
@@ -110,7 +110,7 @@ jobs:
           # This is a *natural exit* check. The jar has to stop by itself: `Sketch` overrides
           # `exitActual` so closing the window returns to `main` to save the scores, which
           # leaves AWT's non-daemon event thread running, and `main` exits explicitly once the
-          # saving is done. `./flix run` hides a failure here because its launcher owns the
+          # saving is done. `./flixw run` hides a failure here because its launcher owns the
           # JVM -- so this step, on a plain `java`, is the only thing that tests it, and it
           # caught the released game hanging forever.
           #

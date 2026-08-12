@@ -1,5 +1,10 @@
 #!/bin/sh
-# flixw shim -- invariant file, byte-identical across projects for a wrapper release.
+# flixw shim -- GENERATED; DO NOT EDIT.  `flixw install` writes this file,
+# `flixw doctor --fix` restores it, and `flixw validate` compares it byte for byte,
+# so an edit here is first reported and then overwritten.  It is byte-identical
+# across every project on a given flixw release.  To change it, edit the SHIM text
+# block in flixw.java -- src/flixw in that repository is only the checked-in copy,
+# and tests/lint.sh fails if the two disagree.
 # Finds an initial java, prefers the compiled stage 0, else launches the source.
 set -e
 self=$0
@@ -11,7 +16,7 @@ done
 # elsewhere and echo the result. shellcheck reads that as a typo (SC1007).
 # shellcheck disable=SC1007
 root=$(CDPATH= cd -- "$(dirname -- "$self")" && pwd -P)
-src=$root/.flix-wrapper/flix.java
+src=$root/.flixw/flixw.java
 
 # The cache is resolved before the java search, because a JDK flixw installed
 # earlier lives in it and is the last thing worth trying.
@@ -31,15 +36,48 @@ if [ -n "${FLIX_JAVA_HOME:-}" ]; then java0=$FLIX_JAVA_HOME/bin/java
 elif [ -n "${JAVA_HOME:-}" ]; then java0=$JAVA_HOME/bin/java
 else java0=$(command -v java 2>/dev/null || true); chosen=no; fi
 
-# Nothing on PATH: fall back to the JDK flixw installed, if there is one. Its path
-# is read from a file rather than guessed, because every vendor nests differently.
-if [ -z "$java0" ] && [ -r "$cache/jdks/default" ]; then
-  java0=$(cat "$cache/jdks/default" 2>/dev/null || true)
-  # It names something the shim will execute, so it may only name something
-  # inside the directory flixw unpacks into.
-  case $java0 in "$cache/jdks/"*) ;; *) java0= ;; esac
-  [ -x "$java0" ] || java0=
+# The JDK flixw installed, if there is one. Its path is read from a file rather than
+# guessed, because every vendor nests differently -- and the marker names something
+# this script will execute, so it may only name something inside the directory flixw
+# unpacks into. A prefix test alone does not say that: `$cache/jdks/../../bin/java`
+# passes one and is not inside anything. Containment is a guardrail rather than the
+# security boundary, which is who can write the cache at all -- `doctor` checks that
+# -- but a guardrail that a plain `..` walks through is not one.
+cached_jdk() {
+  [ -r "$cache/jdks/default" ] || return 0
+  cj=$(cat "$cache/jdks/default" 2>/dev/null || true)
+  case $cj in
+    *"/../"* | */.. ) return 0 ;;
+    "$cache/jdks/"* ) ;;
+    * ) return 0 ;;
+  esac
+  [ -x "$cj" ] || return 0
+  printf '%s\n' "$cj"
+}
+
+# The JDK stage 0 resolved for *this project* last time, which is the one that
+# satisfies its java pin. Starting on it is the whole point: otherwise the shim
+# starts whatever java is first on PATH and stage 0 has to spend a second process
+# correcting it, on every command. Machine-specific, so it is not committed --
+# .flixw/.gitignore keeps it out. It names something this script executes, and
+# that is not a new trust boundary: anyone able to write .flixw/local/ can edit
+# this file instead, which is easier and does more.
+if [ "$chosen" = no ] && [ -r "$root/.flixw/local/java" ]; then
+  noted=$(cat "$root/.flixw/local/java" 2>/dev/null || true)
+  # Shape first: stage 0 writes a normalized absolute path ending in bin/java, so
+  # anything else is not a note this wrapper left. It is a cheap sanity check
+  # rather than a security boundary -- whoever can write here can edit this file
+  # -- but a note is not the place to discover you are running something else.
+  case $noted in
+    *"/../"* | */.. ) noted= ;;
+    /*/bin/java ) ;;
+    * ) noted= ;;
+  esac
+  if [ -n "$noted" ] && [ -x "$noted" ]; then java0=$noted; fi
 fi
+
+# Nothing on PATH: fall back to that JDK.
+[ -n "$java0" ] || java0=$(cached_jdk)
 
 if [ -z "$java0" ]; then
   echo "FLIXW003: no java executable found. Flix needs Java 21+." >&2
@@ -50,8 +88,10 @@ if [ -z "$java0" ]; then
   esac
   echo "            https://adoptium.net/temurin/releases/?version=21" >&2
   echo "          Then set JAVA_HOME, or put its bin directory on PATH." >&2
-  echo "          With any Java 21+ present, ./flix wrapper --install-jdk will" >&2
-  echo "          fetch and verify one into the flixw cache for this project." >&2
+  echo "          flixw cannot fetch this first one: it is a Java program itself," >&2
+  echo "          and there is no Java here to run it. Once any Java 16 or newer is" >&2
+  echo "          reachable, ./flixw wrapper --install-jdk fetches a verified" >&2
+  echo "          Temurin 21 into the flixw cache and leaves the system alone." >&2
   exit 127
 fi
 if [ ! -x "$java0" ]; then
@@ -82,11 +122,21 @@ fi
 # A java below the floor is worse than none: below 15 it cannot even compile stage
 # 0, so nothing flixw knows -- its own installed JDK included -- is ever reached.
 # When one is recorded, prefer it and let stage 0 speak.
-if [ "$chosen" = no ] && [ -n "$jfeature" ] && [ "$jfeature" -lt 21 ] \
-   && [ -r "$cache/jdks/default" ]; then
-  mine=$(cat "$cache/jdks/default" 2>/dev/null || true)
-  case $mine in "$cache/jdks/"*) ;; *) mine= ;; esac
-  if [ -n "$mine" ] && [ -x "$mine" ]; then
+# A version manager's `java` is a shim script with no JDK layout around it, so there
+# is no release file and the feature version stays unknown. Ordinarily that is fine --
+# stage 0 asks the JVM itself -- but below 15 the JVM cannot compile stage 0, so the
+# question is never reached and the user gets a javac error instead of FLIXW003, and
+# instead of the JDK flixw installed for precisely this case. Ask the JVM once, and
+# only when there is something better to switch to, so the cost falls on the machines
+# that need it rather than on every run.
+if [ "$chosen" = no ] && [ -z "$jfeature" ] && [ -n "$(cached_jdk)" ]; then
+  jfeature=$("$java0" -version 2>&1 \
+             | sed -n 's/^[A-Za-z ]*version "\([0-9][0-9]*\).*/\1/p' | head -1)
+fi
+
+if [ "$chosen" = no ] && [ -n "$jfeature" ] && [ "$jfeature" -lt 21 ]; then
+  mine=$(cached_jdk)
+  if [ -n "$mine" ]; then
     java0=$mine
     jhome=${mine%/bin/java}
     jfeature=
@@ -108,9 +158,9 @@ fi
 # symlink into a JDK, so there is no release file to read, and a shim pointing at
 # Java 17 loaded the class and died on class file version.  The cost of being
 # careful is that such setups always take the source path.
-if [ -n "$h" ] && [ -f "$cache/stage0/$h/flix.class" ] \
+if [ -n "$h" ] && [ -f "$cache/stage0/$h/flixw.class" ] \
    && [ -n "$jfeature" ] && [ "$jfeature" -ge 21 ]; then
   FLIXW_SOURCE=$src; export FLIXW_SOURCE
-  exec "$java0" -cp "$cache/stage0/$h" flix "$@"
+  exec "$java0" -cp "$cache/stage0/$h" flixw "$@"
 fi
 exec "$java0" "$src" "$@"

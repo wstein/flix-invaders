@@ -23,7 +23,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      # ./flix caches the pinned compiler by content, and dependency resolution
+      # ./flixw caches the pinned compiler by content, and dependency resolution
       # populates lib/. The lock names the exact compiler bytes, so it belongs in the
       # key: a cache hit that predates a repin would otherwise be discarded anyway,
       # since the wrapper re-hashes the jar on every run.
@@ -33,13 +33,18 @@ jobs:
           path: |
             .flix-cache
             lib
-          key: flix-${{ runner.os }}-${{ hashFiles('flix.toml', '.flix-wrapper/lock.toml') }}
+          key: flix-${{ runner.os }}-${{ hashFiles('flix.toml', '.flixw/lock.toml') }}
+
+      # The wrapper before the compiler: if a generated file was edited by hand or a
+      # lock stopped matching the manifest, every result after this point is suspect.
+      - name: Validate the wrapper
+        run: ./flixw validate
 
       - name: Check
-        run: ./flix check
+        run: ./flixw check
 
       - name: Test
-        run: ./flix test
+        run: ./flixw test
 
       # The test suite must stay headless: no @Test may open a window or a sound line.
       # Runners have neither a display nor a mixer -- Processing's ShimAWT calls
@@ -84,8 +89,8 @@ jobs:
 
       - name: Verify formatting
         run: |
-          ./flix format
+          ./flixw format
           if ! git diff --exit-code -- src test; then
-            echo "::error::Run './flix format' and commit the result."
+            echo "::error::Run './flixw format' and commit the result."
             exit 1
           fi

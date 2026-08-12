@@ -49,7 +49,7 @@ Steps 4 to 17 apply to `invaders`; the rest apply to all three.
 Check the exit status explicitly:
 
 ```sh
-./flix run; echo "exit=$?"
+./flixw run; echo "exit=$?"
 ```
 
 The high-score file, for steps 16 and 17:

@@ -4,7 +4,7 @@
 #   bin/play              rebuild if needed, then run
 #   bin/play --force      rebuild even if nothing changed
 #
-# `./flix run` recompiles the whole project every time. That costs about twenty-four
+# `./flixw run` recompiles the whole project every time. That costs about twenty-four
 # seconds here against one and a half to start the classes it just produced, so the
 # compile is nearly all of the wait and almost all of it is repeated for nothing.
 #
@@ -33,7 +33,7 @@ fi
 
 if [ "$stale" = yes ]; then
   echo "bin/play: sources changed, building..." >&2
-  ./flix build
+  ./flixw build
   mkdir -p build
   : > "$stamp"
 fi

@@ -1,6 +1,7 @@
 # >>> flixw >>>
-/flix text eol=lf
-/.flix-wrapper/flix.java text eol=lf
-/.flix-wrapper/lock.toml text eol=lf
-/flix.cmd text eol=crlf
+/flixw text eol=lf
+/.flixw/flixw.java text eol=lf
+/.flixw/lock.toml text eol=lf
+/.flixw/.gitignore text eol=lf
+/flixw.cmd text eol=crlf
 # <<< flixw <<<

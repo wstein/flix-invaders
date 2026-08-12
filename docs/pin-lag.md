@@ -3,7 +3,7 @@
 A field log for one question: **does pinning an exact Flix compiler cost more than it
 saves?**
 
-`flix.toml` pins a compiler and `.flix-wrapper/lock.toml` binds it to a digest, so this
+`flix.toml` pins a compiler and `.flixw/lock.toml` binds it to a digest, so this
 project no longer tracks Flix head. That is a deliberate trade — reproducibility bought
 with upgrade pressure — and the Flix Community Build exists precisely because pinning
 weakens the migration signal a pre-1.0 language depends on. The trade cannot be settled by
@@ -18,9 +18,9 @@ compiler — and the one that decides the experiment is **what broke**.
 When a Flix release appears:
 
 ```console
-./flix pin <version>     # rewrites [package].flix and the lock, re-verifies the digest
-./flix check
-./flix test
+./flixw pin <version>     # rewrites [package].flix and the lock, re-verifies the digest
+./flixw check
+./flixw test
 ```
 
 Then record the outcome below, including the boring ones. A run of "nothing broke" is the
@@ -35,7 +35,7 @@ deferral is the expensive case this log exists to measure.
 | Release | Released | Adopted | Lag | What broke |
 |---|---|---|---|---|
 | 0.75.1 | 2026-07-09 | 2026-08-06 | — | The project's first pin. It did not exist when 0.75.1 shipped, so this is a start date, not a lag. |
-| 0.75.2 | 2026-08-07 | 2026-08-07 | **0 days** | Nothing. Adopted on release day, by hand, before the wrapper existed — this is the pre-wrapper baseline the experiment has to beat, or at least not lose to. `./flix` took over the same pin on 2026-08-11 and re-verified it against `a2697d87…`; 441 tests green, no source change. |
+| 0.75.2 | 2026-08-07 | 2026-08-07 | **0 days** | Nothing. Adopted on release day, by hand, before the wrapper existed — this is the pre-wrapper baseline the experiment has to beat, or at least not lose to. `./flixw` took over the same pin on 2026-08-11 and re-verified it against `a2697d87…`; 441 tests green, no source change. |
 
 ## Notes
 
@@ -46,7 +46,7 @@ deferral is the expensive case this log exists to measure.
   nobody looked at for three weeks lagged three weeks.
 - **Record the failure, not the fix.** "`Sketch.start` lost its `hz` parameter" is
   evidence; "upgraded, fixed some things" is not.
-- **A pin that could not be repaired is the headline result.** If `./flix pin` succeeds but
+- **A pin that could not be repaired is the headline result.** If `./flixw pin` succeeds but
   `check` fails and the change is not worth making, that is the migration debt this
   experiment predicted, and it belongs in the table in full.
 - The wrapper itself is a variable too. If a Flix release breaks the *wrapper* rather than

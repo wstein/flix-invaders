@@ -43,9 +43,9 @@ You need **Java 21+** and nothing else — the Flix compiler downloads itself on
 git clone https://github.com/wstein/flix-invaders
 cd flix-invaders
 
-./flix check       # type-check; the fast feedback loop
-./flix test        # 441 tests -- no window, no audio device, no filesystem
-./flix run         # play
+./flixw check       # type-check; the fast feedback loop
+./flixw test        # 441 tests -- no window, no audio device, no filesystem
+./flixw run         # play
 bin/bench          # measure the demo bot over ten seeds
 bin/bench --wide   # sixty seeds instead; the only sample that settles a close call
 bin/bench --recalc # search for better bot numbers and save them
@@ -101,10 +101,10 @@ flowchart LR
 | --- | ------ | ----- | ------------------ |
 | 1 | [Sketches/Still.flix](src/Sketches/Still.flix) | `bin/sketch static` | Drawing is a sequence of operations. A window is only one way to interpret them. |
 | 2 | [Sketches/Animation.flix](src/Sketches/Animation.flix) | `bin/sketch animation` | A world, and a pure `step` that advances it. No clock, no frame counter. |
-| 3 | [Invaders/Collide.flix](src/Invaders/Collide.flix), [Sprites.flix](src/Invaders/Sprites.flix) | `./flix test` | Ordinary functions, tested directly. Pixel art is data written as text. |
-| 4 | [Invaders/Game.flix](src/Invaders/Game.flix) | `./flix run` | The rules are a compact function of world and input; sound is the one concrete effect. |
+| 3 | [Invaders/Collide.flix](src/Invaders/Collide.flix), [Sprites.flix](src/Invaders/Sprites.flix) | `./flixw test` | Ordinary functions, tested directly. Pixel art is data written as text. |
+| 4 | [Invaders/Game.flix](src/Invaders/Game.flix) | `./flixw run` | The rules are a compact function of world and input; sound is the one concrete effect. |
 | 5 | [Runtime/Sketch.flix](src/Runtime/Sketch.flix) | — | Where purity stops and Java starts. One file. |
-| 6 | [TestScreenGraph.flix](test/TestScreenGraph.flix) | `./flix test` | Datalog is *in the language*. Three rules prove no screen can trap the player — and the facts are discovered by running the real code, not typed out. |
+| 6 | [TestScreenGraph.flix](test/TestScreenGraph.flix) | `./flixw test` | Datalog is *in the language*. Three rules prove no screen can trap the player — and the facts are discovered by running the real code, not typed out. |
 | 7 | [Tuning.flix](src/Tuning.flix), [Bench.flix](src/Bench.flix) | `bin/bench` | JSON configuration makes a search an ordinary loop; a headless benchmark plays ten games — or sixty, with `--wide` — and reports the result. |
 
 **Your first change**, in under a minute: open [Still.flix](src/Sketches/Still.flix), change a
@@ -348,7 +348,7 @@ that a clock exists. Switching it on cannot change what the game does, and
 ## Building a release
 
 ```sh
-./flix build-jar                  # -> artifact/, about 12 seconds
+./flixw build-jar                  # -> artifact/, about 12 seconds
 ```
 
 Two things to know about it.
@@ -356,7 +356,7 @@ Two things to know about it.
 **Clean first.** `build-jar` packages whatever is sitting in `build/class`, and Flix does not
 remove the classes of earlier builds — a working copy built a few dozen times accumulates over
 a million class files and several gigabytes, and every one of them lands in the jar. `rm -rf
-build` before building a release; `./flix clean` does not get all of it.
+build` before building a release; `./flixw clean` does not get all of it.
 
 **The jar carries no dependency.** It holds this project's classes and its own font, and
 expects Processing Core beside it. The release build also strips the compiled test suite,

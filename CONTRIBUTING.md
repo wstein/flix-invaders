@@ -12,16 +12,16 @@ compiler on first use; do not substitute a `flix` executable from your `PATH`.
 ```sh
 git clone https://github.com/wstein/flix-invaders
 cd flix-invaders
-./flix check
-./flix test
+./flixw check
+./flixw test
 ```
 
 Before opening a pull request, run:
 
 ```sh
-./flix format
-./flix check
-./flix test
+./flixw format
+./flixw check
+./flixw test
 ```
 
 Changes to `src/Invaders/Demo.flix` or a tuning constant in `Rules` also need
@@ -43,6 +43,6 @@ rates per 10,000 ticks it reports.
 Use a focused branch and explain both the user-visible change and the design
 reason. Include tests for changed pure behaviour, update docs when the teaching
 path changes, and keep generated directories (`build/`, `artifact/`, `lib/`,
-and `.flix-cache/`) out of commits. The wrapper files `flix`, `flix.cmd` and
-`.flix-wrapper/` are the exception: they are generated and committed, so that a
+and `.flix-cache/`) out of commits. The wrapper files `flixw`, `flixw.cmd` and
+`.flixw/` are the exception: they are generated and committed, so that a
 clone needs nothing but Java 21.
