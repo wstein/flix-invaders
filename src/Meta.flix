@@ -8,7 +8,7 @@
 ///
 mod Meta {
 
-    pub def version(): String = "0.1.5"
+    pub def version(): String = "0.1.6"
 
     /// The version as it appears on screen.
     pub def label(): String = "v${version()}"
