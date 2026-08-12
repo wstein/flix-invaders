@@ -45,11 +45,16 @@ mod Animation {
     /// sketch resized in one place cannot end up with balls bouncing off an edge that is no
     /// longer where the frame is.
     ///
+    /// The width of the animation field in pixels.
     pub def fieldWidthPx(): Int32 = 640
+
+    /// The height of the animation field in pixels.
     pub def fieldHeightPx(): Int32 = 480
 
-    /// The same two, as the floats the geometry actually works in.
+    /// The width of the animation field in floating point units.
     pub def fieldWidth(): Float32 = Int32.toFloat32(fieldWidthPx())
+
+    /// The height of the animation field in floating point units.
     pub def fieldHeight(): Float32 = Int32.toFloat32(fieldHeightPx())
 
     /// Constant downward acceleration. Set this to something like 0.15 to add gravity.
@@ -103,6 +108,11 @@ mod Animation {
     pub def initial(seed: Int64): Bouncing =
         { balls = makeBalls(4, 0, Rng.fromSeed(seed)), nudge = 0.0f32 }
 
+    def clampBounds(pos: Float32, vel: Float32, minPos: Float32, maxPos: Float32): (Float32, Float32) =
+        if (pos < minPos) (minPos, Float32.abs(vel))
+        else if (pos > maxPos) (maxPos, -Float32.abs(vel))
+        else (pos, vel)
+
     ///
     /// Reflects a ball off the walls and moves it one step.
     ///
@@ -112,24 +122,8 @@ mod Animation {
     def advanceBall(nudge: Float32, b: Ball): Ball = {
         let dx = b#dx + nudge;
         let dy = b#dy + gravity();
-        let x = b#x + dx;
-        let y = b#y + dy;
-
-        let minX = b#radius;
-        let maxX = fieldWidth() - b#radius;
-        let minY = b#radius;
-        let maxY = fieldHeight() - b#radius;
-
-        let (finalX, finalDx) =
-            if (x < minX) (minX, Float32.abs(dx))
-            else if (x > maxX) (maxX, -Float32.abs(dx))
-            else (x, dx);
-
-        let (finalY, finalDy) =
-            if (y < minY) (minY, Float32.abs(dy))
-            else if (y > maxY) (maxY, -Float32.abs(dy))
-            else (y, dy);
-
+        let (finalX, finalDx) = clampBounds(b#x + dx, dx, b#radius, fieldWidth() - b#radius);
+        let (finalY, finalDy) = clampBounds(b#y + dy, dy, b#radius, fieldHeight() - b#radius);
         { x = finalX, y = finalY, dx = finalDx, dy = finalDy | b }
     }
 
@@ -167,11 +161,23 @@ mod Animation {
     /// moves each ball by the *other* one's share of the total mass, so the lighter ball
     /// gives way. With equal masses this reduces to simply exchanging the normal
     /// components of the two velocities.
+    type alias CollisionNorm = { nx = Float32, ny = Float32, closing = Float32 }
+
     ///
     /// Balls that overlap but are already moving apart are only separated. Without that
     /// check a pair can get stuck, flipping their velocities every step and vibrating in
     /// place instead of parting.
     ///
+    def bounceBalls(a1: Ball, b1: Ball, masses: (Float32, Float32), norm: CollisionNorm): (Ball, Ball) = match masses {
+        case (massA, massB) =>
+            if (norm#closing >= 0.0f32) (a1, b1)
+            else {
+                let impulse = -2.0f32 * norm#closing / (1.0f32 / massA + 1.0f32 / massB);
+                ({ dx = a1#dx - impulse / massA * norm#nx, dy = a1#dy - impulse / massA * norm#ny | a1 },
+                 { dx = b1#dx + impulse / massB * norm#nx, dy = b1#dy + impulse / massB * norm#ny | b1 })
+            }
+    }
+
     def resolvePair(a: Ball, b: Ball): (Ball, Ball) = {
         let dx = b#x - a#x;
         let dy = b#y - a#y;
@@ -182,26 +188,16 @@ mod Animation {
             let distance = sqrtOf(distanceSquared);
             let nx = dx / distance;
             let ny = dy / distance;
-
             let massA = mass(a);
             let massB = mass(b);
             let total = massA + massB;
-
-            // Separate them, the lighter ball giving way by the larger share.
             let overlap = touching - distance;
             let shareA = overlap * (massB / total);
             let shareB = overlap * (massA / total);
             let a1 = { x = a#x - nx * shareA, y = a#y - ny * shareA | a };
             let b1 = { x = b#x + nx * shareB, y = b#y + ny * shareB | b };
-
-            // Closing speed along the normal. Negative means they are approaching.
             let closing = (b#dx - a#dx) * nx + (b#dy - a#dy) * ny;
-            if (closing >= 0.0f32) (a1, b1)
-            else {
-                let impulse = -2.0f32 * closing / (1.0f32 / massA + 1.0f32 / massB);
-                ({ dx = a1#dx - impulse / massA * nx, dy = a1#dy - impulse / massA * ny | a1 },
-                 { dx = b1#dx + impulse / massB * nx, dy = b1#dy + impulse / massB * ny | b1 })
-            }
+            bounceBalls(a1, b1, (massA, massB), { nx = nx, ny = ny, closing = closing })
         }
     }
 
@@ -249,6 +245,7 @@ mod Animation {
             24.0f32, fieldHeight() - 28.0f32)
     }
 
+    /// Entry point for running the standalone animation sketch.
     pub def main(): Unit \ IO = {
         let limit = Sketch.maxFramesFromEnv();
         // The demo sketches have nothing to persist; only the game reads the closing state.

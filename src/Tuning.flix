@@ -33,33 +33,37 @@ mod Tuning {
     /// needs -- aim, attention, movement, danger, targeting -- instead of the alphabetical key
     /// order a `Map` would impose.
     ///
+    def aimGroup(t: Tuning): List[String] =
+        "  \"aimJitter\":        ${t#aimJitter}," ::
+        "  \"judgeFor\":         ${t#judgeFor}," ::
+        "  \"judgeSpread\":      ${t#judgeSpread}," :: Nil
+
+    def lapseGroup(t: Tuning): List[String] =
+        "  \"lapseOneIn\":       ${t#lapseOneIn}," ::
+        "  \"lapseFor\":         ${t#lapseFor}," ::
+        "  \"lapseSpread\":      ${t#lapseSpread}," :: Nil
+
+    def movementGroup(t: Tuning): List[String] =
+        "  \"startAt\":          ${t#startAt}," ::
+        "  \"reverseAt\":        ${t#reverseAt}," :: Nil
+
+    def dangerGroup(t: Tuning): List[String] =
+        "  \"dangerWidth\":      ${t#dangerWidth}," ::
+        "  \"selfPreservation\": ${t#selfPreservation}," ::
+        "  \"urgency\":          ${t#urgency}," ::
+        "  \"shelterRelief\":    ${t#shelterRelief}," ::
+        "  \"blockedCost\":      ${t#blockedCost}," :: Nil
+
+    def targetGroup(t: Tuning): List[String] =
+        "  \"calm\":             ${t#calm}," ::
+        "  \"finishFlank\":      ${t#finishFlank}," ::
+        "  \"narrowTo\":         ${t#narrowTo}," ::
+        "  \"narrowing\":        ${t#narrowing}," ::
+        "  \"fireWindow\":       ${t#fireWindow}," ::
+        "  \"imminence\":        ${t#imminence}" :: Nil
+
     pub def encode(t: Tuning): String =
-        String.unlines(
-            "{" ::
-            "  \"aimJitter\":        ${t#aimJitter}," ::
-            "  \"judgeFor\":         ${t#judgeFor}," ::
-            "  \"judgeSpread\":      ${t#judgeSpread}," ::
-            "" ::
-            "  \"lapseOneIn\":       ${t#lapseOneIn}," ::
-            "  \"lapseFor\":         ${t#lapseFor}," ::
-            "  \"lapseSpread\":      ${t#lapseSpread}," ::
-            "" ::
-            "  \"startAt\":          ${t#startAt}," ::
-            "  \"reverseAt\":        ${t#reverseAt}," ::
-            "" ::
-            "  \"dangerWidth\":      ${t#dangerWidth}," ::
-            "  \"selfPreservation\": ${t#selfPreservation}," ::
-            "  \"urgency\":          ${t#urgency}," ::
-            "  \"shelterRelief\":    ${t#shelterRelief}," ::
-            "  \"blockedCost\":      ${t#blockedCost}," ::
-            "" ::
-            "  \"calm\":             ${t#calm}," ::
-            "  \"finishFlank\":      ${t#finishFlank}," ::
-            "  \"narrowTo\":         ${t#narrowTo}," ::
-            "  \"narrowing\":        ${t#narrowing}," ::
-            "  \"fireWindow\":       ${t#fireWindow}," ::
-            "  \"imminence\":        ${t#imminence}" ::
-            "}" :: Nil)
+        String.unlines("{" :: (aimGroup(t) ::: "" :: lapseGroup(t) ::: "" :: movementGroup(t) ::: "" :: dangerGroup(t) ::: "" :: targetGroup(t)) ::: "}" :: Nil)
 
     // -- reading -----------------------------------------------------------------------------
 

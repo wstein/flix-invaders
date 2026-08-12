@@ -198,6 +198,14 @@ mod Session {
         else { screen = Screen.Entering, pending = earned, typing = "" | s }
     }
 
+    def advanceWorld(input: Snapshot, s: Session): Session \ Sound = {
+        let stepped = Game.step(active(s), input);
+        let worlds = Vector.update(s#current, stepped, s#worlds);
+        let advanced = { worlds = worlds | s };
+        if (stepped#phase != Phase.Lost) advanced
+        else { over = Rules.gameOverTicks() | advanced }
+    }
+
     def playing(input: Snapshot, s: Session): Session \ Sound = {
         // Holding GAME OVER for the player whose game just ended. Nothing moves, and the
         // hand-over does not begin until it has run: switching players first would put the
@@ -208,21 +216,7 @@ mod Session {
         }
         else if (s#handover > 0) checked_ecast({ handover = s#handover - 1 | s })
         else if (allDone(s)) finish(s)
-        else {
-            let stepped = Game.step(active(s), input);
-            let worlds = Vector.update(s#current, stepped, s#worlds);
-            let advanced = { worlds = worlds | s };
-
-            // A turn is a whole game: player one plays down to their last life before player
-            // two starts. Losing a cannon costs a life and nothing else.
-            //
-            // The arcade original hands over on every destroyed cannon, and that was built
-            // first. It is a different game rather than a better or worse one -- alternating
-            // keeps both players watching and neither able to hold a run together, and this
-            // way round trades the second for the first.
-            if (stepped#phase != Phase.Lost) advanced
-            else { over = Rules.gameOverTicks() | advanced }
-        }
+        else advanceWorld(input, s)
     }
 
     ///

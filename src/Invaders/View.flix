@@ -217,29 +217,23 @@ mod View {
     pub def rightAlignedX(s: String, size: Float32, margin: Float32): Float32 =
         Rules.fieldWidth() - textWidth(s, size) - margin
 
-    def drawHud(w: World, c: Cabinet): Unit \ Canvas = {
-        Canvas.textSize(hudSize());
-        let margin = 24.0f32;
-
-        // The player whose turn it is gets the bright label; the other is dimmed. On a
-        // one-player game there is nobody to contrast with, so both stay bright.
+    def drawHudLabels(c: Cabinet, margin: Float32): Unit \ Canvas = {
         let lit = n -> if (c#players < 2 or c#player == n) Palette.ink() else Palette.dim();
-
         Canvas.fill(lit(1));
         Canvas.text("SCORE<1>", margin, 26.0f32);
         Canvas.fill(Palette.invaderCyan());
         Canvas.text("HI-SCORE", centredX("HI-SCORE", hudSize()), 26.0f32);
         Canvas.fill(lit(2));
-        Canvas.text("SCORE<2>", rightAlignedX("SCORE<2>", hudSize(), margin), 26.0f32);
+        Canvas.text("SCORE<2>", rightAlignedX("SCORE<2>", hudSize(), margin), 26.0f32)
+    }
 
-        // Each value sits centred under its own label.
+    def drawHudScores(w: World, c: Cabinet, margin: Float32): Unit \ Canvas = {
         let under = (label, value) -> {
             let labelWidth = textWidth(label, hudSize());
             let valueWidth = textWidth(value, hudSize());
             (labelWidth - valueWidth) / 2.0f32
         };
         Canvas.fill(Palette.ink());
-        // The active player's score comes from the live world; the other from the cabinet.
         let mine = scoreText(w#score);
         let theirs = scoreText(c#otherScore);
         let own = if (c#player == 1) mine else theirs;
@@ -248,6 +242,13 @@ mod View {
         Canvas.text(own, margin + under("SCORE<1>", own), 48.0f32);
         Canvas.text(best, centredX("HI-SCORE", hudSize()) + under("HI-SCORE", best), 48.0f32);
         Canvas.text(other, rightAlignedX("SCORE<2>", hudSize(), margin) + under("SCORE<2>", other), 48.0f32)
+    }
+
+    def drawHud(w: World, c: Cabinet): Unit \ Canvas = {
+        Canvas.textSize(hudSize());
+        let margin = 24.0f32;
+        drawHudLabels(c, margin);
+        drawHudScores(w, c, margin)
     }
 
     ///

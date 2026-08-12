@@ -116,35 +116,44 @@ mod Bench {
     /// reported every bunker perfectly intact: levels reset the bunkers, so the probe was
     /// sampling the state immediately after the reset.
     ///
+    type alias BenchState = { left = Int32, world = World, hand = Hand, acc = BenchAccumulator }
+
+    def stepBench(tuning: Tuning, st: BenchState): BenchState \ Sound = {
+        let w = st#world;
+        let acc = st#acc;
+        let (input, nextHand) = Demo.imperfect(tuning, w, st#hand);
+        let stepped = Game.step(w, input);
+        let sameLevel = stepped#level == w#level;
+        let nextAcc = {
+            deaths = acc#deaths + (if (stepped#lives < w#lives) 1 else 0),
+            kills = acc#kills + (if (sameLevel) alive(w) - alive(stepped) else 0),
+            drops = acc#drops + (if (sameLevel and stepped#marchDir != w#marchDir) 1 else 0),
+            ticks = acc#ticks + 1,
+            endgame = observeEndgame(w, stepped, acc#endgame)
+        };
+        { left = st#left - 1, world = stepped, hand = nextHand, acc = nextAcc }
+    }
+
     pub def one(tuning: Tuning, seed: Int64): Outcome = Sound.runWithNoOp(() -> {
-        def loop(left, w, hand, acc: BenchAccumulator) =
-            if (left <= 0 or w#phase == Phase.Lost)
-                { seed = seed, level = w#level, score = w#score, lives = w#lives,
-                  deaths = acc#deaths, kills = acc#kills, drops = acc#drops, ticks = acc#ticks,
-                  invaded = invasionReached(w), endgame = acc#endgame }
-            else {
-                let (input, next) = Demo.imperfect(tuning, w, hand);
-                let stepped = Game.step(w, input);
-                let sameLevel = stepped#level == w#level;
-                let nextAcc = {
-                    deaths = acc#deaths + (if (stepped#lives < w#lives) 1 else 0),
-                    kills = acc#kills + (if (sameLevel) alive(w) - alive(stepped) else 0),
-                    drops = acc#drops + (if (sameLevel and stepped#marchDir != w#marchDir) 1 else 0),
-                    ticks = acc#ticks + 1,
-                    endgame = observeEndgame(w, stepped, acc#endgame)
-                };
-                loop(left - 1, stepped, next, nextAcc)
-            };
+        def loop(st: BenchState) =
+            if (st#left <= 0 or st#world#phase == Phase.Lost)
+                { seed = seed, level = st#world#level, score = st#world#score, lives = st#world#lives,
+                  deaths = st#acc#deaths, kills = st#acc#kills, drops = st#acc#drops, ticks = st#acc#ticks,
+                  invaded = invasionReached(st#world), endgame = st#acc#endgame }
+            else
+                loop(stepBench(tuning, st));
         let initAcc = { deaths = 0, kills = 0, drops = 0, ticks = 0, endgame = emptyEndgame() };
-        loop(budget(), Game.initial(seed), Demo.fresh(seed), initAcc)
+        loop({ left = budget(), world = Game.initial(seed), hand = Demo.fresh(seed), acc = initAcc })
     })
 
     /// Whether the formation reached the cannon's line, as opposed to the lives running out.
     def invasionReached(w: World): Bool =
         Vector.exists(inv -> inv#alive and inv#pos#y >= Rules.invasionLine(), w#invaders)
 
+    /// Runs the benchmark across the standard set of test seeds.
     pub def all(tuning: Tuning): List[Outcome] = allOn(seeds(), tuning)
 
+    /// Runs the benchmark across the given list of test seeds.
     pub def allOn(which: List[Int64], tuning: Tuning): List[Outcome] = List.map(one(tuning), which)
 
     // -- reading the results ----------------------------------------------------------------
@@ -157,12 +166,15 @@ mod Bench {
         if (List.isEmpty(runs)) 0
         else (List.foldLeft((total, r) -> total + r#level, 0, runs) * 10) / List.length(runs)
 
+    /// Returns the lowest level reached across all benchmark runs.
     pub def worstLevel(runs: List[Outcome]): Int32 =
         List.foldLeft((worst, r) -> Int32.min(worst, r#level), Int32.maxValue(), runs)
 
+    /// Returns the highest level reached across all benchmark runs.
     pub def bestLevel(runs: List[Outcome]): Int32 =
         List.foldLeft((best, r) -> Int32.max(best, r#level), 0, runs)
 
+    /// Returns the total ticks elapsed across all benchmark runs.
     pub def totalTicks(runs: List[Outcome]): Int32 =
         List.foldLeft((total, r) -> total + r#ticks, 0, runs)
 
@@ -201,15 +213,19 @@ mod Bench {
     pub def showTenths(tenths: Int32): String =
         "${tenths / 10}.${Int32.remainder(tenths, 10)}"
 
+    /// Returns total player deaths across all benchmark runs.
     pub def deaths(runs: List[Outcome]): Int32 =
         List.foldLeft((total, r) -> total + r#deaths, 0, runs)
 
+    /// Returns total invader kills across all benchmark runs.
     pub def kills(runs: List[Outcome]): Int32 =
         List.foldLeft((total, r) -> total + r#kills, 0, runs)
 
+    /// Returns total row drops across all benchmark runs.
     pub def drops(runs: List[Outcome]): Int32 =
         List.foldLeft((total, r) -> total + r#drops, 0, runs)
 
+    /// Aggregates endgame statistics across all benchmark runs.
     pub def endgame(runs: List[Outcome]): Endgame =
         List.foldLeft((total, r) ->
             { pixels = total#pixels + r#endgame#pixels,

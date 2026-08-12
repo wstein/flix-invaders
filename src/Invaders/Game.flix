@@ -171,6 +171,15 @@ mod Game {
             else inv :: List.filter(other -> other#pos#x != inv#pos#x, acc),
             Nil, invaders)
 
+    def placeBomb(inv: Invader, rng: Rng, w: World): World = {
+        let (kind, afterKind) = Rules.bombKindFrom(rng);
+        let bomb = { x = inv#pos#x,
+                     y = inv#pos#y + Rules.invaderSize()#y,
+                     kind = kind,
+                     age = 0 };
+        { bombs = bomb :: w#bombs, rng = afterKind | w }
+    }
+
     ///
     /// Helper to spawn a bomb when chance succeeds.
     ///
@@ -181,14 +190,7 @@ mod Game {
             let (pick, afterPick) = Rng.nextInt32Below(count, rng);
             match List.nth(pick, candidates) {
                 case None => { rng = afterPick | w }
-                case Some(inv) => {
-                    let (kind, afterKind) = Rules.bombKindFrom(afterPick);
-                    let bomb = { x = inv#pos#x,
-                                 y = inv#pos#y + Rules.invaderSize()#y,
-                                 kind = kind,
-                                 age = 0 };
-                    { bombs = bomb :: w#bombs, rng = afterKind | w }
-                }
+                case Some(inv) => placeBomb(inv, afterPick, w)
             }
         }
     }
@@ -208,6 +210,17 @@ mod Game {
             else spawnBomb(bombers(w#invaders), afterChance, w)
         }
 
+    def processBombShot(bomb: Bomb, bullets: List[Vec2], rng: Rng, kept: List[Bomb]): (List[Vec2], Rng, List[Bomb]) = {
+        let struck = b -> Collide.overlaps(aPos = b, aSize = Rules.bulletSize(),
+                                           bPos = { x = bomb#x, y = bomb#y },
+                                           bSize = Rules.bombSize());
+        if (not List.exists(struck, bullets)) (bullets, rng, bomb :: kept)
+        else {
+            let (survives, next) = Rng.chance(Rules.bombSurvivesShot(), rng);
+            (List.filter(b -> not struck(b), bullets), next, if (survives) bomb :: kept else kept)
+        }
+    }
+
     ///
     /// Shots meet bombs in mid-air.
     ///
@@ -222,16 +235,8 @@ mod Game {
         def loop(remaining, bullets, rng, kept) = match remaining {
             case Nil => (List.reverse(kept), bullets, rng)
             case bomb :: rest => {
-                let struck = b -> Collide.overlaps(aPos = b, aSize = Rules.bulletSize(),
-                                                   bPos = { x = bomb#x, y = bomb#y },
-                                                   bSize = Rules.bombSize());
-                if (not List.exists(struck, bullets)) loop(rest, bullets, rng, bomb :: kept)
-                else {
-                    // The shot is spent either way; only the bomb's fate is a die roll.
-                    let (survives, next) = Rng.chance(Rules.bombSurvivesShot(), rng);
-                    loop(rest, List.filter(b -> not struck(b), bullets), next,
-                         if (survives) bomb :: kept else kept)
-                }
+                let (nextBullets, nextRng, nextKept) = processBombShot(bomb, bullets, rng, kept);
+                loop(rest, nextBullets, nextRng, nextKept)
             }
         };
         let (bombs, bullets, rng) = loop(w#bombs, w#bullets, w#rng, Nil);
@@ -258,26 +263,23 @@ mod Game {
     /// A bullet is spent on the first invader it hits, so one shot can never clear two.
     ///
     def resolveBullets(w: World): World \ Sound = {
-        def loop(remaining, invaders, kept, score, blasts) = match remaining {
-            case Nil => (List.reverse(kept), invaders, score, blasts)
-            case bullet :: rest => match hitIndex(bullet, invaders) {
-                case None => loop(rest, invaders, bullet :: kept, score, blasts)
+        let (bullets, invaders, score, blasts) = List.foldLeft((acc, bullet) -> match acc {
+            case (kept, invs, scr, blsts) => match hitIndex(bullet, invs) {
+                case None => (bullet :: kept, invs, scr, blsts)
                 case Some(i) => {
-                    let hit = Vector.get(i, invaders);
+                    let hit = Vector.get(i, invs);
                     let struck = { alive = false | hit };
                     let blast = { pos = hit#pos,
                                   ticksLeft = Rules.invaderBlastTicks(),
                                   kind = BlastKind.InvaderBlast };
-                    loop(rest, Vector.update(i, struck, invaders), kept,
-                         score + Rules.pointsFor(hit#kind), blast :: blasts)
+                    (kept, Vector.update(i, struck, invs), scr + Rules.pointsFor(hit#kind), blast :: blsts)
                 }
             }
-        };
-        let (bullets, invaders, score, blasts) = loop(w#bullets, w#invaders, Nil, w#score, w#blasts);
+        }, (Nil, w#invaders, w#score, w#blasts), w#bullets);
         let killed = List.length(blasts) - List.length(w#blasts);
         // One noise per kill: two bullets landing in one tick must be heard twice.
         List.forEach(_ -> Sound.play(SoundCmd.InvaderDies), List.range(0, killed));
-        { bullets = bullets, invaders = invaders, score = score, blasts = blasts | w }
+        { bullets = List.reverse(bullets), invaders = invaders, score = score, blasts = blasts | w }
     }
 
     ///

@@ -61,25 +61,25 @@ mod Audio {
         case None => unreachable!()
     }
 
+    type alias SweepSpec = { startHz = Float32, endHz = Float32, millis = Int32, volume = Float32 }
+
     ///
     /// A square wave sweeping from `startHz` to `endHz`, fading out over its length.
     ///
     /// The phase is the integral of a linearly swept frequency, which is what keeps the
     /// pitch glide smooth instead of stepping.
     ///
-    def sweep(rc: Region[r], startHz: {startHz = Float32}, endHz: {endHz = Float32},
-              millis: Int32, volume: Float32
-    ): Array[Int8, r] \ r = {
-        let f0 = startHz#startHz;
-        let f1 = endHz#endHz;
-        let count = Int32.max(1, (millis * sampleRate()) / 1000);
-        let seconds = Int32.toFloat32(millis) / 1000.0f32;
+    def sweep(rc: Region[r], spec: SweepSpec): Array[Int8, r] \ r = {
+        let f0 = spec#startHz;
+        let f1 = spec#endHz;
+        let count = Int32.max(1, (spec#millis * sampleRate()) / 1000);
+        let seconds = Int32.toFloat32(spec#millis) / 1000.0f32;
         Array.init(rc, i -> {
             let t = Int32.toFloat32(i) / Int32.toFloat32(sampleRate());
             let progress = Int32.toFloat32(i) / Int32.toFloat32(count);
             let phase = f0 * t + (f1 - f0) * t * t / (2.0f32 * seconds);
             let square = if (frac(phase) < 0.5f32) 1.0f32 else -1.0f32;
-            toSample(square * 110.0f32 * volume * (1.0f32 - progress))
+            toSample(square * 110.0f32 * spec#volume * (1.0f32 - progress))
         }, count)
     }
 
@@ -110,16 +110,16 @@ mod Audio {
     /// The waveform for one sound.
     ///
     def samplesFor(rc: Region[r], cmd: SoundCmd): Array[Int8, r] \ r = match cmd {
-        case SoundCmd.Shoot => sweep(rc, startHz = 820.0f32, endHz = 1500.0f32, 90, 0.55f32)
+        case SoundCmd.Shoot => sweep(rc, { startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32 })
         case SoundCmd.InvaderDies => burst(rc, 190, 0.7f32)
         case SoundCmd.PlayerDies => burst(rc, 620, 1.0f32)
-        case SoundCmd.MysteryAppears => sweep(rc, startHz = 620.0f32, endHz = 900.0f32, 220, 0.4f32)
-        case SoundCmd.MysteryDies => sweep(rc, startHz = 900.0f32, endHz = 180.0f32, 380, 0.6f32)
-        case SoundCmd.ShieldBlock => sweep(rc, startHz = 300.0f32, endHz = 1100.0f32, 130, 0.5f32)
-        case SoundCmd.ExtraLife => sweep(rc, startHz = 500.0f32, endHz = 1600.0f32, 420, 0.6f32)
+        case SoundCmd.MysteryAppears => sweep(rc, { startHz = 620.0f32, endHz = 900.0f32, millis = 220, volume = 0.4f32 })
+        case SoundCmd.MysteryDies => sweep(rc, { startHz = 900.0f32, endHz = 180.0f32, millis = 380, volume = 0.6f32 })
+        case SoundCmd.ShieldBlock => sweep(rc, { startHz = 300.0f32, endHz = 1100.0f32, millis = 130, volume = 0.5f32 })
+        case SoundCmd.ExtraLife => sweep(rc, { startHz = 500.0f32, endHz = 1600.0f32, millis = 420, volume = 0.6f32 })
         case SoundCmd.MarchStep(note) => {
             let hz = marchHz(note);
-            sweep(rc, startHz = hz, endHz = hz * 0.92f32, 110, 0.85f32)
+            sweep(rc, { startHz = hz, endHz = hz * 0.92f32, millis = 110, volume = 0.85f32 })
         }
     }
 
