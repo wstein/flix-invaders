@@ -76,6 +76,12 @@ module graph, the frame loop, the threading model, and the determinism story. It
 the alternatives that were tried and rejected, which is the fastest way to avoid re-proposing
 one.
 
+`docs/METRIC-SMELLS.md` is the companion for `metric.md`'s work plan: what each finding
+usually means, and what not to do about it. Read it before acting on that plan. Every limit
+there is a proxy for readable code, and this project has more than once satisfied the proxy
+while breaking the game -- most memorably a formatting pass that dropped one subtraction and
+left the demo bot walking into a wall.
+
 ## Project-specific gotchas
 
 These cost real debugging time. See `docs/spike-result.md` for the full record.
