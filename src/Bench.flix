@@ -154,15 +154,20 @@ mod Bench {
         // A recursion rather than a fold over the budget: this stops when the *game* ends,
         // which is usually a third of the way in. Folding `budget()` steps would keep calling
         // a no-op stage for the remaining twenty thousand ticks of every run.
-        def loop(st: BenchState) =
-            if (st#left <= 0 or st#world#phase == Phase.Lost) {
+        def loop(st: BenchState) = {
+            let done = st#left <= 0 or st#world#phase == Phase.Lost;
+            if (done) {
                 let endg = st#acc#endgame;
                 let reached = invasionReached(st#world);
-                { seed = seed, level = st#world#level, score = st#world#score, lives = st#world#lives,
-                  deaths = st#acc#deaths, kills = st#acc#kills, drops = st#acc#drops, ticks = st#acc#ticks,
+                let w = st#world;
+                let a = st#acc;
+                { seed = seed, level = w#level, score = w#score,
+                  lives = w#lives, deaths = a#deaths, kills = a#kills,
+                  drops = a#drops, ticks = a#ticks,
                   invaded = reached, endgame = endg }
             } else
-                loop(stepBench(tuning, st));
+                loop(stepBench(tuning, st))
+        };
         let initAcc = { deaths = 0, kills = 0, drops = 0, ticks = 0, endgame = emptyEndgame() };
         loop({ left = budget(), world = Game.initial(seed), hand = Demo.fresh(seed), acc = initAcc })
     })
@@ -414,15 +419,22 @@ mod Bench {
 
     def row(r: Outcome): String = {
         let status = if (r#invaded) "invaded" else "out of lives";
-        pad("${r#seed}", 6) + pad("${r#level}", 7) + pad("${r#score}", 8) +
-        pad("${r#lives}", 7) + pad("${r#deaths}", 8) + pad("${r#kills}", 7) +
-        pad("${r#ticks}", 8) + "  " + status
+        let c1 = pad("${r#seed}", 6);
+        let c2 = pad("${r#level}", 7);
+        let c3 = pad("${r#score}", 8);
+        let c4 = pad("${r#lives}", 7);
+        let c5 = pad("${r#deaths}", 8);
+        let c6 = pad("${r#kills}", 7);
+        let c7 = pad("${r#ticks}", 8);
+        c1 + c2 + c3 + c4 + c5 + c6 + c7 + "  " + status
     }
 
     def report(runs: List[Outcome]): Unit \ IO = {
         let ticks = totalTicks(runs);
-        let header = pad("seed", 6) + pad("level", 7) + pad("score", 8) + pad("lives", 7)
-              + pad("deaths", 8) + pad("kills", 7) + pad("ticks", 8) + "  ended by";
+        let h1 = pad("seed", 6) + pad("level", 7) + pad("score", 8);
+        let h2 = pad("lives", 7) + pad("deaths", 8) + pad("kills", 7);
+        let h3 = pad("ticks", 8) + "  ended by";
+        let header = h1 + h2 + h3;
         println(header);
         List.forEach(r -> println(row(r)), runs);
         println("");
@@ -478,10 +490,15 @@ mod Bench {
                         optionNames = "help" :: Nil,
                         argDescriptor = ArgDescr.NoArg(Flag.Help),
                         explanation = "print this message" };
+        let parseRounds = givenOpt -> {
+            let n = givenOpt
+                |> Option.flatMap(Int32.fromString)
+                |> Option.getWithDefault(defaultRounds());
+            Some(Flag.Recalc(n))
+        };
         let recalcOpt = { optionIds = 'r' :: Nil,
                           optionNames = "recalc" :: Nil,
-                          argDescriptor = ArgDescr.OptArg(given -> Some(Flag.Recalc(
-                              given |> Option.flatMap(Int32.fromString) |> Option.getWithDefault(defaultRounds()))), "ROUNDS"),
+                          argDescriptor = ArgDescr.OptArg(parseRounds, "ROUNDS"),
                           explanation = "search for a better tuning (default ${defaultRounds()} rounds) and save it if it wins" };
         let configOpt = { optionIds = 'c' :: Nil,
                           optionNames = "config" :: Nil,

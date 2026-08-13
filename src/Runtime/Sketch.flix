@@ -84,10 +84,11 @@ mod Sketch {
     }
 
     /// The parsing half, split out so it can be tested without an environment.
-    pub def parseSeed(raw: String): Option[Int64] = match Int64.parse(10, String.trim(raw)) {
-        case Result.Ok(n) => Some(n)
-        case _ => None
-    }
+    pub def parseSeed(raw: String): Option[Int64] =
+        match Int64.parse(10, String.trim(raw)) {
+            case Result.Ok(n) => Some(n)
+            case _ => None
+        }
 
     /// Generates a fresh random seed from system nanoTime or reads FLIX_INVADERS_SEED.
     pub def freshSeed(): Int64 \ IO = match seedFromEnv() {
@@ -271,7 +272,8 @@ mod Sketch {
     def readKeyboard(app: PApplet, loop: Loop[s, rc]): (Int32, Snapshot) \ IO + rc = {
         let refs = loop#refs;
         let current = Ref.get(refs#heldNow);
-        let snapshot = Input.diff(previous = Ref.get(refs#heldPrev), current = current,
+        let prev = Ref.get(refs#heldPrev);
+        let snapshot = Input.diff(previous = prev, current = current,
                                   mouseX = app.mouseX, mouseY = app.mouseY);
         let due = Input.ticksDue(Ref.get(refs#accNs), loop#stepNs, maxCatchUpSteps());
         if (due > 0) Ref.put(current, refs#heldPrev) else ();
@@ -289,10 +291,12 @@ mod Sketch {
     ///
     def simulate(loop: Loop[s, rc], due: Int32, snapshot: Snapshot): Int64 \ IO + rc = {
         let refs = loop#refs;
-        Ref.put(Ref.get(refs#accNs) - loop#stepNs * Int32.toInt64(due), refs#accNs);
+        let stepsNs = loop#stepNs * Int32.toInt64(due);
+        Ref.put(Ref.get(refs#accNs) - stepsNs, refs#accNs);
         let started = System.nanoTime();
+        let currentSnapshot = Input.acrossTicks(due, snapshot);
         runWithClips(loop#voices, () ->
-            advance(loop#step, refs#world, Input.acrossTicks(due, snapshot)));
+            advance(loop#step, refs#world, currentSnapshot));
         System.nanoTime() - started
     }
 
@@ -317,8 +321,10 @@ mod Sketch {
     ///
     /// The telemetry beat: fold this frame's measurements into the running figures.
     ///
-    def observe(loop: Loop[s, rc], sample: Stats.Sample): Unit \ rc =
-        Ref.put(Stats.observe(Ref.get(loop#refs#stats), sample), loop#refs#stats)
+    def observe(loop: Loop[s, rc], sample: Stats.Sample): Unit \ rc = {
+        let currentStats = Ref.get(loop#refs#stats);
+        Ref.put(Stats.observe(currentStats, sample), loop#refs#stats)
+    }
 
     ///
     /// The counting beat: one more frame gone, and the window closed if that was the last one.
@@ -363,7 +369,8 @@ mod Sketch {
                   init: (Int64 -> s),
                   step: ((s, Snapshot) -> s \ Sound),
                   view: ((s, Stats) -> Unit \ Canvas)
-    ): s \ IO = region rc {
+    ): s \ IO =
+        region rc {
 
         // `Config` is a public record anyone can build, and an hz of nought divides by zero
         // before the window even opens. A negative one runs the clock backwards, and anything

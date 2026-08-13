@@ -127,8 +127,12 @@ mod Input {
     ///
     /// The two key sets are named -- transposing them inverts every edge, turning presses
     /// into releases -- and so are the two mouse coordinates.
-    pub def diff(previous: {previous = Set[Key]}, current: {current = Set[Key]},
-                 mouseX: {mouseX = Int32}, mouseY: {mouseY = Int32}): Snapshot = {
+    pub def diff(
+        previous: {previous = Set[Key]},
+        current: {current = Set[Key]},
+        mouseX: {mouseX = Int32},
+        mouseY: {mouseY = Int32}
+    ): Snapshot = {
         let before = previous#previous;
         let now = current#current;
         let newlyPressed = Set.difference(now, before);
@@ -195,7 +199,10 @@ mod Input {
     /// held" would let a test that forgot to supply input pass while asserting on a world
     /// nobody played.
     ///
-    pub def handleWith(s: Snapshot, f: a -> b \ ef): a -> b \ ef - Input = input ->
+    type alias InputHandler[a: Type, b: Type, ef: Eff] = a -> b \ ef - Input
+
+    pub def handleWith(s: Snapshot, f: a -> b \ ef)
+        : InputHandler[a, b, ef] = input ->
         run {
             f(input)
         } with handler Input {

@@ -92,13 +92,14 @@ mod Audio {
     def burst(rc: Region[r], millis: Int32, volume: Float32): Array[Int8, r] \ r = {
         let sampleCount = (millis * sampleRate()) / 1000;
         let count = Int32.max(1, sampleCount);
-        Array.init(rc, i -> {
+        let genSample = i -> {
             let seedVal = Int32.toInt64(i);
             let (value, _) = Rng.nextInt32Below(220, Rng.fromSeed(seedVal));
             let progress = Int32.toFloat32(i) / Int32.toFloat32(count);
             let rawSample = Int32.toFloat32(value - 110) * volume * (1.0f32 - progress);
             toSample(rawSample)
-        }, count)
+        };
+        Array.init(rc, genSample, count)
     }
 
     /// The four descending notes of the marching bassline.
@@ -114,15 +115,15 @@ mod Audio {
     ///
     def samplesFor(rc: Region[r], cmd: SoundCmd): Array[Int8, r] \ r = match cmd {
         case SoundCmd.Shoot =>
-            let params = { startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32 };
-            sweep(rc, params)
+            let p = { startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32 };
+            sweep(rc, p)
         case SoundCmd.InvaderDies =>
             burst(rc, 190, 0.7f32)
         case SoundCmd.PlayerDies =>
             burst(rc, 620, 1.0f32)
         case SoundCmd.MysteryAppears =>
-            let params = { startHz = 620.0f32, endHz = 900.0f32, millis = 220, volume = 0.4f32 };
-            sweep(rc, params)
+            let p = { startHz = 620.0f32, endHz = 900.0f32, millis = 220, volume = 0.4f32 };
+            sweep(rc, p)
         case SoundCmd.MysteryDies =>
             let params = { startHz = 900.0f32, endHz = 180.0f32, millis = 380, volume = 0.6f32 };
             sweep(rc, params)

@@ -26,14 +26,12 @@ mod Sprite {
     /// Builds a sprite from rows of text. The width is the longest row.
     ///
     pub def of(rows: Vector[String]): Sprite = {
-        let maxW = Vector.foldLeft((widest, row) -> Int32.max(widest, String.length(row)), 0, rows);
+        let findMaxW = (widest, row) ->
+            Int32.max(widest, String.length(row));
+        let maxW = Vector.foldLeft(findMaxW, 0, rows);
         let h = Vector.length(rows);
         let parsedRuns = parse(rows);
-        Sprite.Sprite(
-            { width = maxW,
-              height = h,
-              rows = rows,
-              runs = parsedRuns })
+        Sprite.Sprite({ width = maxW, height = h, rows = rows, runs = parsedRuns })
     }
 
     /// The sprite's width in cells -- the longest row.
@@ -52,7 +50,8 @@ mod Sprite {
     }
 
     /// Closes off a run that was in progress, if any.
-    def close(y: Int32, x: Int32, start: Option[Int32], acc: List[(Int32, Int32, Int32)])
+    def close(y: Int32, x: Int32,
+              start: Option[Int32], acc: List[(Int32, Int32, Int32)])
         : List[(Int32, Int32, Int32)] =
         match start {
             case None => acc
@@ -66,16 +65,17 @@ mod Sprite {
     ///
     def rowRuns(y: Int32, cells: List[Char]): List[(Int32, Int32, Int32)] = {
         let initScan = { column = 0, start = (None: Option[Int32]), runs = Nil };
-        let scanned = List.foldLeft((scan, cell) ->
+        let stepScan = (scan, cell) ->
             if (cell == lit())
                 let nextCol = scan#column + 1;
                 let startCol = Option.getWithDefault(scan#column, scan#start);
                 { column = nextCol, start = Some(startCol) | scan }
-            else
+            else {
                 let nextCol = scan#column + 1;
-                let closed = close(y, scan#column, scan#start, scan#runs);
-                { column = nextCol, start = None, runs = closed },
-            initScan, cells);
+                let closedRuns = close(y, scan#column, scan#start, scan#runs);
+                { column = nextCol, start = None, runs = closedRuns | scan }
+            };
+        let scanned = List.foldLeft(stepScan, initScan, cells);
         let finalRuns = close(y, scanned#column, scanned#start, scanned#runs);
         List.reverse(finalRuns)
     }

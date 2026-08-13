@@ -12,7 +12,14 @@ mod TestDemo {
     /// A world a few hundred ticks in, so there is something to aim at.
     def midGame(): World =
         Sound.runWithNoOp(() -> {
-            def loop(n, w) = if (n <= 0) w else loop(n - 1, Game.step(w, Demo.aim(Demo.defaults(), w)));
+            def loop(n, w) =
+                if (n <= 0)
+                    w
+                else {
+                    let aimInput = Demo.aim(Demo.defaults(), w);
+                    let nextWorld = Game.step(w, aimInput);
+                    loop(n - 1, nextWorld)
+                };
             loop(300, start())
         })
 
@@ -111,10 +118,12 @@ mod TestDemo {
     /// a test about *dodging* fails for reasons that have nothing to do with dodging.
     ///
     def settled(): World = {
-        let w = { bombs = Nil, mystery = None, marchDir = 0.0f32 | midGame() };
-        let one = Vector.mapWithIndex((i, inv) ->
+        let base = midGame();
+        let w = { bombs = Nil, mystery = None, marchDir = 0.0f32 | base };
+        let updateInv = (i, inv) ->
             if (i == 0) { pos = { x = w#playerX, y = 260.0f32 }, alive = true | inv }
-            else { alive = false | inv }, w#invaders);
+            else { alive = false | inv };
+        let one = Vector.mapWithIndex(updateInv, w#invaders);
         { invaders = one | w }
     }
 
@@ -176,7 +185,8 @@ mod TestDemo {
     /// merely leans one way can pass by accident.
     ///
     def threeColumns(gap: Int32): World = {
-        let at = col -> Rules.formationLeft() + Int32.toFloat32(col) * Rules.columnSpacing();
+        let at = col ->
+            Rules.formationLeft() + Int32.toFloat32(col) * Rules.columnSpacing();
         let up = 0.04f32 * Rules.invasionLine();
         let edge = 0.08f32 * Rules.invasionLine();
         let middle = 0.16f32 * Rules.invasionLine();
@@ -234,8 +244,9 @@ mod TestDemo {
     ///
     def comingDown(): World = {
         let w = wideBlock();
+        let yPos = 0.60f32 * Rules.invasionLine();
         let low = Vector.mapWithIndex((i, inv) ->
-            if (i == 4) { pos = { x = inv#pos#x, y = 0.60f32 * Rules.invasionLine() } | inv }
+            if (i == 4) { pos = { x = inv#pos#x, y = yPos } | inv }
             else inv, w#invaders);
         { invaders = low | w }
     }
@@ -311,10 +322,12 @@ mod TestDemo {
     /// invader the bot happened to be aiming at, which is not what either is about.
     ///
     def overheadAtShelter(): World = {
-        let w = { playerX = underShelter(), bombs = Nil, mystery = None | midGame() };
-        let one = Vector.mapWithIndex((i, inv) ->
+        let base = midGame();
+        let w = { playerX = underShelter(), bombs = Nil, mystery = None | base };
+        let updateInv = (i, inv) ->
             if (i == 0) { pos = { x = w#playerX, y = 200.0f32 }, alive = true | inv }
-            else { alive = false | inv }, w#invaders);
+            else { alive = false | inv };
+        let one = Vector.mapWithIndex(updateInv, w#invaders);
         { invaders = one | w }
     }
 
@@ -339,10 +352,11 @@ mod TestDemo {
     def besideTheShelter(): World = {
         let w = overheadAtShelter();
         let edge = Rules.bunkerLeft(0) - 1.0f32;
-        let overhead = Vector.mapWithIndex((i, inv) ->
-            if (i == 0) { pos = { x = edge, y = 200.0f32 }, alive = true | inv } else inv,
-            w#invaders);
-        { playerX = edge, invaders = overhead, marchDir = 0.0f32 | w }
+        let updateInv = (i, inv) ->
+            if (i == 0) { pos = { x = edge, y = 200.0f32 }, alive = true | inv }
+            else inv;
+        let overhead = Vector.mapWithIndex(updateInv, w#invaders);
+        { invaders = overhead, playerX = edge, marchDir = 0.0f32 | w }
     }
 
     @Test
@@ -415,7 +429,9 @@ mod TestDemo {
                 if (k <= 0 or w#phase == Phase.Lost) List.reverse(acc)
                 else {
                     let (input, next) = Demo.imperfect(Demo.defaults(), w, h);
-                    loop(k - 1, Game.step(w, input), next, (input, w#pause == 0) :: acc)
+                    let paused = w#pause == 0;
+                    let nextAcc = (input, paused) :: acc;
+                    loop(k - 1, Game.step(w, input), next, nextAcc)
                 };
             loop(n, Game.initial(seed), hand, Nil)
         })
@@ -429,21 +445,27 @@ mod TestDemo {
                 if (k <= 0 or w#phase == Phase.Lost) List.reverse(acc)
                 else {
                     let (input, next) = Demo.imperfect(Demo.defaults(), w, hand);
-                    loop(k - 1, Game.step(w, input), next, (input, w#pause == 0) :: acc)
+                    let paused = w#pause == 0;
+                    let nextAcc = (input, paused) :: acc;
+                    loop(k - 1, Game.step(w, input), next, nextAcc)
                 };
             loop(n, Game.initial(seed), Demo.fresh(seed), Nil)
         })
 
     /// How often it turns round, per hundred ticks in which it was moving at all.
     def reversalsPerHundred(ticks: List[(Snapshot, Bool)]): Int32 = {
-        let inputs = ticks |> List.filterMap(match (input, counts) -> if (counts) Some(input) else None);
-        let (_, flips, moves) = List.foldLeft((acc, input) -> {
-            let (previous, count, moving) = acc;
-            let now = pushed(input);
-            if (now == 0) (previous, count, moving)
-            else (now, count + (if (previous != 0 and now != previous) 1 else 0), moving + 1)
-        }, (0, 0, 0), inputs);
-        (flips * 100) / Int32.max(1, moves)
+        let moves = List.filterMap(match (input, active) ->
+            if (not active) None
+            else {
+                let p = pushed(input);
+                if (p == 0) None else Some(p)
+            }, ticks);
+        let pairs = List.zip(moves, List.drop(1, moves));
+        let turns = List.count(match (a, b) -> a != b, pairs);
+        if (List.isEmpty(moves))
+            0
+        else
+            turns * 100 / List.length(moves)
     }
 
     @Test
@@ -553,8 +575,10 @@ mod TestDemo {
     }
 
     /// The half-width of the window `fireWindow` opens, in pixels.
-    def fireWindowPx(): Float32 =
-        Demo.defaults()#fireWindow * (Rules.invaderSize()#x + Rules.bulletSize()#x) / 2.0f32
+    def fireWindowPx(): Float32 = {
+        let w = Rules.invaderSize()#x + Rules.bulletSize()#x;
+        Demo.defaults()#fireWindow * w / 2.0f32
+    }
 
     ///
     /// The lead is still applied; the window it is judged against is just wide.

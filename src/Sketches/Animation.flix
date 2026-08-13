@@ -60,15 +60,21 @@ mod Animation {
     /// How hard the arrow keys push the balls sideways.
     def nudgeStrength(): Float32 = 0.35f32
 
-    def palette(): Vector[Color] =
-        Vector#{Palette.coral(), Palette.mint(), Palette.sun(), Palette.azure()}
+    def palette(): Vector[Color] = {
+        let c = Palette.coral();
+        let m = Palette.mint();
+        let s = Palette.sun();
+        let a = Palette.azure();
+        Vector#{c, m, s, a}
+    }
 
     def generateBall(index: Int32, rng: Rng): (Ball, Rng) = {
         let (jitterX, r1) = Rng.nextInt32Below(60, rng);
         let (py, r2) = Rng.nextInt32Below(200, r1);
         let (vx, r3) = Rng.nextInt32Below(7, r2);
         let (vy, r4) = Rng.nextInt32Below(7, r3);
-        let tint = Vector.get(Int32.remainder(index, Vector.length(palette())), palette());
+        let pal = palette();
+        let tint = Vector.get(Int32.remainder(index, Vector.length(pal)), pal);
         let lane = 80.0f32 + Int32.toFloat32(index) * 160.0f32;
         let ball = {
             x = lane + Int32.toFloat32(jitterX) - 30.0f32,
@@ -88,11 +94,12 @@ mod Animation {
     /// than being drawn from a global source.
     ///
     def makeBalls(count: Int32, index: Int32, rng: Rng): List[Ball] = {
-        let (balls, _) = List.range(index, count) |> List.foldLeft((acc, idx) -> match acc {
+        let step = (acc, idx) -> match acc {
             case (ballsAcc, currentRng) =>
                 let (b, r) = generateBall(idx, currentRng);
                 (b :: ballsAcc, r)
-        }, (Nil, rng));
+        };
+        let (balls, _) = List.foldLeft(step, (Nil, rng), List.range(index, count));
         List.reverse(balls)
     }
 
@@ -105,10 +112,14 @@ mod Animation {
     pub def initial(seed: Int64): Bouncing =
         { balls = makeBalls(4, 0, Rng.fromSeed(seed)), nudge = 0.0f32 }
 
-    def clampBounds(pos: Float32, vel: Float32, minPos: Float32, maxPos: Float32): (Float32, Float32) =
-        if (pos < minPos) (minPos, Float32.abs(vel))
-        else if (pos > maxPos) (maxPos, -Float32.abs(vel))
-        else (pos, vel)
+    def clampBounds(pos: Float32, vel: Float32,
+                    minPos: Float32, maxPos: Float32): (Float32, Float32) =
+        if (pos < minPos)
+            (minPos, Float32.abs(vel))
+        else if (pos > maxPos)
+            (maxPos, -Float32.abs(vel))
+        else
+            (pos, vel)
 
     ///
     /// Reflects a ball off the walls and moves it one step.
@@ -119,8 +130,12 @@ mod Animation {
     def advanceBall(nudge: Float32, b: Ball): Ball = {
         let dx = b#dx + nudge;
         let dy = b#dy + gravity();
-        let (finalX, finalDx) = clampBounds(b#x + dx, dx, b#radius, fieldWidth() - b#radius);
-        let (finalY, finalDy) = clampBounds(b#y + dy, dy, b#radius, fieldHeight() - b#radius);
+        let minX = b#radius;
+        let maxX = fieldWidth() - b#radius;
+        let minY = b#radius;
+        let maxY = fieldHeight() - b#radius;
+        let (finalX, finalDx) = clampBounds(b#x + dx, dx, minX, maxX);
+        let (finalY, finalDy) = clampBounds(b#y + dy, dy, minY, maxY);
         { x = finalX, y = finalY, dx = finalDx, dy = finalDy | b }
     }
 
@@ -162,13 +177,19 @@ mod Animation {
     /// has done that by the time this is called. Without the check a pair can get stuck,
     /// flipping their velocities every step and vibrating in place instead of parting.
     ///
-    def bounceBalls(a1: Ball, b1: Ball, masses: Masses, norm: CollisionNorm): (Ball, Ball) =
-        if (norm#closing >= 0.0f32) (a1, b1)
+    def bounceBalls(a1: Ball, b1: Ball,
+                    masses: Masses, norm: CollisionNorm): (Ball, Ball) =
+        if (norm#closing >= 0.0f32)
+            (a1, b1)
         else {
             let (massA, massB) = (masses#a, masses#b);
             let impulse = -2.0f32 * norm#closing / (1.0f32 / massA + 1.0f32 / massB);
-            ({ dx = a1#dx - impulse / massA * norm#nx, dy = a1#dy - impulse / massA * norm#ny | a1 },
-             { dx = b1#dx + impulse / massB * norm#nx, dy = b1#dy + impulse / massB * norm#ny | b1 })
+            let deltaAx = impulse / massA * norm#nx;
+            let deltaAy = impulse / massA * norm#ny;
+            let deltaBx = impulse / massB * norm#nx;
+            let deltaBy = impulse / massB * norm#ny;
+            ({ dx = a1#dx - deltaAx, dy = a1#dy - deltaAy | a1 },
+             { dx = b1#dx + deltaBx, dy = b1#dy + deltaBy | b1 })
         }
 
     ///
@@ -190,7 +211,10 @@ mod Animation {
         let dy = b#y - a#y;
         let distanceSquared = dx * dx + dy * dy;
         let touching = a#radius + b#radius;
-        if (distanceSquared >= touching * touching or distanceSquared <= 0.0f32) (a, b)
+        let tooFar = distanceSquared >= touching * touching;
+        let tooClose = distanceSquared <= 0.0f32;
+        if (tooFar or tooClose)
+            (a, b)
         else {
             let distance = sqrtOf(distanceSquared);
             let nx = dx / distance;
@@ -208,7 +232,9 @@ mod Animation {
 
             // Closing speed along the normal. Negative means they are approaching.
             let closing = (b#dx - a#dx) * nx + (b#dy - a#dy) * ny;
-            bounceBalls(a1, b1, { a = massA, b = massB }, { nx = nx, ny = ny, closing = closing })
+            let masses = { a = massA, b = massB };
+            let norm = { nx = nx, ny = ny, closing = closing };
+            bounceBalls(a1, b1, masses, norm)
         }
     }
 
@@ -220,13 +246,16 @@ mod Animation {
     def resolveCollisions(balls: Vector[Ball]): Vector[Ball] = {
         let count = Vector.length(balls);
         let resolveInto = (acc, i, j) -> {
-            let (a, b) = resolvePair(Vector.get(i, acc), Vector.get(j, acc));
+            let bi = Vector.get(i, acc);
+            let bj = Vector.get(j, acc);
+            let (a, b) = resolvePair(bi, bj);
             Vector.update(j, b, Vector.update(i, a, acc))
         };
-        Vector.foldLeft((afterEarlier, i) ->
-            Vector.foldLeft((acc, j) -> resolveInto(acc, i, j), afterEarlier,
-                            Vector.range(i + 1, count)),
-            balls, Vector.range(0, count))
+        let outer = (afterEarlier, i) -> {
+            let inner = (acc, j) -> resolveInto(acc, i, j);
+            Vector.foldLeft(inner, afterEarlier, Vector.range(i + 1, count))
+        };
+        Vector.foldLeft(outer, balls, Vector.range(0, count))
     }
 
     ///

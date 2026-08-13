@@ -79,8 +79,10 @@ mod View {
 
     def drawShots(w: World): Unit \ Canvas = {
         let bullet = Sprites.bullet();
+        let drawBullet = b ->
+            Sprite.draw(bullet, b, Rules.spriteScale());
         Canvas.fill(Palette.shot());
-        List.forEach(b -> Sprite.draw(bullet, b, Rules.spriteScale()), w#bullets);
+        List.forEach(drawBullet, w#bullets);
         // One fill for all three bombs: they are told apart by shape, not colour, so that a
         // player who cannot separate the palette's coral from its shot colour still can.
         Canvas.fill(Palette.coral());
@@ -121,11 +123,12 @@ mod View {
 
     def drawMystery(w: World): Unit \ Canvas = match w#mystery {
         case None => ()
-        case Some(m) => {
+        case Some(m) =>
             Canvas.fill(Palette.invaderMagenta());
-            Sprite.drawScaled(Sprites.mystery(), { x = m#x, y = Rules.mysteryY() },
-                               scaleX = Rules.mysteryScaleX(), scaleY = Rules.mysteryScaleY())
-        }
+            let mPos = { x = m#x, y = Rules.mysteryY() };
+            let sx = Rules.mysteryScaleX();
+            let sy = Rules.mysteryScaleY();
+            Sprite.drawScaled(Sprites.mystery(), mPos, scaleX = sx, scaleY = sy)
     }
 
     /// How many blocks the dome is built from.
@@ -151,10 +154,13 @@ mod View {
     /// above the cannon rather than a shield running low. A dome is either up or it is not.
     /// The warning it does need is the last couple of seconds of flashing, and that is enough.
     ///
-    def drawShield(w: World): Unit \ Canvas =
-        if (w#shield <= 0) ()
-        else if (w#shield < Rules.shieldWarningTicks()
-            and Int32.remainder(w#shield / 8, 2) == 0) ()
+    def drawShield(w: World): Unit \ Canvas = {
+        let low = w#shield < Rules.shieldWarningTicks();
+        let flash = Int32.remainder(w#shield / 8, 2) == 0;
+        if (w#shield <= 0)
+            ()
+        else if (low and flash)
+            ()
         else {
             let count = shieldSegments();
             let half = Rules.playerSize()#x / 2.0f32 + shieldSpan();
@@ -173,6 +179,7 @@ mod View {
             Canvas.rect(w#playerX - half, crown + shieldRise(), 3.0f32, 9.0f32);
             Canvas.rect(w#playerX + half - 3.0f32, crown + shieldRise(), 3.0f32, 9.0f32)
         }
+    }
 
     def drawBlasts(w: World): Unit \ Canvas =
         List.forEach(b -> {
@@ -229,13 +236,18 @@ mod View {
     /// game there is nobody to contrast with, so both stay bright.
     ///
     def drawHudLabels(c: Cabinet, margin: Float32): Unit \ Canvas = {
-        let lit = n -> if (c#players < 2 or c#player == n) Palette.ink() else Palette.dim();
+        let active = n ->
+            c#players < 2 or c#player == n;
+        let lit = n ->
+            if (active(n)) Palette.ink() else Palette.dim();
         Canvas.fill(lit(1));
         Canvas.text("SCORE<1>", margin, 26.0f32);
         Canvas.fill(Palette.invaderCyan());
-        Canvas.text("HI-SCORE", centredX("HI-SCORE", hudSize()), 26.0f32);
+        let hiX = centredX("HI-SCORE", hudSize());
+        Canvas.text("HI-SCORE", hiX, 26.0f32);
         Canvas.fill(lit(2));
-        Canvas.text("SCORE<2>", rightAlignedX("SCORE<2>", hudSize(), margin), 26.0f32)
+        let p2X = rightAlignedX("SCORE<2>", hudSize(), margin);
+        Canvas.text("SCORE<2>", p2X, 26.0f32)
     }
 
     ///
@@ -279,9 +291,10 @@ mod View {
         Canvas.fill(Palette.ground());
         Canvas.rect(0.0f32, Rules.groundY(), Rules.fieldWidth(), 2.0f32);
 
+        let bottomY = Rules.fieldHeight() - 8.0f32;
         Canvas.fill(Palette.ink());
         Canvas.textSize(hudSize());
-        Canvas.text("${w#lives}", 24.0f32, Rules.fieldHeight() - 8.0f32);
+        Canvas.text("${w#lives}", 24.0f32, bottomY);
 
         // One small cannon per life still in reserve, so the count is readable at a glance.
         Canvas.fill(Palette.cannonGreen());
@@ -289,8 +302,9 @@ mod View {
 
         Canvas.fill(Palette.ink());
         let level = if (c#players < 2) "LEVEL ${w#level}" else "P${c#player}  LEVEL ${w#level}";
-        Canvas.text(level, centredX(level, hudSize()), Rules.fieldHeight() - 8.0f32);
-        Canvas.text("CREDIT 01", rightAlignedX("CREDIT 01", hudSize(), 24.0f32), Rules.fieldHeight() - 8.0f32)
+        Canvas.text(level, centredX(level, hudSize()), bottomY);
+        let credX = rightAlignedX("CREDIT 01", hudSize(), 24.0f32);
+        Canvas.text("CREDIT 01", credX, bottomY)
     }
 
     def drawSpareLives(cannon: Sprite, remaining: Int32, index: Int32): Unit \ Canvas =

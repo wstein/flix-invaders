@@ -163,25 +163,27 @@ mod Demo {
 
     def bestColumn(t: Tuning, w: World): Option[Vec2] = {
         let candidates = columns(w);
-        let edges = List.foldLeft((acc, c) -> match acc {
+        let updateEdges = (acc, c) -> match acc {
             case None => Some((c#x, c#x))
             case Some((left, right)) =>
                 Some((Float32.min(left, c#x), Float32.max(right, c#x)))
-        }, None, candidates);
+        };
+        let edges = List.foldLeft(updateEdges, None, candidates);
         match edges {
             case None => None
             case Some((left, right)) =>
                 let looming = pressure(candidates);
                 let spread = (right - left) / fullWidth();
                 let ctx = { left = left, right = right, spread = spread, looming = looming };
-                List.foldLeft((best, c) -> {
+                let selectBest = (best, c) -> {
                     let score = columnWorth(t, c, ctx);
                     match best {
                         case None => Some(({ x = c#x, y = c#y }, score))
                         case Some((_, top)) =>
                             if (score > top) Some(({ x = c#x, y = c#y }, score)) else best
                     }
-                }, None, candidates)
+                };
+                List.foldLeft(selectBest, None, candidates)
                     |> Option.map(fst)
         }
     }
@@ -210,7 +212,9 @@ mod Demo {
     /// How far down the formation has come: 0 at the top, 1 on the invasion line.
     ///
     def pressure(candidates: List[Column]): Float32 = {
-        let deepest = List.foldLeft((low, c) -> Float32.max(low, c#y), 0.0f32, candidates);
+        let maxPos = (low, c) ->
+            Float32.max(low, c#y);
+        let deepest = List.foldLeft(maxPos, 0.0f32, candidates);
         Float32.max(0.0f32, deepest) / Rules.invasionLine()
     }
 
@@ -279,7 +283,13 @@ mod Demo {
     /// `x` clamped to somewhere the cannon can actually stand.
     def onField(x: Float32): Float32 = {
         let half = Rules.playerSize()#x / 2.0f32;
-        if (x < half) half else if (x > Rules.fieldWidth() - half) Rules.fieldWidth() - half else x
+        let rightEdge = Rules.fieldWidth() - half;
+        if (x < half)
+            half
+        else if (x > rightEdge)
+            rightEdge
+        else
+            x
     }
 
     ///
@@ -290,19 +300,22 @@ mod Demo {
     /// under some *other* column, and the formation landed while it was still being fussy.
     ///
     def willConnect(t: Tuning, w: World): Bool = {
-        // The formation's own drift, not the drift of whatever the bot happens to be aiming
-        // at. When the saucer is the target that number describes the saucer, and projecting
-        // the invaders by it answers a question about neither.
         let living = Vector.count(inv -> inv#alive, w#invaders);
         let drift = w#marchDir * Rules.marchSpeedFor(living, w#level);
-        let overlap = t#fireWindow * (Rules.invaderSize()#x + Rules.bulletSize()#x) / 2.0f32;
-        Vector.exists(
-            inv -> { if (not inv#alive) false else {
+        let wSpan = Rules.invaderSize()#x + Rules.bulletSize()#x;
+        let overlap = t#fireWindow * wSpan / 2.0f32;
+        let hitsInv = inv ->
+            if (not inv#alive)
+                false
+            else {
                 let flight = (Rules.playerY() - inv#pos#y) / Rules.bulletSpeed();
-                if (flight <= 0.0f32) false else Float32.abs(inv#pos#x + drift * flight - w#playerX) < overlap
-            } },
-            w#invaders
-        )
+                let projectedX = inv#pos#x + drift * flight;
+                if (flight <= 0.0f32)
+                    false
+                else
+                    Float32.abs(projectedX - w#playerX) < overlap
+            };
+        Vector.exists(hitsInv, w#invaders)
     }
 
     def worthFiring(t: Tuning, dx: Float32, w: World): Bool =
@@ -319,19 +332,24 @@ mod Demo {
     /// The best place to stand: safe first, in position second.
     ///
     def bestSpot(t: Tuning, aimX: Float32, w: World): Float32 = {
-        let scored = List.map(offset -> {
+        let scoreCandidate = offset -> {
             let x = onField(w#playerX + offset);
-            (x, danger(t, x, w) * t#selfPreservation
-                + Float32.abs(aimX - x) / t#urgency
-                + (if (Bunkers.obstructs(w#bunkers, x, Rules.bulletSize()#x)) t#blockedCost else 0.0f32))
-        }, options());
-        List.foldLeft((best, candidate) -> {
+            let d = danger(t, x, w) * t#selfPreservation;
+            let u = Float32.abs(aimX - x) / t#urgency;
+            let bCost = if (Bunkers.obstructs(w#bunkers, x, Rules.bulletSize()#x))
+                t#blockedCost else 0.0f32;
+            (x, d + u + bCost)
+        };
+        let scored = List.map(scoreCandidate, options());
+        let pickBest = (best, candidate) -> {
             let (x, score) = candidate;
             match best {
                 case None => Some((x, score))
-                case Some((_, bestScore)) => if (score < bestScore) Some((x, score)) else best
+                case Some((_, bestScore)) =>
+                    if (score < bestScore) Some((x, score)) else best
             }
-        }, None, scored)
+        };
+        List.foldLeft(pickBest, None, scored)
             |> Option.map(fst)
             |> Option.getWithDefault(w#playerX)
     }
@@ -347,24 +365,20 @@ mod Demo {
     def intent(t: Tuning, error: Float32, w: World): Option[{ goal = Float32, fire = Bool }] = {
         match chooseTarget(t, w) {
             case None => None
-            case Some(p) => {
+            case Some(p) =>
                 let living = Vector.count(inv -> inv#alive, w#invaders);
                 let flight = (Rules.playerY() - p#y) / Rules.bulletSpeed();
-                // The saucer crosses at its own speed; the formation marches at the rate the
-                // rules derive from how many are left.
+                let mSpeed = Rules.marchSpeedFor(living, w#level);
                 let drift = match w#mystery {
                     case Some(m) => m#dir * Rules.mysterySpeed()
-                    case None => w#marchDir * Rules.marchSpeedFor(living, w#level)
+                    case None => w#marchDir * mSpeed
                 };
                 let dx = (p#x + drift * flight + error) - w#playerX;
-
-                // Aiming and dodging are one decision, not two: score every place it could
-                // stand by how dangerous it is and how far it is from the shot, and walk
-                // towards the best. Treating them separately made the bot oscillate between
-                // fleeing and lining up, and do neither well.
-                let aimX = w#playerX + dx;
-                Some({ goal = bestSpot(t, aimX, w) - w#playerX, fire = worthFiring(t, dx, w) })
-            }
+                // A delta from where the cannon stands, not an absolute x: `playTick` walks
+                // `goal` pixels, so dropping this subtraction sends the bot to the far wall.
+                let goal = bestSpot(t, w#playerX + dx, w) - w#playerX;
+                let fire = worthFiring(t, dx, w);
+                Some({ goal = goal, fire = fire })
         }
     }
 
@@ -393,24 +407,27 @@ mod Demo {
     }
 
     /// A hand that has not played yet.
-    pub def fresh(seed: Int64): Hand =
-        { rng = Rng.fromSeed(seed), error = 0.0f32, settled = 0, moving = 0, lapse = 0 }
+    pub def fresh(seed: Int64): Hand = {
+        let rng = Rng.fromSeed(seed);
+        { rng = rng, error = 0.0f32, settled = 0, moving = 0, lapse = 0 }
+    }
 
     def startLapse(t: Tuning, hand: Hand, rng: Rng): (Snapshot, Hand) = {
         let (extra, next) = Rng.nextInt32Below(t#lapseSpread, rng);
-        (Input.empty(), { rng = next, lapse = t#lapseFor + extra, moving = 0 | hand })
+        let lTime = t#lapseFor + extra;
+        (Input.empty(), { rng = next, lapse = lTime, moving = 0 | hand })
     }
 
     def playTick(t: Tuning, w: World, hand: Hand, rng: Rng): (Snapshot, Hand) = {
         let (error, settled, next) = judge(t, hand, rng);
         match intent(t, error, w) {
             case None =>
-                (Input.empty(), { rng = next, error = error, settled = settled, moving = 0 | hand })
-            case Some(i) => {
+                let h = { rng = next, error = error, settled = settled, moving = 0 | hand };
+                (Input.empty(), h)
+            case Some(i) =>
                 let moving = commit(t, hand#moving, i#goal);
-                (keysFor(moving, i#fire),
-                 { rng = next, error = error, settled = settled, moving = moving | hand })
-            }
+                let h = { rng = next, error = error, settled = settled, moving = moving | hand };
+                (keysFor(moving, i#fire), h)
         }
     }
 

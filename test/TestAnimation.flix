@@ -302,8 +302,12 @@ mod TestAnimation {
 
     /// A heavy ball overlapping a light one, closing head-on.
     def heavyMeetsLight(): Bouncing = {
-        let b1 = ballR({ pos = (300.0f32, 240.0f32), vel = (4.0f32, 0.0f32), r = 30.0f32 });
-        let b2 = ballR({ pos = (338.0f32, 240.0f32), vel = (-4.0f32, 0.0f32), r = 10.0f32 });
+        let p1 = (300.0f32, 240.0f32);
+        let v1 = (4.0f32, 0.0f32);
+        let p2 = (338.0f32, 240.0f32);
+        let v2 = (-4.0f32, 0.0f32);
+        let b1 = ballR({ pos = p1, vel = v1, r = 30.0f32 });
+        let b2 = ballR({ pos = p2, vel = v2, r = 10.0f32 });
         worldOfTwo(b1, b2)
     }
 

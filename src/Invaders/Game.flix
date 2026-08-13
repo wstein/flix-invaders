@@ -116,14 +116,17 @@ mod Game {
     }
 
     /// The x of the leftmost and rightmost living invader, if any are left.
-    def liveBounds(invaders: Vector[Invader]): Option[(Float32, Float32)] =
-        Vector.foldLeft((acc, inv) ->
-            if (not inv#alive) acc
+    def liveBounds(invaders: Vector[Invader]): Option[(Float32, Float32)] = {
+        let updateBound = (acc, inv) ->
+            if (not inv#alive)
+                acc
             else match acc {
                 case None => Some((inv#pos#x, inv#pos#x))
                 case Some((lo, hi)) =>
                     Some((Float32.min(lo, inv#pos#x), Float32.max(hi, inv#pos#x)))
-            }, None, invaders)
+            };
+        Vector.foldLeft(updateBound, None, invaders)
+    }
 
     ///
     /// The formation marches sideways, and drops a row when it reaches a wall.
@@ -259,9 +262,15 @@ mod Game {
     /// each bullet is removed the moment it meets anything.
     ///
     def resolveShotsMeetBombs(w: World): World = {
-        let initPass = { bullets = w#bullets, rng = w#rng, kept = Nil };
+        let initPass = {
+            bullets = w#bullets,
+            rng = w#rng,
+            kept = Nil
+        };
         let pass = List.foldLeft(meetBomb, initPass, w#bombs);
-        { bombs = List.reverse(pass#kept), bullets = pass#bullets, rng = pass#rng | w }
+        { bombs = List.reverse(pass#kept),
+          bullets = pass#bullets,
+          rng = pass#rng | w }
     }
 
     /// The index of the first living invader this bullet hits.
@@ -324,9 +333,11 @@ mod Game {
     ///
     def resolveBombs(w: World): World \ Sound = {
         let player = { x = w#playerX, y = Rules.playerY() };
-        let hit = List.exists(b -> Collide.overlaps(aPos = { x = b#x, y = b#y },
-                                                    aSize = Rules.bombSize(),
-                                                    bPos = player, bSize = Rules.playerSize()), w#bombs);
+        let overlapsPlayer = b ->
+            Collide.overlaps(aPos = { x = b#x, y = b#y },
+                             aSize = Rules.bombSize(),
+                             bPos = player, bSize = Rules.playerSize());
+        let hit = List.exists(overlapsPlayer, w#bombs);
         if (not hit) w
         else if (w#shield > 0)
             // The shield takes it. The bombs on screen are still cleared, so a shielded hit
@@ -532,9 +543,10 @@ mod Game {
     /// blurring it. A digest also gives a readable diff when a replay does drift.
     ///
     pub def digest(w: World): String = {
-        let header = "${w#phase}|t=${w#tick}|x=${w#playerX}|s=${w#score}|l=${w#lives}"
-            + "|d=${w#marchDir}|h=${w#hiScore}|v=${w#level}|p=${w#pause}"
-            + "|g=${w#shield}|n=${w#nextBonusAt}|f=${w#shotsFired}|r=${w#rng}";
+        let h1 = "${w#phase}|t=${w#tick}|x=${w#playerX}|s=${w#score}|l=${w#lives}";
+        let h2 = "|d=${w#marchDir}|h=${w#hiScore}|v=${w#level}|p=${w#pause}";
+        let h3 = "|g=${w#shield}|n=${w#nextBonusAt}|f=${w#shotsFired}|r=${w#rng}";
+        let header = h1 + h2 + h3;
         let shots = List.foldLeft((acc, b) -> acc + "|b(${b#x},${b#y})", "", w#bullets);
         let drops = List.foldLeft((acc, b) ->
             acc + "|m(${b#kind},${b#x},${b#y},${b#age})", "", w#bombs);

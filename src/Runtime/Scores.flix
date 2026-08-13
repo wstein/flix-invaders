@@ -53,7 +53,13 @@ mod Scores {
     /// Renders a list of high score entries into serializable line strings.
     pub def render(entries: List[Entry]): List[String] = {
         let sep = separator();
-        List.map(e -> "${e#name}${sep}${e#score}${sep}${e#level}", entries)
+        let renderEntry = e -> {
+            "${e#name}${sep}${e#score}${sep}${e#level}"
+        };
+        List.map(
+            renderEntry,
+            entries
+        )
     }
 
     ///
@@ -81,17 +87,19 @@ mod Scores {
     pub def best(entries: List[Entry]): Int32 =
         List.foldLeft((top, e) -> Int32.max(top, e#score), 0, entries)
 
+    pub def clean(input: String): String = sanitize(input)
+
     ///
-    /// Keeps only the characters the cabinet can display, padded to a fixed width.
+    /// Cleans a typed string: forces uppercase, strips anything outside `A-Z` and `0-9`, and
+    /// caps the length at `nameLength()`.
     ///
-    /// Initials are typed from `keyCode`, which only ever yields A-Z and 0-9, but a file can
-    /// contain anything, so this is applied on the way in as well as on the way out.
+    /// Used when the player enters initials. `Scores.load` relies on this to ensure bad lines
+    /// in the file cannot break the cabinet view.
     ///
-    pub def clean(raw: String): String = {
-        let kept = raw
-            |> String.toList
-            |> List.filter(allowed)
-            |> List.take(nameLength());
+    pub def sanitize(input: String): String = {
+        let chars = String.toList(String.toUpperCase(input));
+        let valid = List.filter(allowed, chars);
+        let kept = List.take(nameLength(), valid);
         List.foldLeft((acc, c) -> acc + "${c}", "", kept)
     }
 
@@ -100,12 +108,14 @@ mod Scores {
 
     /// Pads a name out to the full width so the table lines up.
     pub def padded(name: String): String = {
-        let missing = nameLength() - String.length(name);
+        let len = String.length(name);
+        let missing = nameLength() - len;
         if (missing <= 0)
             name
         else {
-            let paddingSpaces = List.foldLeft((acc, _) -> acc + " ", "", List.range(0, missing));
-            name + paddingSpaces
+            let padSpace = (acc, _) -> acc + " ";
+            let spaces = List.foldLeft(padSpace, "", List.range(0, missing));
+            name + spaces
         }
     }
 

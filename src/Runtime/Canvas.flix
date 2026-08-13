@@ -73,9 +73,12 @@ mod Canvas {
     /// eighth interpretation of `Canvas` means adding a function here, not editing the
     /// runtime.
     ///
-    pub def handleWithCollector(dims: (Int32, Int32), f: a -> b \ ef)
-        : a -> (b, List[DrawCmd]) \ ef - Canvas = input ->
-        region rc {
+    type alias CmdCollector[a: Type, b: Type, ef: Eff] = a -> (b, List[DrawCmd]) \ ef - Canvas
+
+    pub def handleWithCollector(dims: (Int32, Int32),
+                                f: a -> b \ ef)
+        : CmdCollector[a, b, ef] =
+        input -> region rc {
             let acc: Ref[List[DrawCmd], rc] = Ref.fresh(rc, Nil);
             let emit = cmd -> Ref.put(cmd :: Ref.get(acc), acc);
             let result = run {

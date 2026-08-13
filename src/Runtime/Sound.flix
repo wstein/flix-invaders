@@ -57,14 +57,17 @@ mod Sound {
     /// Pure: the accumulator lives in a region that is fully discharged here, so this needs
     /// no `IO` and touches no device. This is what the sound tests use.
     ///
+    type alias SoundCollector[a: Type, b: Type, ef: Eff] = a -> (b, List[SoundCmd]) \ ef - Sound
+
     pub def handleWithCollector(f: a -> b \ ef)
-        : a -> (b, List[SoundCmd]) \ ef - Sound = input ->
-        region rc {
+        : SoundCollector[a, b, ef] =
+        input -> region rc {
             let acc: Ref[List[SoundCmd], rc] = Ref.fresh(rc, Nil);
+            let emit = cmd -> Ref.put(cmd :: Ref.get(acc), acc);
             let result = run {
                 f(input)
             } with handler Sound {
-                def play(cmd, k) = { Ref.put(cmd :: Ref.get(acc), acc); k() }
+                def play(cmd, k) = { emit(cmd); k() }
             };
             (result, List.reverse(Ref.get(acc)))
         }

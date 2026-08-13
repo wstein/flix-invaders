@@ -32,7 +32,9 @@ mod Screens {
 
     /// The height the captions occupy once stacked.
     def blockHeight(captions: List[Caption]): Float32 = {
-        let totalHeight = List.foldLeft((total, c) -> total + c#size + leading(), 0.0f32, captions);
+        let addCaptionHeight = (total, c) ->
+            total + c#size + leading();
+        let totalHeight = List.foldLeft(addCaptionHeight, 0.0f32, captions);
         totalHeight - leading()
     }
 
@@ -208,12 +210,15 @@ mod Screens {
     ///
     pub def nerdLines(s: Session, w: World, telemetry: Stats): List[(String, String)] = {
         let alive = Vector.count(inv -> inv#alive, w#invaders);
-        let blocks = Vector.foldLeft((total, b) -> total + Bunkers.remaining(b), 0, w#bunkers);
+        let countBlocks = (total, b) ->
+            total + Bunkers.remaining(b);
+        let blocks = Vector.foldLeft(countBlocks, 0, w#bunkers);
         let fpsStr = Stats.oneDecimal(telemetry#fps);
         let simStr = "${Stats.twoDecimals(telemetry#simMs)} MS";
         let drawStr = "${Stats.twoDecimals(telemetry#drawMs)} MS";
         let targetMs = 1000.0f32 / Int32.toFloat32(Rules.ticksPerSecond());
-        let bMsg = "${Stats.twoDecimals(telemetry#simMs + telemetry#drawMs)} / "
+        let totalTime = telemetry#simMs + telemetry#drawMs;
+        let bMsg = "${Stats.twoDecimals(totalTime)} / "
                  + "${Stats.twoDecimals(targetMs)} MS";
         ("FPS", fpsStr) ::
         ("SIM", simStr) ::
@@ -273,9 +278,10 @@ mod Screens {
         let activeWorld = Session.active(s);
         let cab = Session.cabinet(s);
         View.renderWith(activeWorld, cab);
+        let pName = "PLAYER ${s#current + 1}";
         let whose =
             if (s#players < 2) Nil
-            else caption("PLAYER ${s#current + 1}", View.hudSize(), Palette.invaderGreen()) :: Nil;
+            else caption(pName, View.hudSize(), Palette.invaderGreen()) :: Nil;
         let captions = List.append(whose,
             caption("GAME OVER", View.bannerSize(), Palette.ink()) :: Nil);
         let topY = View.bannerY() - View.bannerSize();
