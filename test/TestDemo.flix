@@ -120,8 +120,9 @@ mod TestDemo {
     def settled(): World = {
         let base = midGame();
         let w = { bombs = Nil, mystery = None, marchDir = 0.0f32 | base };
+        let overhead = { x = w#playerX, y = 260.0f32 };
         let updateInv = (i, inv) ->
-            if (i == 0) { pos = { x = w#playerX, y = 260.0f32 }, alive = true | inv }
+            if (i == 0) { pos = overhead, alive = true | inv }
             else { alive = false | inv };
         let one = Vector.mapWithIndex(updateInv, w#invaders);
         { invaders = one | w }
@@ -190,12 +191,13 @@ mod TestDemo {
         let up = 0.04f32 * Rules.invasionLine();
         let edge = 0.08f32 * Rules.invasionLine();
         let middle = 0.16f32 * Rules.invasionLine();
+        let place = (x, y) -> { x = x, y = y };
         let placed = Vector.mapWithIndex((i, inv) -> match i {
-            case 0 => { pos = { x = at(5 - gap), y = up }, alive = true | inv }
-            case 1 => { pos = { x = at(5 - gap), y = edge }, alive = true | inv }
-            case 2 => { pos = { x = at(5 + gap), y = up }, alive = true | inv }
-            case 3 => { pos = { x = at(5 + gap), y = edge }, alive = true | inv }
-            case 4 => { pos = { x = at(5), y = middle }, alive = true | inv }
+            case 0 => { pos = place(at(5 - gap), up), alive = true | inv }
+            case 1 => { pos = place(at(5 - gap), edge), alive = true | inv }
+            case 2 => { pos = place(at(5 + gap), up), alive = true | inv }
+            case 3 => { pos = place(at(5 + gap), edge), alive = true | inv }
+            case 4 => { pos = place(at(5), middle), alive = true | inv }
             case _ => { alive = false | inv }
         }, midGame()#invaders);
         { invaders = placed, bombs = Nil, mystery = None, marchDir = 0.0f32,
@@ -312,7 +314,8 @@ mod TestDemo {
 
     /// An x directly under standing blocks of the first bunker.
     def underShelter(): Float32 =
-        Rules.bunkerLeft(0) + (Int32.toFloat32(Rules.bunkerColumns()) * Rules.bunkerCell()) / 2.0f32
+        let width = Int32.toFloat32(Rules.bunkerColumns()) * Rules.bunkerCell();
+        Rules.bunkerLeft(0) + width / 2.0f32
 
     ///
     /// Standing under bunker 0 with one invader directly overhead and nothing else alive.
@@ -324,8 +327,9 @@ mod TestDemo {
     def overheadAtShelter(): World = {
         let base = midGame();
         let w = { playerX = underShelter(), bombs = Nil, mystery = None | base };
+        let overhead = { x = w#playerX, y = 200.0f32 };
         let updateInv = (i, inv) ->
-            if (i == 0) { pos = { x = w#playerX, y = 200.0f32 }, alive = true | inv }
+            if (i == 0) { pos = overhead, alive = true | inv }
             else { alive = false | inv };
         let one = Vector.mapWithIndex(updateInv, w#invaders);
         { invaders = one | w }

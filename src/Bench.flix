@@ -69,7 +69,8 @@ mod Bench {
     /// changed underneath them would make every number in that file incomparable.
     ///
     pub def wideSeeds(): List[Int64] = {
-        let scaled = factor -> List.map(n -> Int32.toInt64(n) * factor, List.range(1, 31));
+        let thirty = List.range(1, 31);
+        let scaled = factor -> List.map(n -> Int32.toInt64(n) * factor, thirty);
         let firstHalf = scaled(7919i64);
         let secondHalf = scaled(104729i64);
         firstHalf ::: secondHalf

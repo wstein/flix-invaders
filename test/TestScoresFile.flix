@@ -124,7 +124,8 @@ mod TestScoresFile {
     /// is happy to read a directory, and provoking a permissions error on a real one would
     /// need a real one.
     ///
-    def readingFails(kind: IoError.ErrorKind, f: Unit -> a \ ef): a \ (ef - Fs.FileRead) = {
+    def readingFails(kind: IoError.ErrorKind,
+                     f: Unit -> a \ ef): a \ (ef - Fs.FileRead) = {
         // Spelled out per operation rather than shared: the three results differ in their
         // success type, so one binding cannot stand for all of them.
         def failure() = IoError.IoError(kind, "injected by a test");

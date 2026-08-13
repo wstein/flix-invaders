@@ -53,7 +53,8 @@ mod TestDifficulty {
             if (n <= 0 or w#phase == Phase.Lost)
                 n
             else {
-                let steppedW = Game.step({ lives = 99, bombs = Nil | w }, Input.empty());
+                let safe = { lives = 99, bombs = Nil | w };
+        let steppedW = Game.step(safe, Input.empty());
                 loop(n - 1, steppedW)
             };
         20000 - Sound.runWithNoOp(() -> loop(20000, Game.initial(1i64)))
