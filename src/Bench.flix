@@ -599,7 +599,8 @@ mod Bench {
         let parsed = getOpt1(ArgOrder.Permute, switches(), Sys.Env.getArgs());
         let hasErrors = not List.isEmpty(parsed#errors) or not List.isEmpty(parsed#unknowns);
         if (hasErrors) {
-            List.forEach(e -> println("bench: ${e}"), List.append(parsed#errors, parsed#unknowns));
+            let complaints = List.append(parsed#errors, parsed#unknowns);
+            List.forEach(e -> println("bench: ${e}"), complaints);
             println(usage())
         } else if (List.memberOf(Flag.Help, parsed#options))
             println(usage())

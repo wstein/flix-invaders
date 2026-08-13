@@ -302,7 +302,8 @@ mod View {
         drawSpareLives(Sprites.cannon(), w#lives - 1, 0);
 
         Canvas.fill(Palette.ink());
-        let level = if (c#players < 2) "LEVEL ${w#level}" else "P${c#player}  LEVEL ${w#level}";
+        let onLevel = "LEVEL ${w#level}";
+        let level = if (c#players < 2) onLevel else "P${c#player}  ${onLevel}";
         Canvas.text(level, centredX(level, hudSize()), bottomY);
         let credX = rightAlignedX("CREDIT 01", hudSize(), 24.0f32);
         Canvas.text("CREDIT 01", credX, bottomY)

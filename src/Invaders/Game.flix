@@ -548,6 +548,18 @@ mod Game {
           marchedSince = 0.0f32,
           playerX = Rules.fieldWidth() / 2.0f32 | w }
 
+    /// One entry of a digest: `|label(field,field,...)`.
+    def group(label: String, fields: List[String]): String =
+        "|${label}(" + String.intercalate(",", fields) + ")"
+
+    /// Every element rendered and run together: a digest has no separator between entries.
+    def eachOf(show: a -> String, xs: List[a]): String =
+        List.foldLeft((acc, x) -> acc + show(x), "", xs)
+
+    /// The same, for the two collections the world keeps in a `Vector`.
+    def eachIn(show: a -> String, xs: Vector[a]): String =
+        Vector.foldLeft((acc, x) -> acc + show(x), "", xs)
+
     ///
     /// An exact, comparable rendering of a world.
     ///
@@ -558,25 +570,41 @@ mod Game {
     /// blurring it. A digest also gives a readable diff when a replay does drift.
     ///
     pub def digest(w: World): String = {
-        let h1 = "${w#phase}|t=${w#tick}|x=${w#playerX}|s=${w#score}|l=${w#lives}";
-        let h2 = "|d=${w#marchDir}|h=${w#hiScore}|v=${w#level}|p=${w#pause}";
-        let h3 = "|g=${w#shield}|n=${w#nextBonusAt}|f=${w#shotsFired}|r=${w#rng}";
-        let header = h1 + h2 + h3;
-        let shots = List.foldLeft((acc, b) -> acc + "|b(${b#x},${b#y})", "", w#bullets);
-        let drops = List.foldLeft((acc, b) ->
-            acc + "|m(${b#kind},${b#x},${b#y},${b#age})", "", w#bombs);
-        let formation = Vector.foldLeft((acc, inv) ->
-            let entry = if (inv#alive) "|i(${inv#pos#x},${inv#pos#y})" else "|.";
-            acc + entry, "", w#invaders);
-        let shelters = Vector.foldLeft((acc, bunker) ->
-            let entry = "|k${Bunkers.remaining(bunker)}";
-            acc + entry, "", w#bunkers);
-        let debris = List.foldLeft((acc, b) ->
-            let entry = "|e(${b#kind},${b#pos#x},${b#pos#y},${b#ticksLeft})";
-            acc + entry, "", w#blasts);
+        let cannon = "${w#phase}|t=${w#tick}|x=${w#playerX}";
+        let tally = "|s=${w#score}|l=${w#lives}|d=${w#marchDir}";
+        let best = "|h=${w#hiScore}|v=${w#level}|p=${w#pause}";
+        let armour = "|g=${w#shield}|n=${w#nextBonusAt}";
+        let firing = "|f=${w#shotsFired}|r=${w#rng}";
+        let header = cannon + tally + best + armour + firing;
+
+        let shot = b -> group("b", "${b#x}" :: "${b#y}" :: Nil);
+        let shots = eachOf(shot, w#bullets);
+
+        let bomb = b -> {
+            let fields = "${b#kind}" :: "${b#x}" :: "${b#y}" :: "${b#age}" :: Nil;
+            group("m", fields)
+        };
+        let drops = eachOf(bomb, w#bombs);
+
+        let invader = inv -> {
+            let at = "${inv#pos#x}" :: "${inv#pos#y}" :: Nil;
+            if (inv#alive) group("i", at) else "|."
+        };
+        let formation = eachIn(invader, w#invaders);
+
+        let shelter = bunker -> "|k${Bunkers.remaining(bunker)}";
+        let shelters = eachIn(shelter, w#bunkers);
+
+        let blast = b -> {
+            let at = "${b#pos#x}" :: "${b#pos#y}" :: Nil;
+            let fields = "${b#kind}" :: at ::: "${b#ticksLeft}" :: Nil;
+            group("e", fields)
+        };
+        let debris = eachOf(blast, w#blasts);
+
         let ufo = match w#mystery {
             case None => "|u-${w#mysteryTimer}"
-            case Some(m) => "|u(${m#x},${m#dir})"
+            case Some(m) => group("u", "${m#x}" :: "${m#dir}" :: Nil)
         };
         header + shots + drops + formation + shelters + debris + ufo
     }
@@ -584,10 +612,10 @@ mod Game {
     // -- the step ---------------------------------------------------------------------
 
     def stepPlaying(w: World, input: Snapshot): World \ Sound =
-        if (w#pause > 0)
+        if (w#pause > 0) {
             let countDown = n -> { pause = n#pause - 1, tick = n#tick + 1 | n };
-        w |> ageBlasts |> countDown
-        else
+            w |> ageBlasts |> countDown
+        } else
             w
                 |> movePlayer(input)
                 |> fire(input)
