@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
 
 public final class flixw {
 
-    static final String WRAPPER_VERSION = "0.20.2";
+    static final String WRAPPER_VERSION = "0.20.3";
     static final String WRAPPER_DIR = ".flixw";
     static final int MIN_JAVA = 21;
     /**
@@ -527,11 +527,32 @@ public final class flixw {
                  + "\n       the version must match the tag exactly, build metadata included");
     }
 
-    /** Does this release asset exist? A HEAD, so the download itself stays a single attempt. */
-    static boolean assetExists(String url) {
-        HttpClient client = HttpClient.newBuilder()
+    /**
+     * The one HTTP client, pinned to HTTP/1.1.
+     *
+     * Every request flixw makes is a single one-shot HEAD or GET, so HTTP/2 buys nothing
+     * here -- there are no concurrent streams to multiplex onto one connection -- and it
+     * costs a failure mode that only shows up as a red CI run. When a server sends GOAWAY
+     * while a stream is being opened, the JDK client raises `request not processed by
+     * peer`; because acquisition is one attempt with no retry loop, that lands on the user
+     * as a failed download and, through the missing lock, as fifteen further failures.
+     * That is a real observation, not a theoretical one: it took out the whole windows
+     * smoke job on ccba32b while ubuntu and macos passed the same commit.
+     *
+     * Pinning 1.1 deletes the race rather than retrying around it, which is the trade this
+     * project already makes everywhere else -- a retry would have to be bounded, logged
+     * and explained, and would still leave the request that *was* processed ambiguous.
+     */
+    static HttpClient httpClient() {
+        return HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(30)).build();
+    }
+
+    /** Does this release asset exist? A HEAD, so the download itself stays a single attempt. */
+    static boolean assetExists(String url) {
+        HttpClient client = httpClient();
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .method("HEAD", HttpRequest.BodyPublishers.noBody())
                 .timeout(Duration.ofSeconds(60))
@@ -695,9 +716,7 @@ public final class flixw {
 
     static void download(String url, Path dest) {
         if (!url.startsWith("https://")) throw w005("refusing non-https url " + redact(url));
-        HttpClient client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(Duration.ofSeconds(30)).build();
+        HttpClient client = httpClient();
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMinutes(10))
                 .header("User-Agent", "flixw/" + WRAPPER_VERSION).build();
@@ -1095,9 +1114,7 @@ public final class flixw {
 
     /** One bounded HTTPS GET returning text.  Metadata only; bytes go through download(). */
     static String httpGet(String url) {
-        HttpClient client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(Duration.ofSeconds(30)).build();
+        HttpClient client = httpClient();
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(60))
                 .header("User-Agent", "flixw/" + WRAPPER_VERSION).build();
@@ -2489,6 +2506,7 @@ public final class flixw {
             Files.writeString(target.resolve("flixw.cmd"), CMD.replace("\n", "\r\n"),
                               StandardCharsets.UTF_8);
             writeLocalIgnore(target);
+            writeEnvrcExample(target);
             migrateFromFlixNames(target);
             mergeGitattributes(target.resolve(".gitattributes"));
             System.out.println("installed ./flixw, ./flixw.cmd and " + WRAPPER_DIR
@@ -2523,6 +2541,120 @@ public final class flixw {
             && Files.readString(f, StandardCharsets.UTF_8).equals(LOCAL_IGNORE)) return;
         Files.createDirectories(f.getParent());
         writeAtomic(f, LOCAL_IGNORE);
+    }
+
+    /**
+     * A template for the one supported way to run a compiler flixw did not download.
+     *
+     * `FLIX_JAR` has always worked, and was findable only by reading one table row in
+     * docs/CONTRACT.md -- so in practice the people who needed it did not know it existed.
+     * A file sitting in the project says so without being read.
+     *
+     * The name is `.envrc.example`, not `.envrc`, and that is the whole point of the file
+     * rather than a detail of it. direnv refuses an `.envrc` it has not been shown, and
+     * reprints `direnv: error ... is blocked` on every cd into the directory until someone
+     * runs `direnv allow` or deletes it. The refusal is keyed on the file's hash, so a
+     * fully commented-out `.envrc` is blocked exactly like a live one: shipping one would
+     * hand recurring noise to the only population it could help. `.example` is inert.
+     */
+    static final String ENVRC_EXAMPLE =
+        "# .envrc.example -- copy to .envrc, then run: direnv allow\n"
+      + "#\n"
+      + "# Requires direnv (https://direnv.net); flixw itself never reads this file.\n"
+      + "# direnv exports these into your shell before ./flixw ever starts, which is\n"
+      + "# also why it reaches a terminal and not an editor-spawned `flixw lsp`.\n"
+      + "#\n"
+      + "# One-time setup per machine. direnv does nothing until its hook is in your\n"
+      + "# shell's startup file, and until then an .envrc is an inert text file:\n"
+      + "#\n"
+      + "#   bash   in ~/.bashrc:                  eval \"$(direnv hook bash)\"\n"
+      + "#   zsh    in ~/.zshrc:                   eval \"$(direnv hook zsh)\"\n"
+      + "#   fish   in ~/.config/fish/config.fish: direnv hook fish | source\n"
+      + "#\n"
+      + "# This file is bash whatever your own shell is: direnv evaluates it with bash\n"
+      + "# and exports the difference. So fish users still write `export FOO=bar` here\n"
+      + "# -- `set -x FOO bar` is a syntax error in this file.\n"
+      + "#\n"
+      + "# Everything here is optional and every line is commented out. flixw works with\n"
+      + "# none of it set; the full table is in docs/CONTRACT.md.\n"
+      + "\n"
+      + "# ---- which JDK runs the compiler ------------------------------------------\n"
+      + "# Prefer pinning it for everyone in " + WRAPPER_DIR + "/lock.toml:\n"
+      + "#   ./flixw pin <version> --java 21\n"
+      + "# That is committed and reproducible. Use this only when *your* machine keeps\n"
+      + "# that JDK somewhere the search would not find. An invalid value is fatal, on\n"
+      + "# purpose: a silently ignored JDK selection is worse than a stopped build.\n"
+      + "#\n"
+      + "# export FLIX_JAVA_HOME=\"$HOME/.sdkman/candidates/java/21.0.5-tem\"\n"
+      + "\n"
+      + "# ---- running a compiler flixw did not download ----------------------------\n"
+      + "# The jar is NOT digest-verified, every such run says so on stderr, and those\n"
+      + "# runs are not stock-compatibility evidence. A valid lock is still required:\n"
+      + "# " + WRAPPER_DIR + "/lock.toml is read, and drift checked, before the override is.\n"
+      + "#\n"
+      + "# export FLIX_JAR=\"$PWD/../flix/build/libs/flix.jar\"\n"
+      + "\n"
+      + "# ---- where downloads land -------------------------------------------------\n"
+      + "# A cache inside the project, rather than the shared one under your home\n"
+      + "# directory. Useful for a throwaway container, or to keep one project's\n"
+      + "# compilers off a small home volume; the compiler is then downloaded once\n"
+      + "# per project instead of once per machine.\n"
+      + "#\n"
+      + "# Put it under local/ if you put it here at all -- that is the one path\n"
+      + "# " + WRAPPER_DIR + "/.gitignore already keeps out of git, and a cache holds a\n"
+      + "# ~33MB jar that must never reach a commit.\n"
+      + "#\n"
+      + "# export FLIX_CACHE_HOME=\"$PWD/" + WRAPPER_DIR + "/local/cache\"\n"
+      + "\n"
+      + "# ---- fetching through a mirror --------------------------------------------\n"
+      + "# Rewrites the download base only. The pinned digest is unchanged and still\n"
+      + "# verified, so a mirror serving different bytes fails rather than substitutes.\n"
+      + "# Must be https.\n"
+      + "#\n"
+      + "# export FLIX_DIST_URL=\"https://artifacts.example.com/flix\"\n"
+      + "# export HTTPS_PROXY=\"http://proxy.example.com:3128\"\n"
+      + "# export NO_PROXY=\"localhost,127.0.0.1,.example.com\"\n"
+      + "\n"
+      + "# ---- options for the compiler JVM -----------------------------------------\n"
+      + "# For a project big enough to need more heap than the default. These go to the\n"
+      + "# compiler's JVM, not to flixw's; a deny-list rejects the ones that would\n"
+      + "# change what code the JVM loads or runs (-cp, -javaagent:, @argfiles).\n"
+      + "#\n"
+      + "# export FLIX_JVM_OPTS=\"-Xmx4g\"\n"
+      + "\n"
+      + "# ---- while debugging flixw itself -----------------------------------------\n"
+      + "# Per-phase timings on stderr. Transient by nature -- if this is still on in a\n"
+      + "# month, that is the sign it belongs in your shell for one command instead.\n"
+      + "#\n"
+      + "# export FLIXW_TRACE=1\n"
+      + "\n"
+      + "# ---- keeping this file honest ---------------------------------------------\n"
+      + "# Anything machine-specific belongs in an ignored file, not in the one you\n"
+      + "# might be tempted to commit:\n"
+      + "#\n"
+      + "# source_env_if_exists .envrc.local\n"
+      + "#\n"
+      + "# flixw does not edit your .gitignore. Add these yourself if you use them:\n"
+      + "#   .envrc\n"
+      + "#   .envrc.local\n";
+
+    /**
+     * Written once, then never touched again -- unlike every other file install writes.
+     *
+     * The others are flixw's: they are executed or parsed, drift in them breaks a run, and
+     * `doctor --fix` restoring them is a repair. This one sits at the project root among
+     * files the project owns, nothing reads it, and its whole purpose is to be copied and
+     * edited. Rewriting it on drift would be overwriting someone's notes to restore a file
+     * that does nothing. For the same reason it is absent from SHIPPED, from doctor's
+     * canonical comparison and tracked-file audit, and from the .gitattributes block:
+     * deleting it is a valid answer, and nothing should nag about that.
+     */
+    static void writeEnvrcExample(Path target) throws IOException {
+        Path f = target.resolve(".envrc.example");
+        if (Files.exists(f)) return;
+        writeAtomic(f, ENVRC_EXAMPLE);
+        System.out.println("wrote    ./.envrc.example  (direnv template for FLIX_JAR;"
+                         + " safe to delete)");
     }
 
     /**
@@ -2956,7 +3088,7 @@ public final class flixw {
         // outright. Either way `./flixw -- --help` and FLIX_BACKEND=compiler still reach
         // the compiler alone, which is what someone parsing its output would want.
         if (!toCompiler && "help".equals(first)
-            || (!forcedCompiler && "--help".equals(first) && argv.size() == 1)) {
+            || (!forcedCompiler && ("--help".equals(first) || "-h".equals(first)) && argv.size() == 1)) {
             wrapperHelp();
             System.out.println();
             System.out.println("---- Flix " + lock.version() + " ".repeat(3)
@@ -3001,7 +3133,7 @@ public final class flixw {
     static void wrapperHelp() {
         System.out.println("flixw " + WRAPPER_VERSION + " -- repository-local Flix bootstrap");
         System.out.println();
-        System.out.println("  ./flixw help | --help            this table, then the compiler's own help");
+        System.out.println("  ./flixw help | --help | -h       this table, then the compiler's own help");
         System.out.println("  ./flixw <compiler verb> [args]   run the pinned stock compiler");
         System.out.println("  ./flixw -- <args>                forced compiler pass-through");
         System.out.println("  ./flixw pin [<owner>/<repo>] [<version>] [--java <v>]  write the lock");
@@ -3009,6 +3141,9 @@ public final class flixw {
         System.out.println("  ./flixw doctor [--fix]           info, plus every check, with a verdict");
         System.out.println("  ./flixw validate                 the checks alone, for CI");
         System.out.println("  ./flixw wrapper [--help | --version | --upgrade | --install-jdk]");
+        System.out.println();
+        System.out.println("  FLIX_JAR=<path> ./flixw <verb>   run a locally built compiler"
+                         + " (unverified; see ./.envrc.example)");
 
         System.out.println();
         System.out.println("cache            " + cacheHome());
