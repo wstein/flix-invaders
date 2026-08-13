@@ -147,7 +147,10 @@ mod Session {
     def begin(players: Int32, s: Session): Session = {
         let best = Scores.best(s#scores);
         let freshWorlds = Vector.range(0, players)
-            |> Vector.map(i -> { hiScore = best | Game.initial(s#seed + Int32.toInt64(i)) });
+            |> Vector.map(i -> {
+                let fresh = Game.initial(s#seed + Int32.toInt64(i));
+                { hiScore = best | fresh }
+            });
         { screen = Screen.Playing,
           players = players,
           current = 0,

@@ -58,16 +58,21 @@ mod Game {
         if (v < lo) lo else if (v > hi) hi else v
 
     /// Plays `cmd` and returns `w` unchanged, so it drops into a pipeline stage.
-    def emit(cmd: SoundCmd, w: World): World \ Sound = { Sound.play(cmd); w }
+    def emit(cmd: SoundCmd, w: World): World \ Sound = {
+        Sound.play(cmd);
+        w
+    }
 
     // -- pipeline stages --------------------------------------------------------------
 
     /// Left and right move the player, who cannot leave the field.
     def movePlayer(input: Snapshot, w: World): World = {
-        let left = if (Set.memberOf(Key.Left, input#held)) -Rules.playerSpeed() else 0.0f32;
-        let right = if (Set.memberOf(Key.Right, input#held)) Rules.playerSpeed() else 0.0f32;
+        let held = key -> Set.memberOf(key, input#held);
+        let left = if (held(Key.Left)) -Rules.playerSpeed() else 0.0f32;
+        let right = if (held(Key.Right)) Rules.playerSpeed() else 0.0f32;
         let half = Rules.playerSize()#x / 2.0f32;
-        { playerX = clampTo(half, Rules.fieldWidth() - half, w#playerX + left + right) | w }
+        let moved = w#playerX + left + right;
+        { playerX = clampTo(half, Rules.fieldWidth() - half, moved) | w }
     }
 
     ///
@@ -81,7 +86,8 @@ mod Game {
         if (List.length(w#bullets) >= Rules.shotsAloft()) w
         else if (not Set.memberOf(Key.Space, input#held)) w
         else {
-            let muzzle = { x = w#playerX, y = Rules.playerY() - Rules.playerSize()#y };
+            let barrel = Rules.playerY() - Rules.playerSize()#y;
+            let muzzle = { x = w#playerX, y = barrel };
             emit(SoundCmd.Shoot,
                  { bullets = muzzle :: w#bullets, shotsFired = w#shotsFired + 1 | w })
         }
@@ -102,6 +108,7 @@ mod Game {
     ///
     def moveBombs(w: World): World = {
         let half = Rules.bombSize()#x / 2.0f32;
+        let floor = Rules.fieldHeight() + Rules.bombSize()#y;
         let sway = b ->
             if (b#kind != BombKind.Wiggly) 0.0f32
             else if (Int32.remainder(b#age / Rules.bombWiggleTicks(), 2) == 0)
@@ -112,7 +119,7 @@ mod Game {
                 { x = clampTo(half, Rules.fieldWidth() - half, b#x + sway(b)),
                   y = b#y + Rules.bombSpeedFor(b#kind),
                   age = b#age + 1 | b })
-            |> List.filter(b -> b#y < Rules.fieldHeight() + Rules.bombSize()#y) | w }
+            |> List.filter(b -> b#y < floor) | w }
     }
 
     /// The x of the leftmost and rightmost living invader, if any are left.
@@ -123,7 +130,8 @@ mod Game {
             else match acc {
                 case None => Some((inv#pos#x, inv#pos#x))
                 case Some((lo, hi)) =>
-                    Some((Float32.min(lo, inv#pos#x), Float32.max(hi, inv#pos#x)))
+                    Some((Float32.min(lo, inv#pos#x),
+                          Float32.max(hi, inv#pos#x)))
             };
         Vector.foldLeft(updateBound, None, invaders)
     }
@@ -144,7 +152,8 @@ mod Game {
                 // The bassline advances by however far the formation just moved, so its
                 // tempo tracks the speed-up without a separate timer.
                 let sounded = beat(Float32.abs(stepX), w);
-                let hitsWall = (lo + stepX) < half or (hi + stepX) > (Rules.fieldWidth() - half);
+                let rightWall = Rules.fieldWidth() - half;
+                let hitsWall = (lo + stepX) < half or (hi + stepX) > rightWall;
                 if (hitsWall)
                     let updatedInvaders = Vector.map(inv -> {
                         pos = { y = inv#pos#y + Rules.marchDrop() | inv#pos } | inv
@@ -177,8 +186,9 @@ mod Game {
             if (not inv#alive)
                 acc
             else {
-                let covered = List.exists(other ->
-                    other#pos#x == inv#pos#x and other#pos#y > inv#pos#y, acc);
+                let below = other ->
+                    other#pos#x == inv#pos#x and other#pos#y > inv#pos#y;
+                let covered = List.exists(below, acc);
                 if (covered)
                     acc
                 else
@@ -315,7 +325,10 @@ mod Game {
     /// A bullet is spent on the first invader it hits, so one shot can never clear two.
     ///
     def resolveBullets(w: World): World \ Sound = {
-        let start = { kept = Nil, invaders = w#invaders, score = w#score, blasts = w#blasts };
+        let start = { kept = Nil,
+                      invaders = w#invaders,
+                      score = w#score,
+                      blasts = w#blasts };
         let pass = List.foldLeft(meetInvader, start, w#bullets);
         let killed = List.length(pass#blasts) - List.length(w#blasts);
         // One noise per kill: two bullets landing in one tick must be heard twice.
@@ -344,7 +357,9 @@ mod Game {
             // buys breathing room as well as a life.
             emit(SoundCmd.ShieldBlock, { bombs = Nil | w })
         else {
-            let wreck = { pos = player, ticksLeft = Rules.playerBlastTicks(), kind = BlastKind.PlayerBlast };
+            let wreck = { pos = player,
+                          ticksLeft = Rules.playerBlastTicks(),
+                          kind = BlastKind.PlayerBlast };
             emit(SoundCmd.PlayerDies,
                  { lives = w#lives - 1,
                    bombs = Nil,
@@ -570,7 +585,8 @@ mod Game {
 
     def stepPlaying(w: World, input: Snapshot): World \ Sound =
         if (w#pause > 0)
-            w |> ageBlasts |> (n -> { pause = n#pause - 1, tick = n#tick + 1 | n })
+            let countDown = n -> { pause = n#pause - 1, tick = n#tick + 1 | n };
+        w |> ageBlasts |> countDown
         else
             w
                 |> movePlayer(input)
@@ -611,7 +627,8 @@ mod Game {
             // Enter starts a new game. Nothing else happens once it is over, so a lost world
             // is stable no matter how many steps run. The hi-score outlives the game, the
             // way an arcade cabinet's does.
-            if (Set.memberOf(Key.Enter, input#pressed)) { hiScore = w#hiScore | initial(w#seed) }
+            if (Set.memberOf(Key.Enter, input#pressed))
+            { hiScore = w#hiScore | initial(w#seed) }
             else w
         }
     }

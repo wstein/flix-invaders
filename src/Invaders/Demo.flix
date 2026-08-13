@@ -159,14 +159,18 @@ mod Demo {
     /// makes this pay is stopping. Below the cutoff the bonus goes away and the bot returns to
     /// shooting whatever is lowest.
     ///
-    type alias FlankContext = { left = Float32, right = Float32, spread = Float32, looming = Float32 }
+    type alias FlankContext = { left = Float32,
+                                right = Float32,
+                                spread = Float32,
+                                looming = Float32 }
 
     def bestColumn(t: Tuning, w: World): Option[Vec2] = {
         let candidates = columns(w);
         let updateEdges = (acc, c) -> match acc {
             case None => Some((c#x, c#x))
             case Some((left, right)) =>
-                Some((Float32.min(left, c#x), Float32.max(right, c#x)))
+                Some((Float32.min(left, c#x),
+                      Float32.max(right, c#x)))
         };
         let edges = List.foldLeft(updateEdges, None, candidates);
         match edges {
@@ -180,7 +184,8 @@ mod Demo {
                     match best {
                         case None => Some(({ x = c#x, y = c#y }, score))
                         case Some((_, top)) =>
-                            if (score > top) Some(({ x = c#x, y = c#y }, score)) else best
+                            let here = { x = c#x, y = c#y };
+                    if (score > top) Some((here, score)) else best
                     }
                 };
                 List.foldLeft(selectBest, None, candidates)
@@ -362,7 +367,8 @@ mod Demo {
     /// time. Aiming at where a target *is* rather than where it will *be* misses nearly
     /// every shot.
     ///
-    def intent(t: Tuning, error: Float32, w: World): Option[{ goal = Float32, fire = Bool }] = {
+    def intent(t: Tuning, error: Float32,
+               w: World): Option[{ goal = Float32, fire = Bool }] = {
         match chooseTarget(t, w) {
             case None => None
             case Some(p) =>
@@ -418,7 +424,8 @@ mod Demo {
         (Input.empty(), { rng = next, lapse = lTime, moving = 0 | hand })
     }
 
-    def playTick(t: Tuning, w: World, hand: Hand, rng: Rng): (Snapshot, Hand) = {
+    def playTick(t: Tuning, w: World,
+                 hand: Hand, rng: Rng): (Snapshot, Hand) = {
         let (error, settled, next) = judge(t, hand, rng);
         match intent(t, error, w) {
             case None =>

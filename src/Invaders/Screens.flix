@@ -208,7 +208,8 @@ mod Screens {
     /// Split out from the drawing so a test can read it. Everything here is a pure function of
     /// the session and the figures the runtime handed over.
     ///
-    pub def nerdLines(s: Session, w: World, telemetry: Stats): List[(String, String)] = {
+    pub def nerdLines(s: Session, w: World,
+                      telemetry: Stats): List[(String, String)] = {
         let alive = Vector.count(inv -> inv#alive, w#invaders);
         let countBlocks = (total, b) ->
             total + Bunkers.remaining(b);

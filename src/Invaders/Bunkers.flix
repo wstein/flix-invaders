@@ -71,7 +71,8 @@ mod Bunkers {
         let bCell = Rules.bunkerCell();
         let width = Int32.toFloat32(Rules.bunkerColumns()) * bCell;
         let height = Int32.toFloat32(Rules.bunkerRows()) * bCell;
-        let pos = { x = bunker#origin#x + width / 2.0f32, y = bunker#origin#y + height / 2.0f32 };
+        let pos = { x = bunker#origin#x + width / 2.0f32,
+                    y = bunker#origin#y + height / 2.0f32 };
         let size = { x = width, y = height };
         (pos, size)
     }
@@ -329,7 +330,8 @@ mod Bunkers {
     /// One shot damages at most one bunker: `absorb` stops at the first it makes contact with,
     /// so a bullet cannot bore through two shelters standing in a line.
     ///
-    pub def absorbAll(bunkers: Vector[Bunker], shots: List[Vec2], size: Vec2, crater: Float32)
+    pub def absorbAll(bunkers: Vector[Bunker], shots: List[Vec2],
+                      size: Vec2, crater: Float32)
         : (Vector[Bunker], List[Vec2]) = {
         let initAcc = { bunkers = bunkers, kept = (Nil: List[Vec2]) };
         let pass = List.foldLeft((acc, shot) -> {

@@ -172,7 +172,8 @@ mod View {
                 let dip = shieldRise() * fromMiddle * fromMiddle;
                 let lit = Int32.remainder(i + w#tick / 3, count) < 2;
                 Canvas.fillAlpha(Palette.invaderCyan(), if (lit) 255 else 170);
-                Canvas.rect(w#playerX - half + Int32.toFloat32(i) * block, crown + dip, block, 4.0f32)
+                let notchX = w#playerX - half + Int32.toFloat32(i) * block;
+            Canvas.rect(notchX, crown + dip, block, 4.0f32)
             }, List.range(0, count));
             // Posts at each end, so the dome is anchored to the cannon rather than floating.
             Canvas.fillAlpha(Palette.invaderCyan(), 170);

@@ -63,7 +63,8 @@ mod Sprite {
     ///
     /// The horizontal runs of lit pixels in one row, as `(row, startColumn, length)`.
     ///
-    def rowRuns(y: Int32, cells: List[Char]): List[(Int32, Int32, Int32)] = {
+    def rowRuns(y: Int32,
+                cells: List[Char]): List[(Int32, Int32, Int32)] = {
         let initScan = { column = 0, start = (None: Option[Int32]), runs = Nil };
         let stepScan = (scan, cell) ->
             if (cell == lit())
