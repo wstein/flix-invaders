@@ -69,8 +69,9 @@ mod Bench {
     /// changed underneath them would make every number in that file incomparable.
     ///
     pub def wideSeeds(): List[Int64] = {
-        let firstHalf = List.range(1, 31) |> List.map(n -> Int32.toInt64(n) * 7919i64);
-        let secondHalf = List.range(1, 31) |> List.map(n -> Int32.toInt64(n) * 104729i64);
+        let scaled = factor -> List.map(n -> Int32.toInt64(n) * factor, List.range(1, 31));
+        let firstHalf = scaled(7919i64);
+        let secondHalf = scaled(104729i64);
         firstHalf ::: secondHalf
     }
 
@@ -107,7 +108,11 @@ mod Bench {
               // A cleared formation is restored to 55, which would read as negative kills.
               kills = endgame#kills + Int32.max(0, alive(before) - alive(after)) }
 
-    type alias BenchAccumulator = { deaths = Int32, kills = Int32, drops = Int32, ticks = Int32, endgame = Endgame }
+    type alias BenchAccumulator = { deaths = Int32,
+                                    kills = Int32,
+                                    drops = Int32,
+                                    ticks = Int32,
+                                    endgame = Endgame }
 
     ///
     /// One run in progress: the ticks left in its budget, the world, the bot's hand, and the
@@ -168,13 +173,21 @@ mod Bench {
             } else
                 loop(stepBench(tuning, st))
         };
-        let initAcc = { deaths = 0, kills = 0, drops = 0, ticks = 0, endgame = emptyEndgame() };
-        loop({ left = budget(), world = Game.initial(seed), hand = Demo.fresh(seed), acc = initAcc })
+        let initAcc = { deaths = 0,
+                        kills = 0,
+                        drops = 0,
+                        ticks = 0,
+                        endgame = emptyEndgame() };
+        loop({ left = budget(),
+               world = Game.initial(seed),
+               hand = Demo.fresh(seed),
+               acc = initAcc })
     })
 
     /// Whether the formation reached the cannon's line, as opposed to the lives running out.
     def invasionReached(w: World): Bool =
-        Vector.exists(inv -> inv#alive and inv#pos#y >= Rules.invasionLine(), w#invaders)
+        let landed = inv -> inv#alive and inv#pos#y >= Rules.invasionLine();
+        Vector.exists(landed, w#invaders)
 
     /// Runs the benchmark across the standard set of test seeds.
     pub def all(tuning: Tuning): List[Outcome] = allOn(seeds(), tuning)
@@ -322,7 +335,8 @@ mod Bench {
     ///
     pub def score(tuning: Tuning): Int32 = merit(all(tuning))
 
-    def tryKnob(current: (Tuning, Int32), adjust: List[Tuning -> Tuning]): (Tuning, Int32) = {
+    def tryKnob(current: (Tuning, Int32),
+                adjust: List[Tuning -> Tuning]): (Tuning, Int32) = {
         let (curT, curS) = current;
         let candidates = List.map(f -> Tuning.sane(f(curT)), adjust);
         List.foldLeft((inner, candidate) -> {
@@ -412,7 +426,8 @@ mod Bench {
         if (missing <= 0)
             text
         else {
-            let spaces = List.foldLeft((acc, _) -> acc + " ", "", List.range(0, missing));
+            let addSpace = (acc, _) -> acc + " ";
+        let spaces = List.foldLeft(addSpace, "", List.range(0, missing));
             spaces + text
         }
     }
@@ -448,7 +463,8 @@ mod Bench {
         let rRate = showTenths(rateTenths(drops(runs), ticks));
         println("  row drops       ${drops(runs)} = ${rRate} per 10000 ticks");
         let endg = endgame(runs);
-        let egMsg = "  <=8 invaders    ${pixelsPerKill(endg)} px/kill, ${ticksPerKill(endg)} ticks/kill"
+        let egMsg = "  <=8 invaders    ${pixelsPerKill(endg)} px/kill, "
+            + "${ticksPerKill(endg)} ticks/kill"
               + " (${endg#pixels} px, ${endg#ticks} ticks, ${endg#kills} kills)";
         println(egMsg);
         let endedMsg = "  ended by        ${invasions(runs)} invaded, "
@@ -499,10 +515,12 @@ mod Bench {
         let recalcOpt = { optionIds = 'r' :: Nil,
                           optionNames = "recalc" :: Nil,
                           argDescriptor = ArgDescr.OptArg(parseRounds, "ROUNDS"),
-                          explanation = "search for a better tuning (default ${defaultRounds()} rounds) and save it if it wins" };
+                          explanation = "search for a better tuning "
+                              + "(default ${defaultRounds()} rounds) and save it if it wins" };
         let configOpt = { optionIds = 'c' :: Nil,
                           optionNames = "config" :: Nil,
-                          argDescriptor = ArgDescr.ReqArg(given -> Some(Flag.Config(given)), "PATH"),
+                          argDescriptor =
+                              ArgDescr.ReqArg(given -> Some(Flag.Config(given)), "PATH"),
                           explanation = "use PATH instead of the file beside the high scores" };
         let defaultsOpt = { optionIds = 'd' :: Nil,
                             optionNames = "defaults" :: Nil,
@@ -511,7 +529,8 @@ mod Bench {
         let wideOpt = { optionIds = 'w' :: Nil,
                         optionNames = "wide" :: Nil,
                         argDescriptor = ArgDescr.NoArg(Flag.Wide),
-                        explanation = "play ${List.length(wideSeeds())} seeds instead of ${List.length(seeds())}; "
+                        explanation = "play ${List.length(wideSeeds())} seeds "
+                            + "instead of ${List.length(seeds())}; "
                             + "slower, and the only sample that can settle a close call" };
         helpOpt :: recalcOpt :: configOpt :: defaultsOpt :: wideOpt :: Nil
     }

@@ -99,7 +99,8 @@ mod Animation {
                 let (b, r) = generateBall(idx, currentRng);
                 (b :: ballsAcc, r)
         };
-        let (balls, _) = List.foldLeft(step, (Nil, rng), List.range(index, count));
+        let lanes = List.range(index, count);
+        let (balls, _) = List.foldLeft(step, (Nil, rng), lanes);
         List.reverse(balls)
     }
 
@@ -227,11 +228,14 @@ mod Animation {
             let overlap = touching - distance;
             let shareA = overlap * (massB / total);
             let shareB = overlap * (massA / total);
-            let a1 = { x = a#x - nx * shareA, y = a#y - ny * shareA | a };
-            let b1 = { x = b#x + nx * shareB, y = b#y + ny * shareB | b };
+            let a1 = { x = a#x - nx * shareA,
+                       y = a#y - ny * shareA | a };
+            let b1 = { x = b#x + nx * shareB,
+                       y = b#y + ny * shareB | b };
 
             // Closing speed along the normal. Negative means they are approaching.
-            let closing = (b#dx - a#dx) * nx + (b#dy - a#dy) * ny;
+            let closing = (b#dx - a#dx) * nx
+                + (b#dy - a#dy) * ny;
             let masses = { a = massA, b = massB };
             let norm = { nx = nx, ny = ny, closing = closing };
             bounceBalls(a1, b1, masses, norm)
