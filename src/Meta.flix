@@ -9,7 +9,7 @@
 mod Meta {
 
     /// The semantic version string of the build.
-    pub def version(): String = "0.1.6"
+    pub def version(): String = "0.1.7"
 
     /// The version as it appears on screen.
     pub def label(): String = "v${version()}"
