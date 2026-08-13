@@ -561,6 +561,56 @@ mod Game {
         Vector.foldLeft((acc, x) -> acc + show(x), "", xs)
 
     ///
+    /// The world's own fields, in a fixed order: phase, tick, cannon, score, lives, march,
+    /// best, level, pause, shield, bonus, shots, generator.
+    ///
+    def header(w: World): String = {
+        let stage = "${w#phase}|t=${w#tick}";
+        let cannon = "|x=${w#playerX}|s=${w#score}";
+        let lives = "|l=${w#lives}|d=${w#marchDir}";
+        let best = "|h=${w#hiScore}|v=${w#level}";
+        let held = "|p=${w#pause}|g=${w#shield}";
+        let bonus = "|n=${w#nextBonusAt}|f=${w#shotsFired}";
+        let seed = "|r=${w#rng}";
+        stage + cannon + lives + best + held + bonus + seed
+    }
+
+    /// One shot in flight: `|b(x,y)`.
+    def showShot(b: Vec2): String = {
+        let at = "${b#x}" :: "${b#y}" :: Nil;
+        group("b", at)
+    }
+
+    /// One bomb: `|m(kind,x,y,age)`.
+    def showBomb(b: Bomb): String = {
+        let at = "${b#x}" :: "${b#y}" :: Nil;
+        let fields = "${b#kind}" :: at ::: "${b#age}" :: Nil;
+        group("m", fields)
+    }
+
+    /// One invader: where it is, or `|.` for a gap where one used to be.
+    def showInvader(inv: Invader): String = {
+        let at = "${inv#pos#x}" :: "${inv#pos#y}" :: Nil;
+        if (inv#alive) group("i", at) else "|."
+    }
+
+    /// One bunker, as the number of blocks it has left.
+    def showShelter(bunker: Bunker): String = "|k${Bunkers.remaining(bunker)}"
+
+    /// One explosion: `|e(kind,x,y,ticksLeft)`.
+    def showBlast(b: Blast): String = {
+        let at = "${b#pos#x}" :: "${b#pos#y}" :: Nil;
+        let fields = "${b#kind}" :: at ::: "${b#ticksLeft}" :: Nil;
+        group("e", fields)
+    }
+
+    /// The saucer: where it is, or how long until the next one.
+    def showMystery(w: World): String = match w#mystery {
+        case None => "|u-${w#mysteryTimer}"
+        case Some(m) => group("u", "${m#x}" :: "${m#dir}" :: Nil)
+    }
+
+    ///
     /// An exact, comparable rendering of a world.
     ///
     /// Flix records do not derive `Eq`, and comparing worlds is what the replay tests do, so
@@ -569,45 +619,14 @@ mod Game {
     /// arithmetic is deterministic across machines too, so there is nothing to be gained by
     /// blurring it. A digest also gives a readable diff when a replay does drift.
     ///
-    pub def digest(w: World): String = {
-        let cannon = "${w#phase}|t=${w#tick}|x=${w#playerX}";
-        let tally = "|s=${w#score}|l=${w#lives}|d=${w#marchDir}";
-        let best = "|h=${w#hiScore}|v=${w#level}|p=${w#pause}";
-        let armour = "|g=${w#shield}|n=${w#nextBonusAt}";
-        let firing = "|f=${w#shotsFired}|r=${w#rng}";
-        let header = cannon + tally + best + armour + firing;
-
-        let shot = b -> group("b", "${b#x}" :: "${b#y}" :: Nil);
-        let shots = eachOf(shot, w#bullets);
-
-        let bomb = b -> {
-            let fields = "${b#kind}" :: "${b#x}" :: "${b#y}" :: "${b#age}" :: Nil;
-            group("m", fields)
-        };
-        let drops = eachOf(bomb, w#bombs);
-
-        let invader = inv -> {
-            let at = "${inv#pos#x}" :: "${inv#pos#y}" :: Nil;
-            if (inv#alive) group("i", at) else "|."
-        };
-        let formation = eachIn(invader, w#invaders);
-
-        let shelter = bunker -> "|k${Bunkers.remaining(bunker)}";
-        let shelters = eachIn(shelter, w#bunkers);
-
-        let blast = b -> {
-            let at = "${b#pos#x}" :: "${b#pos#y}" :: Nil;
-            let fields = "${b#kind}" :: at ::: "${b#ticksLeft}" :: Nil;
-            group("e", fields)
-        };
-        let debris = eachOf(blast, w#blasts);
-
-        let ufo = match w#mystery {
-            case None => "|u-${w#mysteryTimer}"
-            case Some(m) => group("u", "${m#x}" :: "${m#dir}" :: Nil)
-        };
-        header + shots + drops + formation + shelters + debris + ufo
-    }
+    pub def digest(w: World): String =
+        header(w)
+            + eachOf(showShot, w#bullets)
+            + eachOf(showBomb, w#bombs)
+            + eachIn(showInvader, w#invaders)
+            + eachIn(showShelter, w#bunkers)
+            + eachOf(showBlast, w#blasts)
+            + showMystery(w)
 
     // -- the step ---------------------------------------------------------------------
 
