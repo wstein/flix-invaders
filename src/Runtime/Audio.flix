@@ -89,7 +89,8 @@ mod Audio {
     /// The generator is seeded per sample, so the burst is identical every run -- there is
     /// no reason for an explosion to differ between sessions.
     ///
-    def burst(rc: Region[r], millis: Int32, volume: Float32): Array[Int8, r] \ r = {
+    def burst(rc: Region[r], millis: Int32,
+              volume: Float32): Array[Int8, r] \ r = {
         let sampleCount = (millis * sampleRate()) / 1000;
         let count = Int32.max(1, sampleCount);
         let genSample = i -> {
@@ -113,7 +114,8 @@ mod Audio {
     ///
     /// The waveform for one sound.
     ///
-    def samplesFor(rc: Region[r], cmd: SoundCmd): Array[Int8, r] \ r = match cmd {
+    def samplesFor(rc: Region[r],
+                   cmd: SoundCmd): Array[Int8, r] \ r = match cmd {
         case SoundCmd.Shoot =>
             let p = { startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32 };
             sweep(rc, p)

@@ -269,7 +269,8 @@ mod Sketch {
     /// against a set that already holds the key and see no transition at all. On a display
     /// faster than the simulation that is most frames, so it is the common case, not a corner.
     ///
-    def readKeyboard(app: PApplet, loop: Loop[s, rc]): (Int32, Snapshot) \ IO + rc = {
+    def readKeyboard(app: PApplet,
+                     loop: Loop[s, rc]): (Int32, Snapshot) \ IO + rc = {
         let refs = loop#refs;
         let current = Ref.get(refs#heldNow);
         let prev = Ref.get(refs#heldPrev);
@@ -289,7 +290,8 @@ mod Sketch {
     /// subtracting one accumulator reading from another -- which is also why the caller can
     /// report `due` as the number of steps taken.
     ///
-    def simulate(loop: Loop[s, rc], due: Int32, snapshot: Snapshot): Int64 \ IO + rc = {
+    def simulate(loop: Loop[s, rc], due: Int32,
+                 snapshot: Snapshot): Int64 \ IO + rc = {
         let refs = loop#refs;
         let stepsNs = loop#stepNs * Int32.toInt64(due);
         Ref.put(Ref.get(refs#accNs) - stepsNs, refs#accNs);
@@ -418,10 +420,12 @@ mod Sketch {
                 drawFrame(app, loop)
 
             def keyPressed(app: PApplet): Unit \ IO + rc =
-                Ref.put(Set.insert(Key.fromCode(app.keyCode), Ref.get(refs#heldNow)), refs#heldNow)
+                let pressed = Key.fromCode(app.keyCode);
+                Ref.put(Set.insert(pressed, Ref.get(refs#heldNow)), refs#heldNow)
 
             def keyReleased(app: PApplet): Unit \ IO + rc =
-                Ref.put(Set.remove(Key.fromCode(app.keyCode), Ref.get(refs#heldNow)), refs#heldNow)
+                let released = Key.fromCode(app.keyCode);
+                Ref.put(Set.remove(released, Ref.get(refs#heldNow)), refs#heldNow)
 
             // The only System.exit(0) in PApplet, and the documented embedding hook.
             // Overriding it hands control back to `main` instead of killing the JVM
@@ -487,9 +491,18 @@ mod Sketch {
                 app.fill(r, g, b, Int32.toFloat32(a));
                 k()
             }
-            def rect(x, y, w, h, k) = { app.rect(x, y, w, h); k() }
-            def ellipse(x, y, w, h, k) = { app.ellipse(x, y, w, h); k() }
-            def text(s, x, y, k) = { app.text(s, x, y); k() }
+            def rect(x, y, w, h, k) = {
+                app.rect(x, y, w, h);
+                k()
+            }
+            def ellipse(x, y, w, h, k) = {
+                app.ellipse(x, y, w, h);
+                k()
+            }
+            def text(s, x, y, k) = {
+                app.text(s, x, y);
+                k()
+            }
             def textSize(px, k) = { app.textSize(px); k() }
             def dimensions(k) = k((app.width, app.height))
         }

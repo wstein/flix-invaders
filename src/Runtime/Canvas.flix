@@ -54,8 +54,10 @@ mod Canvas {
             case DrawCmd.Clear(c)             => Canvas.clear(c)
             case DrawCmd.Fill(c)              => Canvas.fill(c)
             case DrawCmd.FillAlpha(c, a)      => Canvas.fillAlpha(c, a)
-            case DrawCmd.Rect(x, y, w, h)     => Canvas.rect(x, y, w, h)
-            case DrawCmd.Ellipse(x, y, w, h)  => Canvas.ellipse(x, y, w, h)
+            case DrawCmd.Rect(x, y, w, h) =>
+                Canvas.rect(x, y, w, h)
+            case DrawCmd.Ellipse(x, y, w, h) =>
+                Canvas.ellipse(x, y, w, h)
             case DrawCmd.Text(s, x, y)        => Canvas.text(s, x, y)
             case DrawCmd.TextSize(px)         => Canvas.textSize(px)
         };
@@ -73,7 +75,8 @@ mod Canvas {
     /// eighth interpretation of `Canvas` means adding a function here, not editing the
     /// runtime.
     ///
-    type alias CmdCollector[a: Type, b: Type, ef: Eff] = a -> (b, List[DrawCmd]) \ ef - Canvas
+    type alias CmdCollector[a: Type, b: Type, ef: Eff] =
+        a -> (b, List[DrawCmd]) \ ef - Canvas
 
     pub def handleWithCollector(dims: (Int32, Int32),
                                 f: a -> b \ ef)
@@ -86,10 +89,22 @@ mod Canvas {
             } with handler Canvas {
                 def clear(c, k)              = { emit(DrawCmd.Clear(c)); k() }
                 def fill(c, k)               = { emit(DrawCmd.Fill(c)); k() }
-                def fillAlpha(c, a, k)       = { emit(DrawCmd.FillAlpha(c, a)); k() }
-                def rect(x, y, w, h, k)      = { emit(DrawCmd.Rect(x, y, w, h)); k() }
-                def ellipse(x, y, w, h, k)   = { emit(DrawCmd.Ellipse(x, y, w, h)); k() }
-                def text(s, x, y, k)         = { emit(DrawCmd.Text(s, x, y)); k() }
+                def fillAlpha(c, a, k) = {
+                    emit(DrawCmd.FillAlpha(c, a));
+                    k()
+                }
+                def rect(x, y, w, h, k) = {
+                    emit(DrawCmd.Rect(x, y, w, h));
+                    k()
+                }
+                def ellipse(x, y, w, h, k) = {
+                    emit(DrawCmd.Ellipse(x, y, w, h));
+                    k()
+                }
+                def text(s, x, y, k) = {
+                    emit(DrawCmd.Text(s, x, y));
+                    k()
+                }
                 def textSize(px, k)          = { emit(DrawCmd.TextSize(px)); k() }
                 def dimensions(k)            = k(dims)
             };

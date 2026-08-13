@@ -57,7 +57,8 @@ mod Sound {
     /// Pure: the accumulator lives in a region that is fully discharged here, so this needs
     /// no `IO` and touches no device. This is what the sound tests use.
     ///
-    type alias SoundCollector[a: Type, b: Type, ef: Eff] = a -> (b, List[SoundCmd]) \ ef - Sound
+    type alias SoundCollector[a: Type, b: Type, ef: Eff] =
+        a -> (b, List[SoundCmd]) \ ef - Sound
 
     pub def handleWithCollector(f: a -> b \ ef)
         : SoundCollector[a, b, ef] =
