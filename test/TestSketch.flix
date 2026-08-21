@@ -9,6 +9,7 @@
 mod TestSketch {
 
     use Assert.assertEq
+    use Assert.assertFalse
     use Assert.assertTrue
 
     // -- the simulation rate ------------------------------------------------------------
@@ -82,6 +83,24 @@ mod TestSketch {
     @Test
     def testAFramePeriodAlwaysCoversSomeTime(): Unit \ Assert =
         assertTrue(Surface.periodFor(0) > 0i64)
+
+    // -- the one key the window keeps for itself ------------------------------------------
+
+    ///
+    /// Escape closes the window, so it never reaches a step. Nothing above the runtime may
+    /// use it for anything else, and this is where that is written down.
+    ///
+    @Test
+    def testEscapeClosesTheWindow(): Unit \ Assert =
+        assertTrue(Surface.closesWindow(27))
+
+    @Test
+    def testTheKeysTheGamePlaysWithReachTheGame(): Unit \ Assert = {
+        assertFalse(Surface.closesWindow(32));
+        assertFalse(Surface.closesWindow(10));
+        assertFalse(Surface.closesWindow(37));
+        assertFalse(Surface.closesWindow(114))
+    }
 
     // -- keeping the frame rate on target -------------------------------------------------
 

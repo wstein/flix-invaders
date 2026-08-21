@@ -26,12 +26,11 @@ def main(): Unit
 
     // And now stop, having finished.
     //
-    // `Sketch` overrides `exitActual` so that closing the window returns control here instead
-    // of Processing calling `System.exit(0)` mid-frame -- which is what makes saving the
-    // scores possible at all. The cost is that nothing exits the JVM afterwards: AWT's event
-    // thread is not a daemon, so returning from `main` leaves it running and the process
-    // hangs. `./flixw run` hides this because its launcher owns the JVM; a plain
-    // `java -jar` does not, and the released game would never terminate.
+    // Closing the window returns control here rather than taking the JVM down mid-frame,
+    // which is what makes saving the scores possible at all. The cost is that nothing exits
+    // the JVM afterwards: AWT's event thread is not a daemon, so returning from `main` leaves
+    // it running and the process hangs. `./flixw run` hides this because its launcher owns
+    // the JVM; a plain `java -cp` does not, and the released game would never terminate.
     //
     // So the exit is explicit, and it is here rather than in `Sketch` on purpose: it belongs
     // after the last thing that must happen, not at the end of the window's life.

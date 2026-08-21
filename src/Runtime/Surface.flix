@@ -8,7 +8,9 @@
 /// one-line-per-operation translation when Processing Core was dropped.
 ///
 /// It is a *surface*, not a framework. It owns a window, a back buffer, the current fill
-/// colour and font, and the two input devices -- and nothing else. There is no sketch
+/// colour and font, and the two input devices -- and nothing else. The one policy it does
+/// impose is that Escape closes the window, which is what a sketch of this shape has always
+/// done. There is no sketch
 /// lifecycle, no `setup`/`draw` pair to subclass, and no global state: everything it knows
 /// travels in the `Surface.Window` record it hands back. The frame loop lives one layer up,
 /// in `Sketch`, where it can be read as ordinary functions.
@@ -173,11 +175,17 @@ mod Surface {
         // Otherwise Tab moves focus out of the game instead of arriving as a key.
         canvas.setFocusTraversalKeysEnabled(false);
 
+        // Declared before the listeners that set it: Escape closes the window from inside
+        // the key listener, not from the window listener.
+        let closing = new AtomicBoolean(false);
+
         let keys = Ref.fresh(rc, (Set.empty(): Set[Int32]));
         let mouse = Ref.fresh(rc, (0, 0));
         canvas.addKeyListener(new KeyAdapter {
             def keyPressed(_a: KeyAdapter, e: KeyEvent): Unit \ IO + r =
-                Ref.put(Set.insert(e.getKeyCode(), Ref.get(keys)), keys)
+                let code = e.getKeyCode();
+                if (closesWindow(code)) closing.set(true)
+                else Ref.put(Set.insert(code, Ref.get(keys)), keys)
             def keyReleased(_a: KeyAdapter, e: KeyEvent): Unit \ IO + r =
                 Ref.put(Set.remove(e.getKeyCode(), Ref.get(keys)), keys)
         });
@@ -188,7 +196,6 @@ mod Surface {
                 Ref.put((e.getX(), e.getY()), mouse)
         });
 
-        let closing = new AtomicBoolean(false);
         let frame = new JFrame(title);
         // The window must not take the JVM down with it: the score table is written after
         // the loop returns, so closing has to mean "stop" and not "exit".
@@ -218,6 +225,20 @@ mod Surface {
           rectangle = new RectangleF(), ellipse = new EllipseF(),
           keys = keys, mouse = mouse, closing = closing }
     }
+
+    ///
+    /// Whether a key press closes the window rather than reaching the sketch.
+    ///
+    /// Escape does, which is the convention every windowed sketch of this shape has had --
+    /// Processing built it into `PApplet`, and a window that could only be dismissed with the
+    /// mouse would be a regression rather than a simplification. The consequence is worth
+    /// stating plainly: `Key.Escape` never reaches a step, so nothing above the runtime may
+    /// use it for anything else.
+    ///
+    pub def closesWindow(code: Int32): Bool = code == escapeKey()
+
+    /// AWT's `VK_ESCAPE`.
+    def escapeKey(): Int32 = 27
 
     ///
     /// The nominal gap between frames, in whole milliseconds, for a target rate of `hz`.
