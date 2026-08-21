@@ -34,6 +34,7 @@ mod Surface {
     import java.awt.Font
     import java.awt.Graphics2D
     import java.awt.RenderingHints
+    import java.awt.Toolkit
     import java.awt.event.ActionEvent
     import java.awt.event.ActionListener
     import java.awt.event.FocusAdapter
@@ -561,12 +562,19 @@ mod Surface {
     /// whole sheet, so the next one restores it in sixteen milliseconds, and a retry here
     /// would cost that on every frame to save it on almost none.
     ///
+    /// The `sync` is for X11, where the toolkit is a client of a display server and may hold
+    /// a finished frame in its request buffer until it has some other reason to flush --
+    /// which is how a game that is comfortably inside its budget still looks jerky. It is
+    /// close to free where it is not needed: measured here at 0.03 to 0.06ms on top of a
+    /// present of about 0.1ms, against a frame of 16.7.
+    ///
     pub def present(win: Window[r]): Unit \ IO = {
         let noObserver: ImageObserver = checked_cast(null);
         let g = win#strategy.getDrawGraphics();
         discard g.drawImage(win#sheet#image, 0, 0, noObserver);
         g.dispose();
-        win#strategy.show()
+        win#strategy.show();
+        Toolkit.getDefaultToolkit().sync()
     }
 
     ///
