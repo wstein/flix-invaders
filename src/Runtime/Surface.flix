@@ -36,6 +36,8 @@ mod Surface {
     import java.awt.RenderingHints
     import java.awt.event.ActionEvent
     import java.awt.event.ActionListener
+    import java.awt.event.FocusAdapter
+    import java.awt.event.FocusEvent
     import java.awt.event.KeyAdapter
     import java.awt.event.KeyEvent
     import java.awt.event.WindowAdapter
@@ -323,6 +325,9 @@ mod Surface {
     /// It is sized from the sheet rather than from a width and a height of its own, so the
     /// two cannot drift apart or be transposed.
     ///
+    /// Three listeners, because a key that goes down here may come up anywhere: the third
+    /// lets go of everything when the window stops being the one receiving keys.
+    ///
     /// `\ IO` and not `\ IO + r` although the listener writes `keys`: a listener is a fixed
     /// JVM method on an anonymous class, and what it does to the caller's region is invisible
     /// from out here -- the same limit that keeps `loop` and `Sketch.start` concrete.
@@ -345,6 +350,13 @@ mod Surface {
                 }
             def keyReleased(_a: KeyAdapter, e: KeyEvent): Unit \ IO + r =
                 Ref.put(afterRelease(Ref.get(keys), e.getKeyCode()), keys)
+        });
+        // A key held when the window loses focus is never released, because the release goes
+        // wherever the focus went. Without this, switching away mid-move and coming back
+        // leaves the cannon walking into the wall on a key nobody is pressing.
+        canvas.addFocusListener(new FocusAdapter {
+            def focusLost(_a: FocusAdapter, _e: FocusEvent): Unit \ r =
+                Ref.put((Set.empty(): Set[Int32]), keys)
         });
         canvas
     }
