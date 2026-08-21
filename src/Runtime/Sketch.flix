@@ -350,7 +350,10 @@ mod Sketch {
         let loop = { cfg = cfg, stepNs = stepNs, budgetNs = budgetNs, surface = surface,
                      voices = voices, refs = refs, step = step, view = view };
 
-        Surface.loop(surface, hz, () -> drawFrame(loop));
+        // The display is asked for the same rate as the simulation. They are not the same
+        // thing -- the accumulator exists precisely because a frame is not a tick -- but
+        // there is no reason to draw more often than the world changes.
+        Surface.loop(surface, stepNs, () -> drawFrame(loop));
 
         Surface.close(surface);
         Audio.close(voices);

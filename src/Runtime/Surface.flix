@@ -231,27 +231,6 @@ mod Surface {
     def escapeKey(): Int32 = 27
 
     ///
-    /// The nominal gap between frames, in whole milliseconds, for a target rate of `hz`.
-    ///
-    /// Swing's timer counts in whole milliseconds, so 60 Hz asks for 16 rather than 16.67 and
-    /// would drift a third of a millisecond fast every frame. This is only where the loop
-    /// starts: `reschedule` aims each frame after the first at a deadline in nanoseconds, so
-    /// the rounding here is corrected rather than accumulated.
-    ///
-    /// Never zero, whatever `hz` is asked for: a timer with no delay saturates the event
-    /// thread and the window stops answering. A rate of nought or less asks for a frame a
-    /// second, which is slow enough to be recognised as wrong and calm enough to survive.
-    ///
-    pub def delayFor(hz: Int32): Int32 =
-        if (hz <= 0) 1000 else Int32.max(1, 1000 / hz)
-
-    ///
-    /// How long one frame is meant to take, in nanoseconds.
-    ///
-    pub def periodFor(hz: Int32): Int64 =
-        if (hz <= 0) 1000000000i64 else 1000000000i64 / Int32.toInt64(hz)
-
-    ///
     /// Moves the deadline on by one frame and says how long to wait for it, in milliseconds.
     ///
     /// Swing's timer measures its delay from the moment it fires, so whatever a frame costs
@@ -267,13 +246,39 @@ mod Surface {
     pub def reschedule(dueNs: Int64, nowNs: Int64, periodNs: Int64): (Int64, Int32) = {
         let next = dueNs + periodNs;
         let target = if (next < nowNs) nowNs + periodNs else next;
-        let waitNs = target - nowNs;
-        let waitMs = if (waitNs <= 0i64) 0 else Option.getWithDefault(0, Int64.tryToInt32(waitNs / 1000000i64));
-        (target, waitMs)
+        (target, millisOf(target - nowNs))
     }
 
     ///
-    /// Calls `frame` at `hz` times a second until the window closes.
+    /// A nanosecond span as the whole milliseconds a timer can be asked to wait.
+    ///
+    /// Swing's timer counts in milliseconds, so 16.67 of them is asked for as 16 and the
+    /// third that is dropped would drift the display fast. That is what `reschedule` exists
+    /// to correct: the rounding happens once per frame and against a deadline, rather than
+    /// accumulating.
+    ///
+    pub def millisOf(ns: Int64): Int32 =
+        if (ns <= 0i64) 0
+        else Option.getWithDefault(0, Int64.tryToInt32(ns / 1000000i64))
+
+    ///
+    /// How long the timer waits for the very first frame.
+    ///
+    /// Never zero, however short a period is asked for: a Swing timer with no delay
+    /// saturates the event thread before the first frame has drawn, and the window never
+    /// becomes responsive enough to be closed. Every frame after this one is scheduled by
+    /// `reschedule`, which may legitimately ask for no wait at all -- by then there is a
+    /// window, and a frame that is already late should not be delayed further.
+    ///
+    pub def firstDelay(periodNs: Int64): Int32 =
+        Int32.max(1, millisOf(periodNs))
+
+    ///
+    /// Calls `frame` once every `periodNs` until the window closes.
+    ///
+    /// Nanoseconds and not a rate: what a frame is worth is the frame loop's business, and
+    /// `Sketch` is where the rate a `Config` asks for is brought into range. Asking twice,
+    /// in two units, is how the two would come to disagree.
     ///
     /// The callback runs on AWT's event dispatch thread, which is also the thread the key
     /// listeners run on and the only thread Swing may be touched from. One thread
@@ -289,14 +294,13 @@ mod Surface {
     /// region is invisible from out here. That is the same boundary limit that keeps
     /// `Sketch.start` from being effect-polymorphic.
     ///
-    pub def loop(s: Window[r], hz: Int32, frame: Unit -> Unit \ IO + r): Unit \ IO = {
-        let periodNs = periodFor(hz);
+    pub def loop(s: Window[r], periodNs: Int64, frame: Unit -> Unit \ IO + r): Unit \ IO = {
         let due = new AtomicLong(System.nanoTime());
         // Built without a listener so that the listener can be given the timer: each frame
         // schedules the next one itself, against a deadline, rather than repeating on a
         // fixed delay that drifts.
         let noListener: ActionListener = checked_cast(null);
-        let timer = new Timer(delayFor(hz), noListener);
+        let timer = new Timer(firstDelay(periodNs), noListener);
         timer.setRepeats(false);
         timer.addActionListener(new ActionListener {
             def actionPerformed(_a: ActionListener, _e: ActionEvent): Unit \ IO + r =

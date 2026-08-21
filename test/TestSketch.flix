@@ -56,33 +56,38 @@ mod TestSketch {
         assertTrue(Sketch.stepNsFor(2000000000) > 0i64)
     }
 
-    // -- how often the window asks for a frame -------------------------------------------
+    // -- turning a span into something a timer understands ---------------------------------
+
+    ///
+    /// Swing's timer counts in whole milliseconds, and a sixtieth of a second is not one.
+    /// Truncating is the safe direction of the two -- `reschedule` corrects it against a
+    /// deadline, and a frame that arrives early owes fewer ticks while one that arrives late
+    /// has to be caught up on.
+    ///
+    @Test
+    def testASixtiethOfASecondIsSixteenMilliseconds(): Unit \ Assert =
+        assertEq(expected = 16, Surface.millisOf(Sketch.stepNsFor(60)))
 
     @Test
-    def testSixtyHertzAsksForAFrameEverySixteenMilliseconds(): Unit \ Assert =
-        assertEq(expected = 16, Surface.delayFor(60))
-
-    @Test
-    def testTheDelayIsNeverZero(): Unit \ Assert = {
-        assertEq(expected = 1, Surface.delayFor(1000));
-        assertEq(expected = 1, Surface.delayFor(4000))
+    def testASpanAlreadySpentIsNoWaitAtAll(): Unit \ Assert = {
+        assertEq(expected = 0, Surface.millisOf(0i64));
+        assertEq(expected = 0, Surface.millisOf(-5000000i64))
     }
 
     @Test
-    def testARateOfNoughtStillAsksForFrames(): Unit \ Assert = {
-        assertEq(expected = 1000, Surface.delayFor(0));
-        assertEq(expected = 1000, Surface.delayFor(-1))
-    }
+    def testASpanShorterThanAMillisecondRoundsDownToNone(): Unit \ Assert =
+        assertEq(expected = 0, Surface.millisOf(999999i64))
 
+    ///
+    /// The first frame is the one that cannot be hurried: until it has drawn there is no
+    /// window worth talking to, and a timer asked for no delay at all never lets one appear.
+    ///
     @Test
-    def testAFramePeriodIsTheRateTurnedIntoNanoseconds(): Unit \ Assert = {
-        assertEq(expected = 16666666i64, Surface.periodFor(60));
-        assertEq(expected = 1000000000i64, Surface.periodFor(1))
+    def testTheFirstFrameIsNeverAskedForImmediately(): Unit \ Assert = {
+        assertEq(expected = 16, Surface.firstDelay(Sketch.stepNsFor(60)));
+        assertEq(expected = 1, Surface.firstDelay(Sketch.stepNsFor(1000)));
+        assertEq(expected = 1, Surface.firstDelay(0i64))
     }
-
-    @Test
-    def testAFramePeriodAlwaysCoversSomeTime(): Unit \ Assert =
-        assertTrue(Surface.periodFor(0) > 0i64)
 
     // -- the one key the window keeps for itself ------------------------------------------
 
@@ -109,7 +114,7 @@ mod TestSketch {
     ///
     @Test
     def testTheDeadlineMovesOnByExactlyOnePeriod(): Unit \ Assert = {
-        let period = Surface.periodFor(60);
+        let period = Sketch.stepNsFor(60);
         let (target, waitMs) = Surface.reschedule(0i64, 0i64, period);
         assertEq(expected = period, target);
         assertEq(expected = 16, waitMs)
@@ -122,7 +127,7 @@ mod TestSketch {
     ///
     @Test
     def testAFrameThatRanLongShortensTheNextWait(): Unit \ Assert = {
-        let period = Surface.periodFor(60);
+        let period = Sketch.stepNsFor(60);
         let (target, waitMs) = Surface.reschedule(0i64, 10000000i64, period);
         assertEq(expected = period, target);
         assertEq(expected = 6, waitMs)
@@ -135,7 +140,7 @@ mod TestSketch {
     ///
     @Test
     def testAFrameMoreThanAPeriodLateStartsCountingAgain(): Unit \ Assert = {
-        let period = Surface.periodFor(60);
+        let period = Sketch.stepNsFor(60);
         let now = 50000000i64;
         let (target, waitMs) = Surface.reschedule(0i64, now, period);
         assertEq(expected = now + period, target);
@@ -144,7 +149,7 @@ mod TestSketch {
 
     @Test
     def testADeadlineAlreadyReachedIsNotWaitedFor(): Unit \ Assert = {
-        let period = Surface.periodFor(60);
+        let period = Sketch.stepNsFor(60);
         let (_target, waitMs) = Surface.reschedule(0i64, period, period);
         assertEq(expected = 0, waitMs)
     }
@@ -159,7 +164,7 @@ mod TestSketch {
     ///
     @Test
     def testTheAverageRateStaysOnTargetDespiteWholeMillisecondWaits(): Unit \ Assert = {
-        let period = Surface.periodFor(60);
+        let period = Sketch.stepNsFor(60);
         let workNs = 3000000i64;
         let frames = 600;
         let oneFrame = (state, _i) -> {
@@ -186,7 +191,7 @@ mod TestSketch {
     def testTheDisplayRateDoesNotChangeTheSimulationRate(): Unit \ Assert = {
         let hz = 60;
         let stepNs = Sketch.stepNsFor(hz);
-        let frameNs = Int32.toInt64(Surface.delayFor(hz)) * 1000000i64;
+        let frameNs = Int32.toInt64(Surface.millisOf(stepNs)) * 1000000i64;
         let frames = 600;
         let oneFrame = (state, _i) -> {
             let (owed, ran) = state;
