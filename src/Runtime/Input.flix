@@ -90,12 +90,14 @@ mod Key {
 /// the edges since the previous step, so a step can distinguish "the key is down" from "the
 /// key just went down" without keeping its own history.
 ///
+/// A keyboard and nothing else. There was a pointer here too, carried from the window to
+/// every step and read by nothing in eight releases -- the cabinet, the rules and the demo
+/// bot are all played with the arrows. It went when the window did.
+///
 pub type alias Snapshot = {
     held = Set[Key],
     pressed = Set[Key],
-    released = Set[Key],
-    mouseX = Int32,
-    mouseY = Int32
+    released = Set[Key]
 }
 
 ///
@@ -112,38 +114,28 @@ pub eff Input {
 mod Input {
 
     ///
-    /// A snapshot with nothing held and the mouse at the origin.
+    /// A snapshot with nothing held.
     ///
     pub def empty(): Snapshot = {
         held = Set.empty(),
         pressed = Set.empty(),
-        released = Set.empty(),
-        mouseX = 0,
-        mouseY = 0
+        released = Set.empty()
     }
 
     ///
     /// Builds a snapshot by comparing the keys held now against the keys held last step.
     ///
-    /// The two key sets are named -- transposing them inverts every edge, turning presses
-    /// into releases -- and so are the two mouse coordinates.
+    /// The two sets are named because transposing them inverts every edge, turning presses
+    /// into releases.
     pub def diff(
         previous: {previous = Set[Key]},
-        current: {current = Set[Key]},
-        mouseX: {mouseX = Int32},
-        mouseY: {mouseY = Int32}
+        current: {current = Set[Key]}
     ): Snapshot = {
         let before = previous#previous;
         let now = current#current;
-        let newlyPressed = Set.difference(now, before);
-        let newlyReleased = Set.difference(before, now);
-        let mx = mouseX#mouseX;
-        let my = mouseY#mouseY;
         { held = now,
-          pressed = newlyPressed,
-          released = newlyReleased,
-          mouseX = mx,
-          mouseY = my }
+          pressed = Set.difference(now, before),
+          released = Set.difference(before, now) }
     }
 
     ///
@@ -154,7 +146,7 @@ mod Input {
     pub def holding(keys: List[Key]): Snapshot = {
         let prev = Set.empty();
         let curr = List.toSet(keys);
-        diff(previous = prev, current = curr, mouseX = 0, mouseY = 0)
+        diff(previous = prev, current = curr)
     }
 
     // -- handing one frame's keyboard to several logical ticks ------------------------------

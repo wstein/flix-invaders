@@ -305,7 +305,7 @@ Three facts make this safe:
   the one value written on the event thread and read on the other, and reading it is also
   what publishes the last world to the caller.
 - **Input, simulation and drawing share one thread.** The frame is a timer callback on the
-  event dispatch thread, which is where the key and mouse listeners already run and the only
+  event dispatch thread, which is where the key listeners already run and the only
   thread Swing may be touched from. The held-key set is therefore mutated only between
   frames and needs no locking — the same property Processing's animation thread gave, for
   the same reason, and now visible in the types rather than buried in a library.

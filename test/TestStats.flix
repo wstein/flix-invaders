@@ -109,7 +109,7 @@ mod TestStats {
     def testItRespondsToThePressNotTheHold(): Unit \ Assert = {
         // Held down, an edge-triggered toggle stays put; a level-triggered one strobes at
         // sixty hertz and settles wherever the frame count happens to leave it.
-        let held = Input.diff(previous = Set#{Key.F3}, current = Set#{Key.F3}, mouseX = 0, mouseY = 0);
+        let held = Input.diff(previous = Set#{Key.F3}, current = Set#{Key.F3});
         let shown = Sound.runWithNoOp(() -> Session.step(start(), Input.holding(Key.F3 :: Nil)));
         let still = Sound.runWithNoOp(() -> Session.step(shown, held));
         assertTrue(still#nerds)

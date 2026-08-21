@@ -33,8 +33,6 @@ mod Surface {
     import java.awt.event.ActionListener
     import java.awt.event.KeyAdapter
     import java.awt.event.KeyEvent
-    import java.awt.event.MouseEvent
-    import java.awt.event.MouseMotionAdapter
     import java.awt.event.WindowAdapter
     import java.awt.event.WindowEvent
     import java.awt.geom.{Ellipse2D$Float => EllipseF}
@@ -68,7 +66,7 @@ mod Surface {
     /// `sized` remembers the font the last `textSize` derived, so a screen that sets the
     /// same size before every line of text derives the font once instead of twenty times.
     ///
-    /// `keys` and `mouse` are written by the AWT listeners and read by the frame; `closing`
+    /// `keys` is written by the AWT listeners and read by the frame; `closing`
     /// is set when the window is shut, and is the one value the main thread reads while the
     /// event thread may still be writing it -- which is why it is an `AtomicBoolean` and not
     /// a `Ref`.
@@ -86,7 +84,6 @@ mod Surface {
         rectangle = RectangleF,
         ellipse = EllipseF,
         keys = Ref[Set[Int32], rc],
-        mouse = Ref[(Int32, Int32), rc],
         closing = AtomicBoolean
     }
 
@@ -181,7 +178,6 @@ mod Surface {
         let closing = new AtomicBoolean(false);
 
         let keys = Ref.fresh(rc, (Set.empty(): Set[Int32]));
-        let mouse = Ref.fresh(rc, (0, 0));
         canvas.addKeyListener(new KeyAdapter {
             def keyPressed(_a: KeyAdapter, e: KeyEvent): Unit \ IO + r =
                 let code = e.getKeyCode();
@@ -190,13 +186,6 @@ mod Surface {
             def keyReleased(_a: KeyAdapter, e: KeyEvent): Unit \ IO + r =
                 Ref.put(Set.remove(e.getKeyCode(), Ref.get(keys)), keys)
         });
-        canvas.addMouseMotionListener(new MouseMotionAdapter {
-            def mouseMoved(_a: MouseMotionAdapter, e: MouseEvent): Unit \ IO + r =
-                Ref.put((e.getX(), e.getY()), mouse)
-            def mouseDragged(_a: MouseMotionAdapter, e: MouseEvent): Unit \ IO + r =
-                Ref.put((e.getX(), e.getY()), mouse)
-        });
-
         let frame = new JFrame(title);
         // The window must not take the JVM down with it: the score table is written after
         // the loop returns, so closing has to mean "stop" and not "exit".
@@ -224,7 +213,7 @@ mod Surface {
           graphics = graphics,
           base = base, sized = Ref.fresh(rc, (baseFontSize(), base)),
           rectangle = new RectangleF(), ellipse = new EllipseF(),
-          keys = keys, mouse = mouse, closing = closing }
+          keys = keys, closing = closing }
     }
 
     ///
@@ -287,7 +276,7 @@ mod Surface {
     /// Calls `frame` at `hz` times a second until the window closes.
     ///
     /// The callback runs on AWT's event dispatch thread, which is also the thread the key
-    /// and mouse listeners run on and the only thread Swing may be touched from. One thread
+    /// listeners run on and the only thread Swing may be touched from. One thread
     /// owns input, simulation and drawing, so none of them needs a lock.
     ///
     /// This call blocks the thread it is made on, which is therefore not the event thread:
@@ -377,12 +366,6 @@ mod Surface {
     ///
     pub def keysHeld(s: Window[r]): Set[Int32] \ r =
         Ref.get(s#keys)
-
-    ///
-    /// Where the pointer was last seen, as `(x, y)`.
-    ///
-    pub def mouse(s: Window[r]): (Int32, Int32) \ r =
-        Ref.get(s#mouse)
 
     ///
     /// Shows everything drawn since the last call.

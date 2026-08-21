@@ -22,7 +22,7 @@ mod TestInput {
 
     @Test
     def testPressedIsTheRisingEdge(): Unit \ Assert = {
-        let s = Input.diff(previous = Set.empty(), current = Set#{Key.Left}, mouseX = 0, mouseY = 0);
+        let s = Input.diff(previous = Set.empty(), current = Set#{Key.Left});
         assertTrue(Set.memberOf(Key.Left, s#pressed));
         assertTrue(Set.memberOf(Key.Left, s#held));
         assertTrue(Set.isEmpty(s#released))
@@ -30,7 +30,7 @@ mod TestInput {
 
     @Test
     def testReleasedIsTheFallingEdge(): Unit \ Assert = {
-        let s = Input.diff(previous = Set#{Key.Left}, current = Set.empty(), mouseX = 0, mouseY = 0);
+        let s = Input.diff(previous = Set#{Key.Left}, current = Set.empty());
         assertTrue(Set.memberOf(Key.Left, s#released));
         assertTrue(Set.isEmpty(s#held));
         assertTrue(Set.isEmpty(s#pressed))
@@ -39,7 +39,7 @@ mod TestInput {
     @Test
     def testKeyHeldAcrossStepsIsNotPressedAgain(): Unit \ Assert = {
         // This is what stops "hold to fire" from firing once per frame.
-        let s = Input.diff(previous = Set#{Key.Space}, current = Set#{Key.Space}, mouseX = 0, mouseY = 0);
+        let s = Input.diff(previous = Set#{Key.Space}, current = Set#{Key.Space});
         assertTrue(Set.memberOf(Key.Space, s#held));
         assertFalse(Set.memberOf(Key.Space, s#pressed));
         assertTrue(Set.isEmpty(s#released))
@@ -48,17 +48,10 @@ mod TestInput {
     @Test
     def testEdgesAreIndependentPerKey(): Unit \ Assert = {
         let s = Input.diff(previous = Set#{Key.Left, Key.Space},
-                           current = Set#{Key.Space, Key.Right}, mouseX = 0, mouseY = 0);
+                           current = Set#{Key.Space, Key.Right});
         assertEq(expected = Set#{Key.Right}, s#pressed);
         assertEq(expected = Set#{Key.Left}, s#released);
         assertEq(expected = Set#{Key.Space, Key.Right}, s#held)
-    }
-
-    @Test
-    def testMousePositionIsCarried(): Unit \ Assert = {
-        let s = Input.diff(previous = Set.empty(), current = Set.empty(), mouseX = 12, mouseY = 34);
-        assertEq(expected = 12, s#mouseX);
-        assertEq(expected = 34, s#mouseY)
     }
 
     @Test
@@ -115,7 +108,7 @@ mod TestInput {
         // Handing the same `pressed` set to every catch-up tick fires a one-off action once
         // per stalled frame instead of once per press -- and anything that toggles, like the
         // stats overlay, can flip twice and end up back where it started.
-        let press = Input.diff(previous = Set.empty(), current = Set#{Key.F3}, mouseX = 0, mouseY = 0);
+        let press = Input.diff(previous = Set.empty(), current = Set#{Key.F3});
         let ticks = Input.acrossTicks(3, press);
         assertEq(expected = 3, List.length(ticks));
         let sawPress = List.count(t -> Set.memberOf(Key.F3, t#pressed), ticks);
@@ -125,7 +118,7 @@ mod TestInput {
     @Test
     def testEveryTickOfAFrameStillSeesTheKeyHeld(): Unit \ Assert = {
         // Holding is a state rather than a transition, and it does last all frame.
-        let press = Input.diff(previous = Set.empty(), current = Set#{Key.Left}, mouseX = 0, mouseY = 0);
+        let press = Input.diff(previous = Set.empty(), current = Set#{Key.Left});
         let ticks = Input.acrossTicks(4, press);
         assertTrueWithMsg(List.forAll(t -> Set.memberOf(Key.Left, t#held), ticks),
             "the cannon would stop moving partway through a catch-up frame")
@@ -133,7 +126,7 @@ mod TestInput {
 
     @Test
     def testReleasesAreAlsoOnlyDeliveredOnce(): Unit \ Assert = {
-        let letGo = Input.diff(previous = Set#{Key.Space}, current = Set.empty(), mouseX = 0, mouseY = 0);
+        let letGo = Input.diff(previous = Set#{Key.Space}, current = Set.empty());
         let ticks = Input.acrossTicks(3, letGo);
         assertEq(expected = 1, List.count(t -> Set.memberOf(Key.Space, t#released), ticks))
     }
@@ -145,13 +138,10 @@ mod TestInput {
         assertTrue(List.isEmpty(Input.acrossTicks(0, Input.holding(Key.Space :: Nil))))
 
     @Test
-    def testSteadyKeepsTheKeysAndTheMouse(): Unit \ Assert = {
-        let s = Input.diff(previous = Set.empty(), current = Set#{Key.Right},
-                           mouseX = 12, mouseY = 34);
+    def testSteadyKeepsTheKeysAndDropsOnlyTheEdges(): Unit \ Assert = {
+        let s = Input.diff(previous = Set.empty(), current = Set#{Key.Right});
         let quiet = Input.steady(s);
         assertEq(expected = s#held, quiet#held);
-        assertEq(expected = 12, quiet#mouseX);
-        assertEq(expected = 34, quiet#mouseY);
         assertTrue(Set.isEmpty(quiet#pressed) and Set.isEmpty(quiet#released))
     }
 

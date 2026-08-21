@@ -452,7 +452,7 @@ mod TestGame {
         // Restart is on the rising edge, not on `held`. A held Enter would otherwise reset
         // the game on every single tick.
         let lost = { phase = Phase.Lost | start() };
-        let heldEnter = Input.diff(previous = Set#{Key.Enter}, current = Set#{Key.Enter}, mouseX = 0, mouseY = 0);
+        let heldEnter = Input.diff(previous = Set#{Key.Enter}, current = Set#{Key.Enter});
         assertEq(expected = Phase.Lost, stepped(lost, heldEnter)#phase)
     }
 

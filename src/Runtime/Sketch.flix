@@ -225,9 +225,7 @@ mod Sketch {
         let refs = loop#refs;
         let current = Set.map(Key.fromCode, Surface.keysHeld(loop#surface));
         let prev = Ref.get(refs#heldPrev);
-        let (mx, my) = Surface.mouse(loop#surface);
-        let snapshot = Input.diff(previous = prev, current = current,
-                                  mouseX = mx, mouseY = my);
+        let snapshot = Input.diff(previous = prev, current = current);
         let due = Input.ticksDue(Ref.get(refs#accNs), loop#stepNs, maxCatchUpSteps());
         if (due > 0) Ref.put(current, refs#heldPrev) else ();
         (due, snapshot)

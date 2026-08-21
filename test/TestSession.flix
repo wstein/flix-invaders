@@ -122,8 +122,7 @@ mod TestSession {
     @Test
     def testTheStartRequestReadsEdgesNotHeldKeys(): Unit \ Assert = {
         // Holding 1 must not restart the game every tick once you are playing.
-        let held = Input.diff(previous = Set#{Key.Other(49)}, current = Set#{Key.Other(49)},
-                              mouseX = 0, mouseY = 0);
+        let held = Input.diff(previous = Set#{Key.Other(49)}, current = Set#{Key.Other(49)});
         assertEq(expected = (None: Option[Int32]), Session.startRequest(held))
     }
 
