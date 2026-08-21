@@ -71,7 +71,7 @@ If a test is in the way of a metric, the metric is wrong about that test.
 
 ### Do not add indirection that only the metric can see
 
-`Sketch.start` was over no limit at all when a pass wrapped its `PApplet` subclass in a
+`Sketch.start` was over no limit at all when a pass wrapped its window construction in a
 zero-argument local called on the very next line. It shortened the function by a line count
 and cost every reader a hop. The report noticed too, and listed the new local as a smell of
 its own.
@@ -136,7 +136,7 @@ a finding does not mean the code is bad.
 
 `Bunkers.absorb` keeps a hand-written recursion because it stops at the first bunker a shot
 touches and a fold in a strict language cannot stop early. `Bench.one` keeps one because it
-stops when the game ends rather than when a range does. `Sketch.park` keeps one because it is
+stops when the game ends rather than when a range does. `Surface.park` keeps one because it is
 waiting on another thread. Each says so in a comment. If a future limit flags them, the
 comment is the answer, and the right response is to argue with the limit.
 

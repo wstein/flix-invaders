@@ -159,7 +159,10 @@ mod Surface {
                 case Some(font) => Some(font)
             }
         };
-        let base = Option.getWithDefault(graphics.getFont(), loaded);
+        // Derived even when it is the platform's own: `sized` below records this size, and a
+        // default font left at its natural twelve points would make that record a lie -- the
+        // first `textSize(16.0)` would find the cache already there and draw at twelve.
+        let base = Option.getWithDefault(graphics.getFont().deriveFont(baseFontSize()), loaded);
         graphics.setFont(base);
 
         // A heavyweight `java.awt.Canvas` rather than a `JPanel`: this loop renders actively,
