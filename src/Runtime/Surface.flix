@@ -14,12 +14,14 @@
 /// in `Sketch`, where it can be read as ordinary functions.
 ///
 /// Drawing goes to an offscreen `BufferedImage` of exactly the requested size, which
-/// `present` then blits to the window. That fixes the geometry at one image pixel per
-/// sketch pixel on every display, HiDPI or not -- the job Processing's `pixelDensity(1)`
-/// used to do -- so a sketch that lines up on one machine lines up on all of them.
+/// `present` then blits to the window through a `BufferStrategy`. That fixes the geometry
+/// at one image pixel per sketch pixel on every display, HiDPI or not -- the job
+/// Processing's `pixelDensity(1)` used to do -- so a sketch that lines up on one machine
+/// lines up on all of them.
 ///
 mod Surface {
 
+    import java.awt.{Canvas => AwtCanvas}
     import java.awt.{Color => AwtColor}
     import java.awt.Component
     import java.awt.Dimension
@@ -37,14 +39,16 @@ mod Surface {
     import java.awt.event.WindowEvent
     import java.awt.geom.{Ellipse2D$Float => EllipseF}
     import java.awt.geom.{Rectangle2D$Float => RectangleF}
+    import java.awt.image.BufferStrategy
     import java.awt.image.BufferedImage
     import java.awt.image.ImageObserver
     import java.io.FileInputStream
     import java.lang.Exception
+    import java.lang.System
     import java.lang.Thread
     import java.util.concurrent.atomic.AtomicBoolean
+    import java.util.concurrent.atomic.AtomicLong
     import javax.swing.JFrame
-    import javax.swing.JPanel
     import javax.swing.Timer
     import javax.swing.WindowConstants
 
@@ -71,7 +75,8 @@ mod Surface {
     ///
     pub type alias Window[rc: Region] = {
         frame = JFrame,
-        panel = JPanel,
+        canvas = AwtCanvas,
+        strategy = BufferStrategy,
         image = BufferedImage,
         width = Int32,
         height = Int32,
@@ -157,28 +162,26 @@ mod Surface {
         let base = Option.getWithDefault(graphics.getFont(), loaded);
         graphics.setFont(base);
 
-        let noObserver: ImageObserver = checked_cast(null);
-        let panel = new JPanel {
-            // `paint` rather than `paintComponent`: Swing hands both of them the graphics of
-            // its own double buffer, and this one draws every pixel of the panel, so there is
-            // no background left for the superclass to clear.
-            def paint(_p: JPanel, g: Graphics): Unit \ IO =
-                discard g.drawImage(image, 0, 0, noObserver)
-        };
-        panel.setPreferredSize(new Dimension(w, h));
-        panel.setFocusable(true);
+        // A heavyweight `java.awt.Canvas` rather than a `JPanel`: this loop renders actively,
+        // and Swing's repaint machinery would copy the finished frame through a back buffer of
+        // its own on the way to one we already have. `setIgnoreRepaint` turns off the other
+        // half of that -- the toolkit must not paint this component behind the loop's back.
+        let canvas = new AwtCanvas();
+        canvas.setPreferredSize(new Dimension(w, h));
+        canvas.setIgnoreRepaint(true);
+        canvas.setFocusable(true);
         // Otherwise Tab moves focus out of the game instead of arriving as a key.
-        panel.setFocusTraversalKeysEnabled(false);
+        canvas.setFocusTraversalKeysEnabled(false);
 
         let keys = Ref.fresh(rc, (Set.empty(): Set[Int32]));
         let mouse = Ref.fresh(rc, (0, 0));
-        panel.addKeyListener(new KeyAdapter {
+        canvas.addKeyListener(new KeyAdapter {
             def keyPressed(_a: KeyAdapter, e: KeyEvent): Unit \ IO + r =
                 Ref.put(Set.insert(e.getKeyCode(), Ref.get(keys)), keys)
             def keyReleased(_a: KeyAdapter, e: KeyEvent): Unit \ IO + r =
                 Ref.put(Set.remove(e.getKeyCode(), Ref.get(keys)), keys)
         });
-        panel.addMouseMotionListener(new MouseMotionAdapter {
+        canvas.addMouseMotionListener(new MouseMotionAdapter {
             def mouseMoved(_a: MouseMotionAdapter, e: MouseEvent): Unit \ IO + r =
                 Ref.put((e.getX(), e.getY()), mouse)
             def mouseDragged(_a: MouseMotionAdapter, e: MouseEvent): Unit \ IO + r =
@@ -195,14 +198,21 @@ mod Surface {
                 closing.set(true)
         });
         frame.setResizable(false);
-        discard frame.add(panel);
+        frame.setIgnoreRepaint(true);
+        discard frame.add(canvas);
         frame.pack();
         let noParent: Component = checked_cast(null);
         frame.setLocationRelativeTo(noParent);
         frame.setVisible(true);
-        discard panel.requestFocusInWindow();
+        discard canvas.requestFocusInWindow();
 
-        { frame = frame, panel = panel, image = image, width = w, height = h,
+        // Only once the window is showing: a buffer strategy needs a displayable component.
+        // Two buffers, because the loop always redraws the whole frame and so has no use for
+        // what a third would preserve.
+        canvas.createBufferStrategy(2);
+
+        { frame = frame, canvas = canvas, strategy = canvas.getBufferStrategy(),
+          image = image, width = w, height = h,
           graphics = graphics,
           base = base, sized = Ref.fresh(rc, (baseFontSize(), base)),
           rectangle = new RectangleF(), ellipse = new EllipseF(),
@@ -210,15 +220,12 @@ mod Surface {
     }
 
     ///
-    /// The delay between frames, in whole milliseconds, for a target rate of `hz`.
+    /// The nominal gap between frames, in whole milliseconds, for a target rate of `hz`.
     ///
-    /// Swing's timer counts in whole milliseconds, so 60 Hz asks for 16 and gets about 62
-    /// frames a second rather than exactly 60. That is deliberately not corrected for: how
-    /// fast the *simulation* runs is the accumulator's business and not the timer's, so a
-    /// frame arriving early simply owes fewer ticks and the game plays at the same speed
-    /// either way. Truncating rather than rounding up is the safe direction of the two --
-    /// 17ms would deliver 58 frames a second, and every frame that arrives late is one the
-    /// accumulator then has to catch up on.
+    /// Swing's timer counts in whole milliseconds, so 60 Hz asks for 16 rather than 16.67 and
+    /// would drift a third of a millisecond fast every frame. This is only where the loop
+    /// starts: `reschedule` aims each frame after the first at a deadline in nanoseconds, so
+    /// the rounding here is corrected rather than accumulated.
     ///
     /// Never zero, whatever `hz` is asked for: a timer with no delay saturates the event
     /// thread and the window stops answering. A rate of nought or less asks for a frame a
@@ -228,7 +235,34 @@ mod Surface {
         if (hz <= 0) 1000 else Int32.max(1, 1000 / hz)
 
     ///
-    /// Calls `frame` at about `hz` times a second until the window closes.
+    /// How long one frame is meant to take, in nanoseconds.
+    ///
+    pub def periodFor(hz: Int32): Int64 =
+        if (hz <= 0) 1000000000i64 else 1000000000i64 / Int32.toInt64(hz)
+
+    ///
+    /// Moves the deadline on by one frame and says how long to wait for it, in milliseconds.
+    ///
+    /// Swing's timer measures its delay from the moment it fires, so whatever a frame costs
+    /// is added to every period after it and the display settles a few frames a second below
+    /// the rate asked for. Aiming at a deadline instead spends an overrun once rather than
+    /// compounding it, which is what keeps the average rate on target.
+    ///
+    /// A frame more than a whole period late abandons the ones it missed rather than firing
+    /// them back to back: they are gone, and running them now would only put the next frame
+    /// further behind. The simulation loses nothing by it -- the accumulator still owes the
+    /// ticks that time was worth, and `Sketch` clamps how many of them one frame may run.
+    ///
+    pub def reschedule(dueNs: Int64, nowNs: Int64, periodNs: Int64): (Int64, Int32) = {
+        let next = dueNs + periodNs;
+        let target = if (next < nowNs) nowNs + periodNs else next;
+        let waitNs = target - nowNs;
+        let waitMs = if (waitNs <= 0i64) 0 else Option.getWithDefault(0, Int64.tryToInt32(waitNs / 1000000i64));
+        (target, waitMs)
+    }
+
+    ///
+    /// Calls `frame` at `hz` times a second until the window closes.
     ///
     /// The callback runs on AWT's event dispatch thread, which is also the thread the key
     /// and mouse listeners run on and the only thread Swing may be touched from. One thread
@@ -245,13 +279,25 @@ mod Surface {
     /// `Sketch.start` from being effect-polymorphic.
     ///
     pub def loop(s: Window[r], hz: Int32, frame: Unit -> Unit \ IO + r): Unit \ IO = {
-        let timer = new Timer(delayFor(hz), new ActionListener {
+        let periodNs = periodFor(hz);
+        let due = new AtomicLong(System.nanoTime());
+        // Built without a listener so that the listener can be given the timer: each frame
+        // schedules the next one itself, against a deadline, rather than repeating on a
+        // fixed delay that drifts.
+        let noListener: ActionListener = checked_cast(null);
+        let timer = new Timer(delayFor(hz), noListener);
+        timer.setRepeats(false);
+        timer.addActionListener(new ActionListener {
             def actionPerformed(_a: ActionListener, _e: ActionEvent): Unit \ IO + r =
-                if (s#closing.get()) () else frame()
+                if (s#closing.get()) ()
+                else {
+                    frame();
+                    let (target, waitMs) = reschedule(due.get(), System.nanoTime(), periodNs);
+                    due.set(target);
+                    timer.setInitialDelay(waitMs);
+                    timer.restart()
+                }
         });
-        // A frame that overruns must not queue a second one behind it; dropping the
-        // overlap is what keeps a stall from compounding into a stall.
-        timer.setCoalesce(true);
         timer.start();
         park(s);
         timer.stop()
@@ -287,6 +333,7 @@ mod Surface {
     /// Closes the window and releases the back buffer.
     ///
     pub def close(s: Window[r]): Unit \ IO = {
+        s#strategy.dispose();
         s#graphics.dispose();
         s#frame.dispose()
     }
@@ -318,13 +365,20 @@ mod Surface {
     ///
     /// Shows everything drawn since the last call.
     ///
-    /// `paintImmediately` and not `repaint`: the frame is finished now, and a queued repaint
-    /// would land somewhere inside the next one -- which shows up as tearing and makes the
-    /// cost of drawing impossible to measure.
+    /// Blitting the finished buffer and flipping, rather than asking the toolkit to repaint:
+    /// the frame is complete now, and a queued repaint would land somewhere inside the next
+    /// one -- which shows up as tearing and makes the cost of drawing impossible to measure.
+    ///
+    /// A buffer the display driver has reclaimed is not retried. Every frame redraws the
+    /// whole surface from `image`, so the next one restores it in sixteen milliseconds, and
+    /// a retry here would cost that on every frame to save it on almost none.
     ///
     pub def present(s: Window[r]): Unit \ IO = {
-        let (w, h) = size(s);
-        s#panel.paintImmediately(0, 0, w, h)
+        let noObserver: ImageObserver = checked_cast(null);
+        let g = s#strategy.getDrawGraphics();
+        discard g.drawImage(s#image, 0, 0, noObserver);
+        g.dispose();
+        s#strategy.show()
     }
 
     // -- drawing ----------------------------------------------------------------------------

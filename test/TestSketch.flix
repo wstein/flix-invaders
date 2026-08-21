@@ -73,6 +73,87 @@ mod TestSketch {
         assertEq(expected = 1000, Surface.delayFor(-1))
     }
 
+    @Test
+    def testAFramePeriodIsTheRateTurnedIntoNanoseconds(): Unit \ Assert = {
+        assertEq(expected = 16666666i64, Surface.periodFor(60));
+        assertEq(expected = 1000000000i64, Surface.periodFor(1))
+    }
+
+    @Test
+    def testAFramePeriodAlwaysCoversSomeTime(): Unit \ Assert =
+        assertTrue(Surface.periodFor(0) > 0i64)
+
+    // -- keeping the frame rate on target -------------------------------------------------
+
+    ///
+    /// The ordinary case: the next frame is due one period after the last one was.
+    ///
+    @Test
+    def testTheDeadlineMovesOnByExactlyOnePeriod(): Unit \ Assert = {
+        let period = Surface.periodFor(60);
+        let (target, waitMs) = Surface.reschedule(0i64, 0i64, period);
+        assertEq(expected = period, target);
+        assertEq(expected = 16, waitMs)
+    }
+
+    ///
+    /// The case the deadline exists for. A frame that costs ten milliseconds must be waited
+    /// out of the period it was drawn in, not added to the next one -- which is what a timer
+    /// counting its delay from the moment it fires would do.
+    ///
+    @Test
+    def testAFrameThatRanLongShortensTheNextWait(): Unit \ Assert = {
+        let period = Surface.periodFor(60);
+        let (target, waitMs) = Surface.reschedule(0i64, 10000000i64, period);
+        assertEq(expected = period, target);
+        assertEq(expected = 6, waitMs)
+    }
+
+    ///
+    /// A frame more than a whole period late gives up on the ones it missed. Firing them back
+    /// to back would only put the next one further behind, and the accumulator still owes the
+    /// ticks that time was worth.
+    ///
+    @Test
+    def testAFrameMoreThanAPeriodLateStartsCountingAgain(): Unit \ Assert = {
+        let period = Surface.periodFor(60);
+        let now = 50000000i64;
+        let (target, waitMs) = Surface.reschedule(0i64, now, period);
+        assertEq(expected = now + period, target);
+        assertEq(expected = 16, waitMs)
+    }
+
+    @Test
+    def testADeadlineAlreadyReachedIsNotWaitedFor(): Unit \ Assert = {
+        let period = Surface.periodFor(60);
+        let (_target, waitMs) = Surface.reschedule(0i64, period, period);
+        assertEq(expected = 0, waitMs)
+    }
+
+    ///
+    /// The whole point, as a property: a timer that can only be asked for whole milliseconds
+    /// still delivers 60 frames a second, because every wait is measured against where the
+    /// frame *should* land rather than against where the last one did.
+    ///
+    /// Six hundred frames of three milliseconds' work each, with the timer waiting exactly as
+    /// long as it was asked to. Without the deadline the run would finish a full second late.
+    ///
+    @Test
+    def testTheAverageRateStaysOnTargetDespiteWholeMillisecondWaits(): Unit \ Assert = {
+        let period = Surface.periodFor(60);
+        let workNs = 3000000i64;
+        let frames = 600;
+        let oneFrame = (state, _i) -> {
+            let (now, due) = state;
+            let drawn = now + workNs;
+            let (target, waitMs) = Surface.reschedule(due, drawn, period);
+            (drawn + Int32.toInt64(waitMs) * 1000000i64, target)
+        };
+        let (elapsed, _due) = List.foldLeft(oneFrame, (0i64, 0i64), List.range(0, frames));
+        let ideal = Int32.toInt64(frames) * period;
+        assertTrue(Int64.abs(elapsed - ideal) < period)
+    }
+
     ///
     /// The display is paced in whole milliseconds and the simulation in nanoseconds, so the
     /// two never divide evenly -- and the point of the accumulator is that they do not have
