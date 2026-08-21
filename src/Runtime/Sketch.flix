@@ -340,7 +340,7 @@ mod Sketch {
 
         let surface = Surface.open(rc, cfg#title, width = cfg#width, height = cfg#height,
                                    cfg#fontPath);
-        Surface.textSize(surface, defaultTextSize());
+        Surface.textSize(Surface.sheet(surface), defaultTextSize());
 
         // Opened once. An empty pool means the machine has no usable audio device, and every
         // Audio call then does nothing.
@@ -387,19 +387,20 @@ mod Sketch {
     /// a window -- which is why it lives here rather than in `Canvas`. Every case is one
     /// call, because `Surface` was given the same vocabulary the effect is written in.
     ///
-    def runWithSurface(s: Surface.Window[rc], f: Unit -> a \ ef)
+    def runWithSurface(win: Surface.Window[rc], f: Unit -> a \ ef)
         : a \ (ef - Canvas) + IO + rc =
+        let sheet = Surface.sheet(win);
         run {
             f()
         } with handler Canvas {
-            def clear(c, k) = { Surface.background(s, c); k() }
-            def fill(c, k) = { Surface.fill(s, c); k() }
-            def fillAlpha(c, a, k) = { Surface.fillAlpha(s, c, a); k() }
-            def rect(x, y, w, h, k) = { Surface.rect(s, x, y, w, h); k() }
-            def ellipse(x, y, w, h, k) = { Surface.ellipse(s, x, y, w, h); k() }
-            def text(str, x, y, k) = { Surface.text(s, str, x, y); k() }
-            def textSize(px, k) = { Surface.textSize(s, px); k() }
-            def dimensions(k) = k(Surface.size(s))
+            def clear(c, k) = { Surface.background(sheet, c); k() }
+            def fill(c, k) = { Surface.fill(sheet, c); k() }
+            def fillAlpha(c, a, k) = { Surface.fillAlpha(sheet, c, a); k() }
+            def rect(x, y, w, h, k) = { Surface.rect(sheet, x, y, w, h); k() }
+            def ellipse(x, y, w, h, k) = { Surface.ellipse(sheet, x, y, w, h); k() }
+            def text(str, x, y, k) = { Surface.text(sheet, str, x, y); k() }
+            def textSize(px, k) = { Surface.textSize(sheet, px); k() }
+            def dimensions(k) = k(Surface.size(sheet))
         }
 
     ///

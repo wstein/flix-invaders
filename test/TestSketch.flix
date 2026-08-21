@@ -107,6 +107,40 @@ mod TestSketch {
         assertFalse(Surface.closesWindow(114))
     }
 
+    // -- what a key event does to the held set --------------------------------------------
+
+    @Test
+    def testAPressJoinsTheKeysAlreadyHeld(): Unit \ Assert =
+        assertEq(expected = Some(Set#{37, 32}), Surface.afterPress(Set#{37}, 32))
+
+    ///
+    /// Auto-repeat delivers the same press again and again while a key is down. Adding it to
+    /// a set is what makes that harmless -- the alternative, a counter, would have to be
+    /// decremented by exactly the releases the window system chose to send.
+    ///
+    @Test
+    def testRepeatedPressesOfTheSameKeyChangeNothing(): Unit \ Assert =
+        assertEq(expected = Some(Set#{37}), Surface.afterPress(Set#{37}, 37))
+
+    ///
+    /// `None` is the window taking the press: Escape closes it and never reaches a step.
+    ///
+    @Test
+    def testEscapeIsTakenByTheWindowRatherThanHeld(): Unit \ Assert =
+        assertEq(expected = None, Surface.afterPress(Set#{37}, 27))
+
+    @Test
+    def testAReleaseLetsGoOfOnlyThatKey(): Unit \ Assert =
+        assertEq(expected = Set#{37}, Surface.afterRelease(Set#{37, 32}, 32))
+
+    ///
+    /// A release with no press before it arrives whenever a key goes down in another window
+    /// and comes up in this one. It must not disturb what is held.
+    ///
+    @Test
+    def testAReleaseOfAKeyNeverHeldIsHarmless(): Unit \ Assert =
+        assertEq(expected = Set#{37}, Surface.afterRelease(Set#{37}, 32))
+
     // -- keeping the frame rate on target -------------------------------------------------
 
     ///

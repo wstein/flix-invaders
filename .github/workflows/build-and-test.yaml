@@ -50,6 +50,10 @@ jobs:
       # Runners have neither a display nor a mixer -- opening a window without one throws
       # HeadlessException, and AudioSystem throws an unchecked IllegalArgumentException
       # when no mixer exists.
+      #
+      # `Surface.open` and not `Surface.`: `Surface.offscreen` hands out a sheet with no
+      # window behind it, which is exactly how test/TestSurface.flix checks the rasteriser
+      # against real pixels here.
       - name: Verify tests are headless
         run: |
           if grep -rn 'Sketch\.start\|Surface\.open\|Audio\.' test/; then

@@ -7,12 +7,17 @@
 /// those names and those conventions is what let the `Canvas` handler above it stay a
 /// one-line-per-operation translation when Processing Core was dropped.
 ///
-/// It is a *surface*, not a framework. It owns a window, a back buffer, the current fill
-/// colour and font, and the two input devices -- and nothing else. There is no sketch
-/// lifecycle, no `setup`/`draw` pair to subclass, and no global state: everything it knows
-/// travels in the `Surface.Window` record it hands back. The frame loop lives one layer up,
-/// in `Sketch`, where it can be read as ordinary functions. The one policy it does impose is
-/// that Escape closes the window, which is what a sketch of this shape has always done.
+/// It comes in two halves, and the seam between them is the point. A `Sheet` is somewhere
+/// to draw -- a back buffer, the graphics that writes to it, and the current colour and
+/// font -- and knows nothing about a display, so `offscreen` hands one out on a machine
+/// with no screen at all and `test/TestSurface.flix` checks the rasteriser against real
+/// pixels. A `Window` is a sheet with a frame around it, a keyboard, and a frame loop.
+///
+/// It is a *surface*, not a framework: no sketch lifecycle, no `setup`/`draw` pair to
+/// subclass, and no global state -- everything it knows travels in the records it hands
+/// back. The frame loop lives one layer up, in `Sketch`, where it can be read as ordinary
+/// functions. The one policy it does impose is that Escape closes the window, which is what
+/// a sketch of this shape has always done.
 ///
 /// Drawing goes to an offscreen `BufferedImage` of exactly the requested size, which
 /// `present` then blits to the window through a `BufferStrategy`. That fixes the geometry
@@ -46,17 +51,20 @@ mod Surface {
     import java.lang.Thread
     import java.util.concurrent.atomic.AtomicBoolean
     import java.util.concurrent.atomic.AtomicLong
+
     import javax.swing.JFrame
     import javax.swing.Timer
     import javax.swing.WindowConstants
 
+    // -- somewhere to draw --------------------------------------------------------------
+
     ///
-    /// An open window and everything drawing on it needs.
+    /// A drawing surface, with no display behind it.
     ///
-    /// `image` is the back buffer and `graphics` the one `Graphics2D` that writes to it,
-    /// made once and kept: Java2D carries the current colour and font on the graphics
-    /// object, which is exactly the "set it, then draw with it" model the `Canvas` effect
-    /// is written in.
+    /// `image` is the buffer and `graphics` the one `Graphics2D` that writes to it, made
+    /// once and kept: Java2D carries the current colour and font on the graphics object,
+    /// which is exactly the "set it, then draw with it" model the `Canvas` effect is
+    /// written in.
     ///
     /// `rectangle` and `ellipse` are two mutable shapes reused for every call rather than
     /// allocated per shape. They are what makes drawing sub-pixel: the formation marches at
@@ -65,16 +73,10 @@ mod Surface {
     ///
     /// `sized` remembers the font the last `textSize` derived, so a screen that sets the
     /// same size before every line of text derives the font once instead of twenty times.
+    /// Its `Float32` is the size of the `Font` beside it, and seeding it with anything else
+    /// would make `textSize` skip a derivation it owed.
     ///
-    /// `keys` is written by the AWT listeners and read by the frame; `closing`
-    /// is set when the window is shut, and is the one value the main thread reads while the
-    /// event thread may still be writing it -- which is why it is an `AtomicBoolean` and not
-    /// a `Ref`.
-    ///
-    pub type alias Window[rc: Region] = {
-        frame = JFrame,
-        canvas = AwtCanvas,
-        strategy = BufferStrategy,
+    pub type alias Sheet[rc: Region] = {
         image = BufferedImage,
         width = Int32,
         height = Int32,
@@ -82,9 +84,7 @@ mod Surface {
         base = Font,
         sized = Ref[(Float32, Font), rc],
         rectangle = RectangleF,
-        ellipse = EllipseF,
-        keys = Ref[Set[Int32], rc],
-        closing = AtomicBoolean
+        ellipse = EllipseF
     }
 
     ///
@@ -123,20 +123,19 @@ mod Surface {
         }
 
     ///
-    /// Opens a window of exactly `width` by `height` sketch pixels.
+    /// A sheet of exactly `width` by `height` pixels, with no window anywhere near it.
     ///
-    /// The window is not resizable, because the back buffer is not: every coordinate the
-    /// sketch draws at is an image pixel, and a window that could be dragged wider would
-    /// have to answer what that means.
+    /// This is what `open` builds its back buffer with, and what the rasteriser's tests draw
+    /// on: nothing here needs a display, a toolkit peer, or a graphics device, so it runs on
+    /// a CI machine with no screen.
     ///
-    /// A `fontPath` that is missing or unreadable costs you looks, not a crash -- the
-    /// surface keeps the platform's default font and says so.
+    /// A `fontPath` that is missing or unreadable costs you looks, not a crash -- the sheet
+    /// keeps the platform's default font and says so.
     ///
-    pub def open(rc: Region[r],
-                 title: String,
-                 width: {width = Int32},
-                 height: {height = Int32},
-                 fontPath: Option[String]): Window[r] \ IO + r = {
+    pub def offscreen(rc: Region[r],
+                      width: {width = Int32},
+                      height: {height = Int32},
+                      fontPath: Option[String]): Sheet[r] \ IO + r = {
         let w = width#width;
         let h = height#height;
 
@@ -156,39 +155,209 @@ mod Surface {
                 case Some(font) => Some(font)
             }
         };
-        // Derived even when it is the platform's own: `sized` below records this size, and a
+        // Derived even when it is the platform's own: `sized` records this size, and a
         // default font left at its natural twelve points would make that record a lie -- the
         // first `textSize(16.0)` would find the cache already there and draw at twelve.
         let base = Option.getWithDefault(graphics.getFont().deriveFont(baseFontSize()), loaded);
         graphics.setFont(base);
 
-        // A heavyweight `java.awt.Canvas` rather than a `JPanel`: this loop renders actively,
-        // and Swing's repaint machinery would copy the finished frame through a back buffer of
-        // its own on the way to one we already have. `setIgnoreRepaint` turns off the other
-        // half of that -- the toolkit must not paint this component behind the loop's back.
+        { image = image, width = w, height = h, graphics = graphics,
+          base = base, sized = Ref.fresh(rc, (baseFontSize(), base)),
+          rectangle = new RectangleF(), ellipse = new EllipseF() }
+    }
+
+    ///
+    /// Releases the graphics a sheet was drawing through.
+    ///
+    pub def release(sheet: Sheet[r]): Unit \ IO =
+        sheet#graphics.dispose()
+
+    ///
+    /// The sheet's size, in sketch pixels.
+    ///
+    /// Held rather than asked of the buffer, so the frame loop can read it without reaching
+    /// into the toolkit: a sheet cannot be resized, so it never changes.
+    ///
+    pub def size(sheet: Sheet[r]): (Int32, Int32) =
+        (sheet#width, sheet#height)
+
+    ///
+    /// The colour of one pixel, as it currently stands.
+    ///
+    /// The read-back that makes the rasteriser testable: with `offscreen` there is no window
+    /// to look at, so this is how a test asks what was actually drawn rather than what was
+    /// asked for. The buffer has no alpha channel, so what comes back is already composited.
+    ///
+    pub def pixelAt(sheet: Sheet[r], x: Int32, y: Int32): Color \ IO = {
+        let argb = sheet#image.getRGB(x, y);
+        let channel = shift -> Int32.bitwiseAnd(Int32.rightShift(argb, shift), 255);
+        Color.Rgb(channel(16), channel(8), channel(0))
+    }
+
+    // -- drawing --------------------------------------------------------------------------
+
+    /// The AWT colour for one of ours.
+    def awt(c: Color): AwtColor \ IO =
+        new AwtColor(Color.redOf(c), Color.greenOf(c), Color.blueOf(c))
+
+    ///
+    /// Fills the whole sheet with `c`, erasing what was there.
+    ///
+    /// Leaves `c` as the fill colour, as Processing's `background` does.
+    ///
+    pub def background(sheet: Sheet[r], c: Color): Unit \ IO = {
+        let (w, h) = size(sheet);
+        fill(sheet, c);
+        sheet#graphics.fillRect(0, 0, w, h)
+    }
+
+    ///
+    /// Sets the colour subsequent shapes and text are drawn in.
+    ///
+    pub def fill(sheet: Sheet[r], c: Color): Unit \ IO =
+        sheet#graphics.setColor(awt(c))
+
+    ///
+    /// Sets a translucent fill, with `alpha` from 0 (invisible) to 255 (opaque).
+    ///
+    pub def fillAlpha(sheet: Sheet[r], c: Color, alpha: Int32): Unit \ IO =
+        sheet#graphics.setColor(new AwtColor(Color.redOf(c), Color.greenOf(c),
+                                             Color.blueOf(c),
+                                             Int32.max(0, Int32.min(255, alpha))))
+
+    ///
+    /// Draws a rectangle with its top-left corner at `(x, y)`.
+    ///
+    pub def rect(sheet: Sheet[r], x: Float32, y: Float32, w: Float32, h: Float32)
+        : Unit \ IO = {
+        sheet#rectangle.setRect(x, y, w, h);
+        sheet#graphics.fill(sheet#rectangle)
+    }
+
+    ///
+    /// Draws an ellipse centred on `(x, y)`.
+    ///
+    pub def ellipse(sheet: Sheet[r], x: Float32, y: Float32, w: Float32, h: Float32)
+        : Unit \ IO = {
+        sheet#ellipse.setFrame(x - w / 2.0f32, y - h / 2.0f32, w, h);
+        sheet#graphics.fill(sheet#ellipse)
+    }
+
+    ///
+    /// Draws `str` with its baseline starting at `(x, y)`.
+    ///
+    pub def text(sheet: Sheet[r], str: String, x: Float32, y: Float32): Unit \ IO =
+        sheet#graphics.drawString(str, x, y)
+
+    ///
+    /// Sets the text size in pixels.
+    ///
+    /// Deriving a font allocates, and a screen that sets the same size before each of its
+    /// twenty labels would pay for it twenty times, so the last one derived is kept.
+    ///
+    pub def textSize(sheet: Sheet[r], px: Float32): Unit \ IO + r = {
+        let (was, font) = Ref.get(sheet#sized);
+        if (was == px) sheet#graphics.setFont(font)
+        else {
+            let derived = sheet#base.deriveFont(px);
+            Ref.put((px, derived), sheet#sized);
+            sheet#graphics.setFont(derived)
+        }
+    }
+
+    // -- a window around it -----------------------------------------------------------------
+
+    ///
+    /// An open window and everything showing a sheet in it needs.
+    ///
+    /// `keys` is written by the AWT listeners and read by the frame -- both on the event
+    /// dispatch thread, so it needs no locking. `closing` is set when the window is shut,
+    /// and is the one value the parked thread reads while the event thread may still be
+    /// writing it, which is why it is an `AtomicBoolean` and not a `Ref`.
+    ///
+    pub type alias Window[rc: Region] = {
+        sheet = Sheet[rc],
+        frame = JFrame,
+        canvas = AwtCanvas,
+        strategy = BufferStrategy,
+        keys = Ref[Set[Int32], rc],
+        closing = AtomicBoolean
+    }
+
+    ///
+    /// Opens a window showing a sheet of exactly `width` by `height` sketch pixels.
+    ///
+    /// The window is not resizable, because the sheet is not: every coordinate a sketch
+    /// draws at is an image pixel, and a window that could be dragged wider would have to
+    /// answer what that means.
+    ///
+    pub def open(rc: Region[r],
+                 title: String,
+                 width: {width = Int32},
+                 height: {height = Int32},
+                 fontPath: Option[String]): Window[r] \ IO + r = {
+        let sheet = offscreen(rc, width, height, fontPath);
+        let closing = new AtomicBoolean(false);
+        let keys = Ref.fresh(rc, (Set.empty(): Set[Int32]));
+        let canvas = openCanvas(sheet, keys, closing);
+        let frame = openFrame(title, canvas, closing);
+
+        // Only once the window is showing: a buffer strategy needs a displayable component.
+        canvas.createBufferStrategy(buffers());
+        { sheet = sheet, frame = frame, canvas = canvas,
+          strategy = canvas.getBufferStrategy(), keys = keys, closing = closing }
+    }
+
+    /// Two buffers, because the loop always redraws the whole frame and so has no use for
+    /// what a third would preserve.
+    def buffers(): Int32 = 2
+
+    ///
+    /// The component the sheet is shown in, wired to the keyboard.
+    ///
+    /// A heavyweight `java.awt.Canvas` rather than a `JPanel`: this loop renders actively,
+    /// and Swing's repaint machinery would copy the finished frame through a back buffer of
+    /// its own on the way to one we already have. `setIgnoreRepaint` turns off the other
+    /// half of that -- the toolkit must not paint this component behind the loop's back.
+    ///
+    /// It is sized from the sheet rather than from a width and a height of its own, so the
+    /// two cannot drift apart or be transposed.
+    ///
+    /// `\ IO` and not `\ IO + r` although the listener writes `keys`: a listener is a fixed
+    /// JVM method on an anonymous class, and what it does to the caller's region is invisible
+    /// from out here -- the same limit that keeps `loop` and `Sketch.start` concrete.
+    ///
+    def openCanvas(sheet: Sheet[r],
+                   keys: Ref[Set[Int32], r],
+                   closing: AtomicBoolean): AwtCanvas \ IO = {
+        let (w, h) = size(sheet);
         let canvas = new AwtCanvas();
         canvas.setPreferredSize(new Dimension(w, h));
         canvas.setIgnoreRepaint(true);
         canvas.setFocusable(true);
         // Otherwise Tab moves focus out of the game instead of arriving as a key.
         canvas.setFocusTraversalKeysEnabled(false);
-
-        // Declared before the listeners that set it: Escape closes the window from inside
-        // the key listener, not from the window listener.
-        let closing = new AtomicBoolean(false);
-
-        let keys = Ref.fresh(rc, (Set.empty(): Set[Int32]));
         canvas.addKeyListener(new KeyAdapter {
             def keyPressed(_a: KeyAdapter, e: KeyEvent): Unit \ IO + r =
-                let code = e.getKeyCode();
-                if (closesWindow(code)) closing.set(true)
-                else Ref.put(Set.insert(code, Ref.get(keys)), keys)
+                match afterPress(Ref.get(keys), e.getKeyCode()) {
+                    case None => closing.set(true)
+                    case Some(now) => Ref.put(now, keys)
+                }
             def keyReleased(_a: KeyAdapter, e: KeyEvent): Unit \ IO + r =
-                Ref.put(Set.remove(e.getKeyCode(), Ref.get(keys)), keys)
+                Ref.put(afterRelease(Ref.get(keys), e.getKeyCode()), keys)
         });
+        canvas
+    }
+
+    ///
+    /// The frame around the canvas, shown and focused.
+    ///
+    /// `DO_NOTHING_ON_CLOSE` and a listener that only raises a flag: the window must not take
+    /// the JVM down with it, because the score table is written after the loop returns, so
+    /// closing has to mean "stop" and not "exit".
+    ///
+    def openFrame(title: String, canvas: AwtCanvas, closing: AtomicBoolean): JFrame \ IO = {
         let frame = new JFrame(title);
-        // The window must not take the JVM down with it: the score table is written after
-        // the loop returns, so closing has to mean "stop" and not "exit".
         frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter {
             def windowClosing(_a: WindowAdapter, _e: WindowEvent): Unit \ IO =
@@ -202,19 +371,16 @@ mod Surface {
         frame.setLocationRelativeTo(noParent);
         frame.setVisible(true);
         discard canvas.requestFocusInWindow();
-
-        // Only once the window is showing: a buffer strategy needs a displayable component.
-        // Two buffers, because the loop always redraws the whole frame and so has no use for
-        // what a third would preserve.
-        canvas.createBufferStrategy(2);
-
-        { frame = frame, canvas = canvas, strategy = canvas.getBufferStrategy(),
-          image = image, width = w, height = h,
-          graphics = graphics,
-          base = base, sized = Ref.fresh(rc, (baseFontSize(), base)),
-          rectangle = new RectangleF(), ellipse = new EllipseF(),
-          keys = keys, closing = closing }
+        frame
     }
+
+    ///
+    /// The sheet this window is showing.
+    ///
+    pub def sheet(win: Window[r]): Sheet[r] =
+        win#sheet
+
+    // -- the keyboard -----------------------------------------------------------------------
 
     ///
     /// Whether a key press closes the window rather than reaching the sketch.
@@ -229,6 +395,33 @@ mod Surface {
 
     /// AWT's `VK_ESCAPE`.
     def escapeKey(): Int32 = 27
+
+    ///
+    /// The keys held after a press of `code`, or `None` if the window took that press.
+    ///
+    /// The decision lives here rather than inside the listener because a listener is an
+    /// anonymous JVM method with a window behind it, and nothing about which key does what
+    /// needs either.
+    ///
+    pub def afterPress(held: Set[Int32], code: Int32): Option[Set[Int32]] =
+        if (closesWindow(code)) None else Some(Set.insert(code, held))
+
+    ///
+    /// The keys held after a release of `code`.
+    ///
+    pub def afterRelease(held: Set[Int32], code: Int32): Set[Int32] =
+        Set.remove(code, held)
+
+    ///
+    /// The AWT key codes currently held down.
+    ///
+    /// Codes rather than named keys: this layer knows about a keyboard and not about a
+    /// game, and `Key.fromCode` one layer up is where a number becomes a name.
+    ///
+    pub def keysHeld(win: Window[r]): Set[Int32] \ r =
+        Ref.get(win#keys)
+
+    // -- the frame loop ---------------------------------------------------------------------
 
     ///
     /// Moves the deadline on by one frame and says how long to wait for it, in milliseconds.
@@ -281,8 +474,8 @@ mod Surface {
     /// in two units, is how the two would come to disagree.
     ///
     /// The callback runs on AWT's event dispatch thread, which is also the thread the key
-    /// listeners run on and the only thread Swing may be touched from. One thread
-    /// owns input, simulation and drawing, so none of them needs a lock.
+    /// listeners run on and the only thread Swing may be touched from. One thread owns
+    /// input, simulation and drawing, so none of them needs a lock.
     ///
     /// This call blocks the thread it is made on, which is therefore not the event thread:
     /// it parks until the window reports that it has closed, and only then stops the timer.
@@ -294,7 +487,8 @@ mod Surface {
     /// region is invisible from out here. That is the same boundary limit that keeps
     /// `Sketch.start` from being effect-polymorphic.
     ///
-    pub def loop(s: Window[r], periodNs: Int64, frame: Unit -> Unit \ IO + r): Unit \ IO = {
+    pub def loop(win: Window[r], periodNs: Int64, frame: Unit -> Unit \ IO + r)
+        : Unit \ IO = {
         let due = new AtomicLong(System.nanoTime());
         // Built without a listener so that the listener can be given the timer: each frame
         // schedules the next one itself, against a deadline, rather than repeating on a
@@ -304,7 +498,7 @@ mod Surface {
         timer.setRepeats(false);
         timer.addActionListener(new ActionListener {
             def actionPerformed(_a: ActionListener, _e: ActionEvent): Unit \ IO + r =
-                if (s#closing.get()) ()
+                if (win#closing.get()) ()
                 else {
                     frame();
                     let (target, waitMs) = reschedule(due.get(), System.nanoTime(), periodNs);
@@ -314,7 +508,7 @@ mod Surface {
                 }
         });
         timer.start();
-        park(s);
+        park(win);
         timer.stop()
     }
 
@@ -328,9 +522,9 @@ mod Surface {
     /// thread and read on this one, and reading it is what publishes everything the frames
     /// wrote before it was set.
     ///
-    def park(s: Window[r]): Unit \ IO =
-        if (s#closing.get()) ()
-        else { Thread.sleep(pollMillis()); park(s) }
+    def park(win: Window[r]): Unit \ IO =
+        if (win#closing.get()) ()
+        else { Thread.sleep(pollMillis()); park(win) }
 
     /// How long the parked thread sleeps between looks at the close flag.
     def pollMillis(): Int64 = 20i64
@@ -341,122 +535,35 @@ mod Surface {
     /// This is how a bounded run ends: `FLIX_SKETCH_MAX_FRAMES` gives a sketch a frame
     /// budget so it terminates on a machine nobody is sitting in front of.
     ///
-    pub def requestClose(s: Window[r]): Unit \ IO =
-        s#closing.set(true)
+    pub def requestClose(win: Window[r]): Unit \ IO =
+        win#closing.set(true)
 
     ///
-    /// Closes the window and releases the back buffer.
-    ///
-    pub def close(s: Window[r]): Unit \ IO = {
-        s#strategy.dispose();
-        s#graphics.dispose();
-        s#frame.dispose()
-    }
-
-    ///
-    /// The canvas size, in sketch pixels.
-    ///
-    /// Held rather than asked of the back buffer, so that the frame loop can read it without
-    /// reaching into the toolkit: the window cannot be resized, so it never changes.
-    ///
-    pub def size(s: Window[r]): (Int32, Int32) =
-        (s#width, s#height)
-
-    ///
-    /// The AWT key codes currently held down.
-    ///
-    /// Codes rather than named keys: this layer knows about a keyboard and not about a
-    /// game, and `Key.fromCode` one layer up is where a number becomes a name.
-    ///
-    pub def keysHeld(s: Window[r]): Set[Int32] \ r =
-        Ref.get(s#keys)
-
-    ///
-    /// Shows everything drawn since the last call.
+    /// Shows everything drawn on the sheet since the last call.
     ///
     /// Blitting the finished buffer and flipping, rather than asking the toolkit to repaint:
     /// the frame is complete now, and a queued repaint would land somewhere inside the next
     /// one -- which shows up as tearing and makes the cost of drawing impossible to measure.
     ///
     /// A buffer the display driver has reclaimed is not retried. Every frame redraws the
-    /// whole surface from `image`, so the next one restores it in sixteen milliseconds, and
-    /// a retry here would cost that on every frame to save it on almost none.
+    /// whole sheet, so the next one restores it in sixteen milliseconds, and a retry here
+    /// would cost that on every frame to save it on almost none.
     ///
-    pub def present(s: Window[r]): Unit \ IO = {
+    pub def present(win: Window[r]): Unit \ IO = {
         let noObserver: ImageObserver = checked_cast(null);
-        let g = s#strategy.getDrawGraphics();
-        discard g.drawImage(s#image, 0, 0, noObserver);
+        let g = win#strategy.getDrawGraphics();
+        discard g.drawImage(win#sheet#image, 0, 0, noObserver);
         g.dispose();
-        s#strategy.show()
-    }
-
-    // -- drawing ----------------------------------------------------------------------------
-
-    /// The AWT colour for one of ours.
-    def awt(c: Color): AwtColor \ IO =
-        new AwtColor(Color.redOf(c), Color.greenOf(c), Color.blueOf(c))
-
-    ///
-    /// Fills the whole canvas with `c`, erasing the previous frame.
-    ///
-    /// Leaves `c` as the fill colour, as Processing's `background` does.
-    ///
-    pub def background(s: Window[r], c: Color): Unit \ IO = {
-        let (w, h) = size(s);
-        fill(s, c);
-        s#graphics.fillRect(0, 0, w, h)
+        win#strategy.show()
     }
 
     ///
-    /// Sets the colour subsequent shapes and text are drawn in.
+    /// Closes the window and releases everything it was drawing through.
     ///
-    pub def fill(s: Window[r], c: Color): Unit \ IO =
-        s#graphics.setColor(awt(c))
-
-    ///
-    /// Sets a translucent fill, with `alpha` from 0 (invisible) to 255 (opaque).
-    ///
-    pub def fillAlpha(s: Window[r], c: Color, alpha: Int32): Unit \ IO =
-        s#graphics.setColor(new AwtColor(Color.redOf(c), Color.greenOf(c), Color.blueOf(c),
-                                         Int32.max(0, Int32.min(255, alpha))))
-
-    ///
-    /// Draws a rectangle with its top-left corner at `(x, y)`.
-    ///
-    pub def rect(s: Window[r], x: Float32, y: Float32, w: Float32, h: Float32): Unit \ IO = {
-        s#rectangle.setRect(x, y, w, h);
-        s#graphics.fill(s#rectangle)
-    }
-
-    ///
-    /// Draws an ellipse centred on `(x, y)`.
-    ///
-    pub def ellipse(s: Window[r], x: Float32, y: Float32, w: Float32, h: Float32)
-        : Unit \ IO = {
-        s#ellipse.setFrame(x - w / 2.0f32, y - h / 2.0f32, w, h);
-        s#graphics.fill(s#ellipse)
-    }
-
-    ///
-    /// Draws `s` with its baseline starting at `(x, y)`.
-    ///
-    pub def text(s: Window[r], str: String, x: Float32, y: Float32): Unit \ IO =
-        s#graphics.drawString(str, x, y)
-
-    ///
-    /// Sets the text size in pixels.
-    ///
-    /// Deriving a font allocates, and a screen that sets the same size before each of its
-    /// twenty labels would pay for it twenty times, so the last one derived is kept.
-    ///
-    pub def textSize(s: Window[r], px: Float32): Unit \ IO + r = {
-        let (was, font) = Ref.get(s#sized);
-        if (was == px) s#graphics.setFont(font)
-        else {
-            let derived = s#base.deriveFont(px);
-            Ref.put((px, derived), s#sized);
-            s#graphics.setFont(derived)
-        }
+    pub def close(win: Window[r]): Unit \ IO = {
+        win#strategy.dispose();
+        release(win#sheet);
+        win#frame.dispose()
     }
 
 }
