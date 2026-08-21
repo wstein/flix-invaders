@@ -8,12 +8,11 @@
 /// one-line-per-operation translation when Processing Core was dropped.
 ///
 /// It is a *surface*, not a framework. It owns a window, a back buffer, the current fill
-/// colour and font, and the two input devices -- and nothing else. The one policy it does
-/// impose is that Escape closes the window, which is what a sketch of this shape has always
-/// done. There is no sketch
+/// colour and font, and the two input devices -- and nothing else. There is no sketch
 /// lifecycle, no `setup`/`draw` pair to subclass, and no global state: everything it knows
 /// travels in the `Surface.Window` record it hands back. The frame loop lives one layer up,
-/// in `Sketch`, where it can be read as ordinary functions.
+/// in `Sketch`, where it can be read as ordinary functions. The one policy it does impose is
+/// that Escape closes the window, which is what a sketch of this shape has always done.
 ///
 /// Drawing goes to an offscreen `BufferedImage` of exactly the requested size, which
 /// `present` then blits to the window through a `BufferStrategy`. That fixes the geometry
@@ -28,7 +27,6 @@ mod Surface {
     import java.awt.Component
     import java.awt.Dimension
     import java.awt.Font
-    import java.awt.Graphics
     import java.awt.Graphics2D
     import java.awt.RenderingHints
     import java.awt.event.ActionEvent
