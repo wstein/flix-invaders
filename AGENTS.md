@@ -49,9 +49,12 @@ own. `./flixw -- <args>` forces the compiler for anything ambiguous.
 
 ## Layout
 
-- `src/Runtime/` — the effect boundary. `Runtime/Surface.flix` (window, Swing and Java2D)
-  and `Runtime/Audio.flix` (sound card) are the **only** files that touch a toolkit;
-  `Runtime/Sketch.flix` owns the frame loop and names one Java class, for `System.nanoTime`
+- `src/Runtime/` — the effect boundary. `Runtime/Surface.flix` (Swing and Java2D) and
+  `Runtime/Audio.flix` (sound card) are the **only** files that touch a toolkit;
+  `Runtime/Sketch.flix` owns the frame loop and names one Java class, for `System.nanoTime`.
+  `Surface` splits in two: a *sheet* is somewhere to draw and needs no display, which is how
+  `test/TestSurface.flix` checks the rasteriser headlessly; a *window* is a sheet with a
+  frame around it. Anything new that draws belongs on the sheet, where it can be tested
 - `src/Sketches/` — teaching sketches. Entry points, reached through `bin/sketch` and never
   imported, so nothing in `src/` depends on them and an "unused module" report will say so.
   `test/TestStill.flix` and `test/TestAnimation.flix` are what keeps them honest; a sketch
@@ -147,6 +150,12 @@ outlived the library are repeated here.
 - **Whole-pixel rounding is visible.** The formation marches at 0.65 pixels a tick, so
   `fillRect(int, ...)` turns a glide into a stutter. `Surface` fills `Rectangle2D$Float` and
   `Ellipse2D$Float` instead, reusing one of each rather than allocating per shape.
+- **A key that goes down here can come up anywhere.** Focus moves and the release is
+  delivered to whatever has the keyboard now, so the held set keeps the key forever. The
+  canvas has a third listener that lets go of everything on `focusLost`.
+- **X11 can hold a finished frame in its request buffer.** `Toolkit.getDefaultToolkit().sync()`
+  after the flip is what stops a game that is inside its budget from looking jerky on Linux.
+  It costs 0.03-0.06ms where it is not needed.
 - **Handlers must be installed inside the frame callback.** They are stack-scoped, and the
   frame runs on AWT's event dispatch thread — a handler installed around `Surface.loop` on
   the calling thread is invisible there.

@@ -176,6 +176,13 @@ devices. `Sketch.flix` owns the frame loop, and the only Java it names is `Syste
 `Audio.flix` owns waveform synthesis and a pool of `javax.sound.sampled` clips. Nothing else
 in `src/` imports a Java class.
 
+`Surface` comes in two halves, and the seam is what makes the drawing testable. A **sheet**
+is somewhere to draw -- a `BufferedImage`, the one `Graphics2D` that writes to it, and the
+current colour and font -- and knows nothing about a display, so `Surface.offscreen` hands
+one out on a machine with no screen and `test/TestSurface.flix` reads the pixels back. A
+**window** is a sheet with a frame around it, a keyboard, and a frame loop. Every drawing
+operation takes the sheet; only `present`, `loop` and the key functions take the window.
+
 `Surface` is deliberately shaped like the library it replaced: `background`, `fill`, `rect`
 from its top-left corner, `ellipse` from its centre, `text` on its baseline. That is not
 nostalgia. The `Canvas` effect was designed against those conventions, everything above it
@@ -1018,7 +1025,10 @@ stop*, not what to prefer. An "invaders passed en route" bonus is separately cat
 | Processing Core, in the end | It carried the project through the spike and the first seven releases, and everything above it was written against a vocabulary it defined. What it cost was a 1MB LGPL-2.1 jar that had to travel separately, be checksummed separately, and be argued about in a licence file — for a `JFrame`, a `Graphics2D` and a key listener. `Runtime/Surface.flix` keeps the vocabulary and adds no dependency; see *Touching Java* above for what did and did not change. |
 | A `JPanel` and `paintImmediately` | The obvious Swing shape, and the one the migration was first written in. Swing's repaint machinery copies the finished frame through a volatile back buffer of its own before the blit, and was measured taking twenty milliseconds. Active rendering onto a `BufferStrategy` presents in about 0.6ms and does not spike. |
 | A repeating `javax.swing.Timer` | It measures its delay from the moment it fires, so every frame's cost is added to the period after it: 16ms of delay settled at 54 frames a second against the 60 the same machine managed under Processing. Each frame now schedules the next against a deadline — `Surface.reschedule`, pure and tested. |
-| Rounding coordinates to whole pixels | Java2D's integer `fillRect` is the cheaper call, and `Graphics.drawImage` needs no float shapes. But the formation marches at 0.65 pixels a tick; rounding turns that glide into a stutter you can see. `Surface` fills a reused `Rectangle2D$Float` instead. |
+| Rounding coordinates to whole pixels | Java2D's integer `fillRect` is the cheaper call, and `Graphics.drawImage` needs no float shapes. But the formation marches at 0.65 pixels a tick; rounding turns that glide into a stutter you can see. `Surface` fills a reused `Rectangle2D$Float` instead, and `TestSurface` asserts that half a pixel of white on black lands as neither. |
+| JavaFX instead of Swing | The better toolkit of the two, and its `Canvas` plus `AnimationTimer` would replace the deadline scheduler with something the platform already runs. But it left the JDK in 11, so it is a dependency — a larger one than Processing Core, with per-platform natives and a module path to argue about. Removing the last dependency was the point. |
+| LWJGL, LibGDX, or anything over OpenGL | Per-platform natives again, for a game that draws about a hundred filled rectangles a frame and spends 1.5ms of its 16.7 doing it. Java2D is nowhere near being the limit, so this would buy headroom nothing needs and pay for it in artifacts to ship. |
+| Building the window on the event dispatch thread | Swing's own rule, and `Surface.open` breaks it: the frame is constructed and shown on the caller's thread. The fix is `invokeAndWait`, which in Flix means an anonymous `Runnable` and smuggling the finished record back out through a `Ref` — a real cost in readability against a narrow risk. `setVisible` realises the peer synchronously on the calling thread, so `createBufferStrategy` on the next line has one, and the canvas was verified to hold focus afterwards. The smoke workflow, which launches every sketch on all three platforms, is what actually covers this. |
 
 ---
 

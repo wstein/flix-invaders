@@ -45,7 +45,7 @@ git clone https://github.com/wstein/flix-invaders
 cd flix-invaders
 
 ./flixw check       # type-check; the fast feedback loop
-./flixw test        # 485 tests -- no window, no audio device, no filesystem
+./flixw test        # 501 tests -- no window, no audio device, no filesystem
 ./flixw run         # play
 bin/bench          # measure the demo bot over ten seeds
 bin/bench --wide   # sixty seeds instead; the only sample that settles a close call
@@ -143,7 +143,7 @@ flowchart TB
 
     subgraph java["TOUCHES THE OUTSIDE WORLD"]
         direction LR
-        sketch["Runtime/Surface.flix<br>window · back buffer · keys"]
+        sketch["Runtime/Surface.flix<br>sheet · window · keys"]
         audio["Runtime/Audio.flix<br>synthesis · clip pool"]
         main["Main.flix<br>the high-score file"]
     end
@@ -299,8 +299,10 @@ it.
 
 ## Testing
 
-485 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
-all three with greps.
+501 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+all three with greps. The rasteriser is checked against real pixels all the same:
+`Surface.offscreen` hands out a sheet with no window behind it, so what Java2D actually
+painted can be read back and asserted on a machine with no screen.
 
 | Area | Tests | What it pins down |
 | --- | --- | --- |
@@ -309,16 +311,17 @@ all three with greps.
 | [TestDemo](test/TestDemo.flix) | 36 | the computer player: aim, dodge, when to fire, narrowing the block, and not shooting its own cover |
 | [TestAnimation](test/TestAnimation.flix) | 27 | elastic collisions; conservation of momentum and energy |
 | [TestBunkers](test/TestBunkers.flix) | 27 | damage, absorption, erosion, camping behind a drilled slit |
-| [TestCollide](test/TestCollide.flix) + [TestInput](test/TestInput.flix) | 27 | overlap convention, input edges, one frame across many ticks |
+| [TestCollide](test/TestCollide.flix) + [TestInput](test/TestInput.flix) | 26 | overlap convention, input edges, one frame across many ticks |
 | [TestBench](test/TestBench.flix) | 19 | the benchmark's own arithmetic — rates, worst cases, cut-short runs, counters that cannot go negative |
 | [TestSprites](test/TestSprites.flix) | 19 | run-length decomposition of the pixel art |
-| [TestSketch](test/TestSketch.flix) | 18 | the frame loop's arithmetic: rate clamping, tick length, and keeping the display on target |
+| [TestSketch](test/TestSketch.flix) | 24 | the frame loop's arithmetic: rate clamping, tick length, keeping the display on target, and what a key event does to the held set |
 | [TestScores](test/TestScores.flix) | 16 | the table's format and ordering, with no handlers at all |
 | [TestStats](test/TestStats.flix) | 15 | the telemetry overlay, and that showing it changes nothing |
 | [TestCanvas](test/TestCanvas.flix) | 14 | the effect and its interpretations |
 | [TestTuning](test/TestTuning.flix) | 13 | the tuning file: round trip, overrides, clamping |
 | [TestView](test/TestView.flix) | 12 | banner placement against the attract panel, and the countdown |
 | [TestReplay](test/TestReplay.flix) | 11 | identical input replays to an identical world *and* an identical soundtrack |
+| [TestSurface](test/TestSurface.flix) | 11 | what Java2D actually painted: the corner a rectangle starts at, the centre an ellipse is measured from, sub-pixel coverage, translucency |
 | [TestContrast](test/TestContrast.flix) | 10 | WCAG contrast of every palette colour |
 | [TestRng](test/TestRng.flix) | 10 | determinism, range, distribution |
 | [TestScoresFile](test/TestScoresFile.flix) | 8 | saving and loading, on a filesystem that does not exist |
