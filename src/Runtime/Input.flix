@@ -1,8 +1,8 @@
 ///
 /// A key, named rather than numbered.
 ///
-/// The runtime translates Processing's `keyCode` into these, so no game code ever mentions
-/// a key code.
+/// The runtime translates AWT's `keyCode` into these, so no game code ever mentions a key
+/// code.
 ///
 pub enum Key with Eq, Order, ToString {
     case Left
@@ -19,23 +19,15 @@ pub enum Key with Eq, Order, ToString {
 
 mod Key {
 
-    ///
-    /// The digit a key stands for, if it is one of the number keys.
-    ///
-    /// Processing reports `keyCode`, and for the number row those values are ASCII digits,
-    /// so this is a subtraction rather than a table.
-    ///
-    ///
-    /// The letter a key stands for, if it is one of A-Z.
-    ///
-    /// Processing reports `keyCode`, and for letters those values are ASCII uppercase, so
-    /// this is a conversion rather than a table. It is also why initials are uppercase only:
-    /// `keyCode` carries no shift state.
-    ///
+    /// The letters, in the order their key codes run.
     def alphabet(): String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
     ///
-    /// Converts a key press to an uppercase ASCII letter char ('A'-'Z'), if applicable.
+    /// The letter a key stands for, if it is one of A-Z.
+    ///
+    /// AWT reports `keyCode`, and for letters those values are ASCII uppercase, so this is a
+    /// conversion rather than a table. It is also why initials are uppercase only: `keyCode`
+    /// carries no shift state.
     ///
     pub def letter(k: Key): Option[Char] = match k {
         case Key.Other(code) if code >= 65 and code <= 90 =>
@@ -55,10 +47,14 @@ mod Key {
         case None => Option.map(n -> String.charAt(n, digits()), digit(k))
     }
 
+    /// The digits, in the order their key codes run.
     def digits(): String = "0123456789"
 
     ///
-    /// Converts a key press to a numeric digit (0-9), if applicable.
+    /// The digit a key stands for, if it is one of the number keys.
+    ///
+    /// AWT reports `keyCode`, and for the number row those values are ASCII digits, so this
+    /// is a subtraction rather than a table.
     ///
     pub def digit(k: Key): Option[Int32] = match k {
         case Key.Other(code) if code >= 48 and code <= 57 => Some(code - 48)
@@ -66,7 +62,11 @@ mod Key {
     }
 
     ///
-    /// Translates a Processing key code.
+    /// Translates an AWT key code.
+    ///
+    /// The numbers are `java.awt.event.KeyEvent`'s `VK_` constants, which is also what
+    /// Processing reported -- it passed AWT's codes straight through -- so this table did not
+    /// have to change when the window did.
     ///
     pub def fromCode(code: Int32): Key = match code {
         case 8   => Key.Backspace

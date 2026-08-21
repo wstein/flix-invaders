@@ -6,7 +6,7 @@
 /// a fixed number of frames, which is how the smoke test terminates on a CI runner.
 ///
 /// `fontPath` is an optional path to a TrueType file. If it is missing or unreadable the
-/// sketch simply keeps Processing's default font, so a broken path costs you looks, not a
+/// sketch simply keeps the platform's default font, so a broken path costs you looks, not a
 /// crash.
 ///
 pub type alias Config = {
@@ -20,21 +20,18 @@ pub type alias Config = {
 }
 
 ///
-/// The window runtime.
+/// The frame loop.
 ///
-/// This is the only module in `src/` that touches Java. Everything above it -- sketches and
-/// the game -- sees `Canvas`, `Input`, and pure functions, and never learns that Processing
-/// exists.
+/// `Surface` below it owns the window and the toolkit; this module owns time. It reads the
+/// monotonic clock, decides how many logical ticks a frame owes, runs them, and paints --
+/// and that one `System.nanoTime` is the only Java it touches.
+///
+/// Everything above it -- sketches and the game -- sees `Canvas`, `Input`, and pure
+/// functions, and never learns that a window exists.
 ///
 mod Sketch {
 
-    import processing.core.PApplet
-    import processing.core.PFont
-    import java.awt.Font
-    import java.io.FileInputStream
-    import java.lang.Exception
     import java.lang.System
-    import java.lang.Thread
 
     ///
     /// A 640x480 sketch at 60 Hz with a fixed seed and no frame limit.
@@ -97,68 +94,6 @@ mod Sketch {
     }
 
     ///
-    /// The size a loaded font is first derived to.
-    ///
-    /// Anything works -- `Canvas.textSize` re-derives the native font on every size change --
-    /// but it must not be left at the size of 1 that `Font.createFont` returns, or `PFont`
-    /// builds a three-pixel rasteriser and the text is unreadable.
-    ///
-    def baseFontSize(): Float32 = 16.0f32
-
-    ///
-    /// Loads a TrueType font from a file path, or `None` if anything goes wrong.
-    ///
-    /// A file path rather than the classpath, deliberately: Flix loads code through class
-    /// loaders that parent to the *platform* loader and never consult the project's own
-    /// resources, so `getResourceAsStream` returns null here -- and would start working
-    /// under `flix build-jar`, which is worse than failing consistently.
-    ///
-    /// A file path rather than the classpath, deliberately -- see above.
-    ///
-    /// The stream is closed on both paths. Closing it only after `createFont` returns leaks
-    /// the descriptor whenever the file is present but unreadable as a font, which is the one
-    /// case this function exists to survive.
-    def loadFont(path: String): Option[PFont] \ IO =
-        try {
-            let stream = new FileInputStream(path);
-            let font = try {
-                let base = Font.createFont(Font.TRUETYPE_FONT, stream);
-                Some(new PFont(base.deriveFont(baseFontSize()), false))
-            } catch {
-                case _: Exception => None
-            };
-            stream.close();
-            font
-        } catch {
-            case _: Exception => None
-        }
-
-    def setupApplet(app: PApplet, cfg: Config, hz: Int32): Unit \ IO = {
-        app.getSurface().setTitle(cfg#title);
-        app.frameRate(Int32.toFloat32(hz));
-        match cfg#fontPath {
-            case None => ()
-            case Some(path) => match loadFont(path) {
-                case None => println("could not load font ${path}; using the default")
-                case Some(font) => app.textFont(font)
-            }
-        };
-        app.textSize(14.0f32);
-        app.noStroke()
-    }
-
-    ///
-    /// Splits a colour into the three float channels Processing wants.
-    ///
-    /// Deliberately not a packed `0xRRGGBB` integer: Processing reads a bare int as ARGB,
-    /// so a value with no alpha byte is fully transparent and nothing is drawn.
-    ///
-    def channels(c: Color): (Float32, Float32, Float32) =
-        (Int32.toFloat32(Color.redOf(c)),
-         Int32.toFloat32(Color.greenOf(c)),
-         Int32.toFloat32(Color.blueOf(c)))
-
-    ///
     /// The range of simulation rates the runtime will accept.
     ///
     /// One tick a second is already unplayable and a thousand is far past any display; the
@@ -166,6 +101,22 @@ mod Sketch {
     ///
     def minimumHz(): Int32 = 1
     def maximumHz(): Int32 = 1000
+
+    ///
+    /// A simulation rate the frame loop's arithmetic can survive.
+    ///
+    /// `Config` is a public record anyone can build, and an hz of nought divides by zero
+    /// before the window even opens. A negative one runs the clock backwards, and anything
+    /// above a billion rounds `stepNs` down to nought and divides by zero again on the
+    /// frame-timing arithmetic. None of those are worth a crash in a game, so the rate is
+    /// brought into a range a display can plausibly be asked for.
+    ///
+    pub def clampHz(hz: Int32): Int32 =
+        Int32.max(minimumHz(), Int32.min(maximumHz(), hz))
+
+    /// How long one logical tick covers, in nanoseconds.
+    pub def stepNsFor(hz: Int32): Int64 =
+        1000000000i64 / Int32.toInt64(clampHz(hz))
 
     /// Never advance more than this many logical steps in one frame.
     ///
@@ -178,14 +129,13 @@ mod Sketch {
     /// Everything one frame is allowed to change, gathered so the frame loop can be written as
     /// ordinary functions rather than as one closure over eight separate `Ref`s.
     ///
-    /// `heldNow` is written by the keyboard callbacks and read by the frame; `heldPrev` is the
-    /// reading the last tick compared against, and the two together are what makes a press an
-    /// edge rather than a state. `accNs` is simulated time owed but not yet run, and `prevNs`
-    /// the clock reading this frame is measured from.
+    /// `heldPrev` is the keyboard reading the last tick compared against, and it together
+    /// with what the surface reports now is what makes a press an edge rather than a state.
+    /// `accNs` is simulated time owed but not yet run, and `prevNs` the clock reading this
+    /// frame is measured from.
     ///
     type alias LoopRefs[s: Type, rc: Region] = {
         world = Ref[s, rc],
-        heldNow = Ref[Set[Key], rc],
         heldPrev = Ref[Set[Key], rc],
         accNs = Ref[Int64, rc],
         prevNs = Ref[Int64, rc],
@@ -205,6 +155,7 @@ mod Sketch {
         cfg = Config,
         stepNs = Int64,
         budgetNs = Int64,
+        surface = Surface.Window[rc],
         voices = Audio.Voices,
         refs = LoopRefs[s, rc],
         step = (s, Snapshot) -> s \ Sound,
@@ -220,18 +171,18 @@ mod Sketch {
     /// data flow rather than a convention that could quietly drift.
     ///
     /// The two timings come back from the beats that earn them, rather than from a stopwatch
-    /// strung across this body, because it is the *work* that has to be bracketed: Processing
-    /// sleeps to hold the target rate, so timing a whole frame measures the rate limiter and
-    /// reports ~16.7ms at 60Hz whatever the sketch actually costs.
+    /// strung across this body, because it is the *work* that has to be bracketed: the timer
+    /// paces the loop to the target rate, so timing a whole frame measures the pacing and
+    /// reports ~16ms at 60Hz whatever the sketch actually costs.
     ///
-    def drawFrame(app: PApplet, loop: Loop[s, rc]): Unit \ IO + rc = {
+    def drawFrame(loop: Loop[s, rc]): Unit \ IO + rc = {
         let elapsed         = accumulate(loop);
-        let (due, snapshot) = readKeyboard(app, loop);
+        let (due, snapshot) = readKeyboard(loop);
         let simNs           = simulate(loop, due, snapshot);
-        let drawNs          = paint(app, loop);
+        let drawNs          = paint(loop);
         observe(loop, { frameNs = elapsed, simNs = simNs, drawNs = drawNs,
                         steps = due, clamped = elapsed > loop#budgetNs });
-        countFrame(app, loop)
+        countFrame(loop)
     }
 
     ///
@@ -260,7 +211,8 @@ mod Sketch {
     /// The input beat: one reading of the keyboard, and how many ticks it has to drive.
     ///
     /// The reading is taken once and frozen, so every tick this frame owes sees the same
-    /// keyboard rather than whatever the Animation Thread has done to it since.
+    /// keyboard. The surface reports AWT key codes, and this is where a number becomes a
+    /// name -- nothing above the runtime ever sees a code.
     ///
     /// The count is worked out here, before any tick runs, because the edges belong to the
     /// first tick alone and the previous key state may only be retired once a tick has
@@ -269,13 +221,13 @@ mod Sketch {
     /// against a set that already holds the key and see no transition at all. On a display
     /// faster than the simulation that is most frames, so it is the common case, not a corner.
     ///
-    def readKeyboard(app: PApplet,
-                     loop: Loop[s, rc]): (Int32, Snapshot) \ IO + rc = {
+    def readKeyboard(loop: Loop[s, rc]): (Int32, Snapshot) \ rc = {
         let refs = loop#refs;
-        let current = Ref.get(refs#heldNow);
+        let current = Set.map(Key.fromCode, Surface.keysHeld(loop#surface));
         let prev = Ref.get(refs#heldPrev);
+        let (mx, my) = Surface.mouse(loop#surface);
         let snapshot = Input.diff(previous = prev, current = current,
-                                  mouseX = app.mouseX, mouseY = app.mouseY);
+                                  mouseX = mx, mouseY = my);
         let due = Input.ticksDue(Ref.get(refs#accNs), loop#stepNs, maxCatchUpSteps());
         if (due > 0) Ref.put(current, refs#heldPrev) else ();
         (due, snapshot)
@@ -306,17 +258,18 @@ mod Sketch {
     /// The drawing beat: paint the world as it now stands, and report what that cost.
     ///
     /// The `Canvas` handler is installed here, inside the callback, on purpose: handlers are
-    /// stack-scoped and `draw` runs on Processing's Animation Thread, so one installed around
-    /// `runSketch` on the main thread would be invisible from here.
+    /// stack-scoped and the frame runs on AWT's event dispatch thread, so one installed
+    /// around `Surface.loop` on the main thread would be invisible from here.
     ///
     /// The figures handed to `view` are the previous frame's, because this frame's are still
     /// being measured -- which is what any such display shows.
     ///
-    def paint(app: PApplet, loop: Loop[s, rc]): Int64 \ IO + rc = {
+    def paint(loop: Loop[s, rc]): Int64 \ IO + rc = {
         let world = Ref.get(loop#refs#world);
         let figures = Ref.get(loop#refs#stats);
         let started = System.nanoTime();
-        runWithSurface(app, () -> (loop#view)(world, figures));
+        runWithSurface(loop#surface, () -> (loop#view)(world, figures));
+        Surface.present(loop#surface);
         System.nanoTime() - started
     }
 
@@ -332,19 +285,20 @@ mod Sketch {
     /// The counting beat: one more frame gone, and the window closed if that was the last one.
     ///
     /// `maxFrames` is how the smoke test bounds a windowed run on a machine nobody is sitting
-    /// in front of. `app.exit()` arrives at `exitActual`, which this sketch overrides.
+    /// in front of.
     ///
-    def countFrame(app: PApplet, loop: Loop[s, rc]): Unit \ IO + rc = {
+    def countFrame(loop: Loop[s, rc]): Unit \ IO + rc = {
         let frames = Ref.get(loop#refs#frames) + 1;
         Ref.put(frames, loop#refs#frames);
         match loop#cfg#maxFrames {
-            case Some(limit) => if (frames >= limit) app.exit() else ()
+            case Some(limit) =>
+                if (frames >= limit) Surface.requestClose(loop#surface) else ()
             case None => ()
         }
     }
 
     ///
-    /// Drives a Processing Core window from a pure state function.
+    /// Drives a window from a pure state function.
     ///
     /// Opens the window, instantiates the sound engine, and runs until the window closes.
     ///
@@ -359,8 +313,7 @@ mod Sketch {
     /// or machine speed. That is what makes a recorded input script replay exactly.
     ///
     /// Returns the state the window closed on, so a caller can persist something the player
-    /// earned. It is read after `park` returns, by which point the Animation Thread has
-    /// stopped writing it.
+    /// earned. It is read after `Surface.loop` returns, by which point no frame is running.
     ///
     /// `view` is also handed the runtime's own performance figures, because the frame loop is
     /// the only thing that can measure them and the view is the only thing that can show them.
@@ -374,83 +327,42 @@ mod Sketch {
     ): s \ IO =
         region rc {
 
-        // `Config` is a public record anyone can build, and an hz of nought divides by zero
-        // before the window even opens. A negative one runs the clock backwards, and anything
-        // above a billion rounds `stepNs` down to nought and divides by zero again on the
-        // frame-timing arithmetic. None of those are worth a crash in a game, so the rate is
-        // brought into a range a display can plausibly be asked for.
-        let hz = Int32.max(minimumHz(), Int32.min(maximumHz(), cfg#hz));
-        let stepNs = 1000000000i64 / Int32.toInt64(hz);
+        let hz = clampHz(cfg#hz);
+        let stepNs = stepNsFor(hz);
         let budgetNs = stepNs * Int32.toInt64(maxCatchUpSteps());
 
         let refs = {
             world = Ref.fresh(rc, init(cfg#seed)),
-            heldNow = Ref.fresh(rc, (Set.empty(): Set[Key])),
             heldPrev = Ref.fresh(rc, (Set.empty(): Set[Key])),
             accNs = Ref.fresh(rc, 0i64),
-            prevNs = Ref.fresh(rc, 0i64),
+            prevNs = Ref.fresh(rc, System.nanoTime()),
             frames = Ref.fresh(rc, 0),
             stats = Ref.fresh(rc, Stats.empty())
         };
-        let done = Ref.fresh(rc, false);
+
+        let surface = Surface.open(rc, cfg#title, width = cfg#width, height = cfg#height,
+                                   cfg#fontPath);
+        Surface.textSize(surface, defaultTextSize());
 
         // Opened once. An empty pool means the machine has no usable audio device, and every
         // Audio call then does nothing.
         let voices = Audio.open();
 
-        // Assembled here and never rebuilt: `draw` is handed one value rather than eight.
-        let loop = { cfg = cfg, stepNs = stepNs, budgetNs = budgetNs, voices = voices,
-                     refs = refs, step = step, view = view };
+        // Assembled here and never rebuilt: each frame is handed one value rather than eight.
+        let loop = { cfg = cfg, stepNs = stepNs, budgetNs = budgetNs, surface = surface,
+                     voices = voices, refs = refs, step = step, view = view };
 
-        let sketch = new PApplet {
+        Surface.loop(surface, hz, () -> drawFrame(loop));
 
-            def settings(app: PApplet): Unit \ IO = {
-                app.size(cfg#width, cfg#height);
-                // Outside the PDE, size/pixelDensity/fullScreen/smooth are legal ONLY here.
-                // Pinning the density keeps geometry identical on HiDPI and standard displays.
-                app.pixelDensity(1)
-            }
-
-            def setup(app: PApplet): Unit \ IO + rc = {
-                setupApplet(app, cfg, hz);
-                Ref.put(System.nanoTime(), refs#prevNs)
-            }
-
-            def draw(app: PApplet): Unit \ IO + rc =
-                drawFrame(app, loop)
-
-            def keyPressed(app: PApplet): Unit \ IO + rc =
-                let pressed = Key.fromCode(app.keyCode);
-                Ref.put(Set.insert(pressed, Ref.get(refs#heldNow)), refs#heldNow)
-
-            def keyReleased(app: PApplet): Unit \ IO + rc =
-                let released = Key.fromCode(app.keyCode);
-                Ref.put(Set.remove(released, Ref.get(refs#heldNow)), refs#heldNow)
-
-            // The only System.exit(0) in PApplet, and the documented embedding hook.
-            // Overriding it hands control back to `main` instead of killing the JVM
-            // mid-frame -- `flix run` does not fork. It can fire more than once, so setting
-            // an already-set flag must be harmless.
-            def exitActual(_app: PApplet): Unit \ rc =
-                Ref.put(true, done)
-        };
-
-        // Processing resolves its renderer (processing.awt.PGraphicsJava2D) and its macOS
-        // helper (processing.core.ThinkDifferent) through
-        //     Thread.currentThread().getContextClassLoader().loadClass(...)
-        // but Flix loads jar dependencies through its own ExternalJarLoader, whose parent is
-        // the *platform* loader. Without this line Processing cannot find its own classes and
-        // dies with "The processing.awt.PGraphicsJava2D renderer is not in the class path."
-        Thread.currentThread().setContextClassLoader(sketch.getClass().getClassLoader());
-
-        PApplet.runSketch(Array#{cfg#title} @ rc, sketch);
-
-        // runSketch returns immediately. The region has to be kept alive by hand, because
-        // `draw` is still reading and writing these Refs on the Animation Thread.
-        park(done);
+        Surface.close(surface);
         Audio.close(voices);
         Ref.get(refs#world)
     }
+
+    ///
+    /// The text size a sketch starts at, before any `Canvas.textSize` call.
+    ///
+    def defaultTextSize(): Float32 = 14.0f32
 
     ///
     /// Interprets `Sound` by triggering clips.
@@ -468,43 +380,25 @@ mod Sketch {
         }
 
     ///
-    /// Interprets `Canvas` by painting onto a live sketch.
+    /// Interprets `Canvas` by painting onto a live surface.
     ///
     /// The counterpart to `Canvas.runWithCollector`, and the only interpretation that needs
-    /// a window -- which is why it lives here rather than in `Canvas`.
+    /// a window -- which is why it lives here rather than in `Canvas`. Every case is one
+    /// call, because `Surface` was given the same vocabulary the effect is written in.
     ///
-    def runWithSurface(app: PApplet, f: Unit -> a \ ef)
-        : a \ (ef - Canvas) + IO =
+    def runWithSurface(s: Surface.Window[rc], f: Unit -> a \ ef)
+        : a \ (ef - Canvas) + IO + rc =
         run {
             f()
         } with handler Canvas {
-            def clear(c, k) =
-                let (r, g, b) = channels(c);
-                app.background(r, g, b);
-                k()
-            def fill(c, k) =
-                let (r, g, b) = channels(c);
-                app.fill(r, g, b);
-                k()
-            def fillAlpha(c, a, k) = {
-                let (r, g, b) = channels(c);
-                app.fill(r, g, b, Int32.toFloat32(a));
-                k()
-            }
-            def rect(x, y, w, h, k) = {
-                app.rect(x, y, w, h);
-                k()
-            }
-            def ellipse(x, y, w, h, k) = {
-                app.ellipse(x, y, w, h);
-                k()
-            }
-            def text(s, x, y, k) = {
-                app.text(s, x, y);
-                k()
-            }
-            def textSize(px, k) = { app.textSize(px); k() }
-            def dimensions(k) = k((app.width, app.height))
+            def clear(c, k) = { Surface.background(s, c); k() }
+            def fill(c, k) = { Surface.fill(s, c); k() }
+            def fillAlpha(c, a, k) = { Surface.fillAlpha(s, c, a); k() }
+            def rect(x, y, w, h, k) = { Surface.rect(s, x, y, w, h); k() }
+            def ellipse(x, y, w, h, k) = { Surface.ellipse(s, x, y, w, h); k() }
+            def text(str, x, y, k) = { Surface.text(s, str, x, y); k() }
+            def textSize(px, k) = { Surface.textSize(s, px); k() }
+            def dimensions(k) = k(Surface.size(s))
         }
 
     ///
@@ -520,15 +414,5 @@ mod Sketch {
                 world: Ref[s, r],
                 inputs: List[Snapshot]): Unit \ Sound + r =
         inputs |> List.forEach(snapshot -> Ref.transform(s -> step(s, snapshot), world))
-
-    ///
-    /// Parks the main thread until the sketch reports that it has exited.
-    ///
-    /// A recursion because there is no sequence to traverse: it waits on a flag another
-    /// thread will set, and how many times it looks is not known in advance.
-    ///
-    def park(done: Ref[Bool, r]): Unit \ IO + r =
-        if (Ref.get(done)) ()
-        else { Thread.sleep(20i64); park(done) }
 
 }
