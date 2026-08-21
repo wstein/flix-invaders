@@ -2,7 +2,7 @@ name: Smoke
 
 # Launches each sketch in a real window on all three desktop platforms and checks it starts,
 # draws, and exits cleanly. The unit tests deliberately never open a window, so this is the
-# only place the Processing integration itself is exercised.
+# only place `Runtime/Surface` -- the Swing and Java2D layer itself -- is exercised.
 #
 # It is not on every pull request: it needs a display, and it is slower and more fragile than
 # the headless suite.
@@ -43,8 +43,8 @@ jobs:
             lib
           key: flix-${{ runner.os }}-${{ hashFiles('flix.toml', '.flixw/lock.toml') }}
 
-      # Linux runners have no display. Without Xvfb, Processing's ShimAWT hits a
-      # HeadlessException and calls System.exit(1) -- a bare exit code with no stack trace.
+      # Linux runners have no display, and AWT throws HeadlessException from the window
+      # constructor without one. Xvfb is what gives these three sketches something to open.
       - name: Install Xvfb
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y xvfb

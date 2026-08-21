@@ -38,13 +38,9 @@ if [ "$stale" = yes ]; then
   : > "$stamp"
 fi
 
-# Processing has to be on the classpath by hand: `flix run` assembles it from flix.toml,
-# and nothing does that for a bare `java`.
-cp=build/class
-for jar in lib/external/*.jar; do
-  [ -f "$jar" ] && cp="$cp:$jar"
-done
-
+# Nothing but the project's own classes: the game draws through Swing and Java2D and makes
+# its noises through javax.sound.sampled, both of which are in the JDK.
+#
 # `Main` ends in Sys.Exit.exit(0) precisely so a bare JVM terminates -- AWT's event thread
 # is not a daemon, so without it this would hang after the window closed.
-exec java -cp "$cp" Main "$@"
+exec java -cp build/class Main "$@"

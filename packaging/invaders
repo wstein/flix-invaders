@@ -5,19 +5,16 @@
 #   chmod +x invaders
 #   ./invaders
 #
-# This script is the whole download. On first run it fetches the game and Processing
-# Core into a cache directory, checks both against the digests pinned below, unpacks
-# the arcade font beside them, and plays. After that it runs offline and starts in
-# about a second.
+# This script is the whole download. On first run it fetches the game into a cache
+# directory, checks it against the digest pinned below, unpacks the arcade font beside
+# it, and plays. After that it runs offline and starts in about a second.
+#
+# One jar and nothing else: the game draws through Swing and Java2D and makes its noises
+# through javax.sound.sampled, both of which every Java 21 runtime already has. There is
+# no third-party dependency to fetch, verify or keep in step.
 #
 # Everything it writes lives under one directory, printed by `./invaders --where`, and
 # removed by `./invaders --clean`. Nothing is installed anywhere else.
-#
-# Processing Core is fetched as its own jar rather than bundled into the game's, on
-# purpose. It is LGPL-2.1: shading it into a single artifact would convert dynamic
-# linking into static linking and trigger the relinking obligation in section 6. Kept
-# separate it also stays replaceable -- put your own build of Processing Core at the
-# path below and this will run against it. See THIRD-PARTY.md in the repository.
 set -eu
 
 # Stamped by the release workflow. VERSION is the git tag; GAME_SHA1 is empty in the
@@ -26,22 +23,17 @@ VERSION="${INVADERS_VERSION:-main}"
 GAME_SHA1=""
 REPO="wstein/flix-invaders"
 
-CORE_VERSION=4.5.6
-CORE_SHA1=e51ed348c657dd24acfe77106563b472d0db04a8
-CORE_URL="https://repo1.maven.org/maven2/org/processing/core/${CORE_VERSION}/core-${CORE_VERSION}.jar"
-
 GAME_URL="https://github.com/${REPO}/releases/download/${VERSION}/flix-invaders.jar"
 
 home="${XDG_CACHE_HOME:-$HOME/.cache}/flix-invaders"
 room="$home/$VERSION"
 game="$room/flix-invaders.jar"
-core="$home/processing-core-${CORE_VERSION}.jar"
 
 case "${1:-}" in
     --where) echo "$home"; exit 0 ;;
     --clean) rm -rf "$home"; echo "removed $home"; exit 0 ;;
     --help|-h)
-        sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
         exit 0 ;;
 esac
 
@@ -108,7 +100,6 @@ ensure() {
 }
 
 need_java
-ensure "$CORE_URL" "$core" "$CORE_SHA1" "Processing Core ${CORE_VERSION} (LGPL-2.1)"
 ensure "$GAME_URL" "$game" "$GAME_SHA1" "Flix Invaders ${VERSION}"
 
 # The game reads its font from a path relative to the working directory, so the assets
@@ -119,4 +110,4 @@ if [ ! -f "$room/assets/PressStart2P-Regular.ttf" ]; then
 fi
 
 cd "$room"
-exec java -cp "$game:$core" Main "$@"
+exec java -cp "$game" Main "$@"
