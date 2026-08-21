@@ -9,7 +9,9 @@
 ///
 /// `Surface.offscreen` is what makes this possible without a display: it hands back a sheet
 /// with no window anywhere near it, so these run on a CI machine with no screen. That is
-/// also why the headless grep in CI names `Surface.open` and not `Surface`.
+/// also why the headless grep in CI names the window-opening entry point rather than the
+/// module -- and why this sentence does not spell that name out, since the grep is textual
+/// and would match a comment just as happily as a call.
 ///
 mod TestSurface {
 
