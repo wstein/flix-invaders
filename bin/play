@@ -25,8 +25,18 @@ force=no
 # Newest mtime among the things a build depends on. `find -newer` rather than a hash: it
 # is one syscall per file against reading every byte, and the inputs are small enough that
 # a false rebuild is cheaper than the hash would be.
+# Where the compiler put the classes. Flix has emitted them in two places across the
+# versions this project has been pinned to, and asking the filesystem is cheaper than
+# tracking which one this build is.
+classes() {
+  for dir in build/class build/development/class; do
+    [ -d "$dir" ] && { echo "$dir"; return 0; }
+  done
+  return 1
+}
+
 stale=yes
-if [ "$force" = no ] && [ -f "$stamp" ] && [ -d build/class ]; then
+if [ "$force" = no ] && [ -f "$stamp" ] && classes >/dev/null; then
   changed=$(find src flix.toml -newer "$stamp" -print -quit 2>/dev/null || true)
   [ -z "$changed" ] && stale=no
 fi
@@ -43,4 +53,5 @@ fi
 #
 # `Main` ends in Sys.Exit.exit(0) precisely so a bare JVM terminates -- AWT's event thread
 # is not a daemon, so without it this would hang after the window closed.
-exec java -cp build/class Main "$@"
+cp=$(classes) || { echo "bin/play: the build produced no classes" >&2; exit 1; }
+exec java -cp "$cp" Main "$@"
