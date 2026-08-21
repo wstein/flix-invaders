@@ -4,14 +4,15 @@
 [![Latest release](https://img.shields.io/github/v/release/wstein/flix-invaders?display_name=tag&sort=semver)](https://github.com/wstein/flix-invaders/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A **Flix creative-coding pilot using Processing Core**: an arcade game where the rules are a
+A **Flix creative-coding pilot on Swing and Java2D**: an arcade game where the rules are a
 pure function, the tests never open a window, and the effect system marks exactly where the
 outside world begins.
 
-It is not a Flix dialect, not a Processing Mode, and not affiliated with either project. It
-exists to answer one question: *does Flix's effect system make creative coding clearer?*
+It is not a Flix dialect and not a game engine. It exists to answer one question: *does
+Flix's effect system make creative coding clearer?*
 
-There is **no Java in this repository**. Flix subclasses Processing's `PApplet` directly.
+There is **no Java in this repository** and no dependency outside the JDK. Flix subclasses
+`JPanel`, installs AWT's listeners, and draws through `Graphics2D` directly.
 
 Want to participate? Read the [contribution guide](CONTRIBUTING.md),
 [code of conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md).
@@ -30,8 +31,8 @@ chmod +x invaders
 ./invaders
 ```
 
-That script is the whole download. On first run it fetches the game and Processing Core into
-`~/.cache/flix-invaders`, checks both against pinned SHA-1s, unpacks the arcade font and plays;
+That script is the whole download. On first run it fetches the game into
+`~/.cache/flix-invaders`, checks it against a pinned SHA-1, unpacks the arcade font and plays;
 after that it runs offline. Java 21 and nothing else. `./invaders --where` prints the cache
 directory and `--clean` removes it — nothing is installed anywhere else.
 
@@ -44,7 +45,7 @@ git clone https://github.com/wstein/flix-invaders
 cd flix-invaders
 
 ./flixw check       # type-check; the fast feedback loop
-./flixw test        # 441 tests -- no window, no audio device, no filesystem
+./flixw test        # 485 tests -- no window, no audio device, no filesystem
 ./flixw run         # play
 bin/bench          # measure the demo bot over ten seeds
 bin/bench --wide   # sixty seeds instead; the only sample that settles a close call
@@ -142,12 +143,12 @@ flowchart TB
 
     subgraph java["TOUCHES THE OUTSIDE WORLD"]
         direction LR
-        sketch["Runtime/Sketch.flix<br>window · frame loop · keys"]
+        sketch["Runtime/Surface.flix<br>window · back buffer · keys"]
         audio["Runtime/Audio.flix<br>synthesis · clip pool"]
         main["Main.flix<br>the high-score file"]
     end
 
-    ext["Processing Core JAVA2D<br>javax.sound.sampled<br>~/.config"]
+    ext["Swing · Java2D<br>javax.sound.sampled<br>~/.config"]
 
     cab --> model
     cab --> canvas
@@ -162,26 +163,27 @@ flowchart TB
     main --> ext
 ```
 
-Exactly **two** files in `src/` mention Java: one for the window, one for the sound card. A
-third, [`Main.flix`](src/Main.flix), can reach a filesystem — for one text file, on the way in
-and the way out. Everything else cannot open a device or a file even by accident, because the
-types forbid it.
+Exactly **two** files in `src/` reach for a toolkit: one for the window, one for the sound
+card. [`Sketch.flix`](src/Runtime/Sketch.flix) sits between them and the effects, and the only
+Java it names is `System.nanoTime`. A fourth file, [`Main.flix`](src/Main.flix), can reach a
+filesystem — for one text file, on the way in and the way out. Everything else cannot open a
+device or a file even by accident, because the types forbid it.
 
 ## The frame loop
 
-Processing calls `draw()` on its own thread. The runtime turns that into a whole number of
-simulation steps, so behaviour never depends on frame rate.
+A Swing timer calls the frame on AWT's event dispatch thread. The runtime turns each call
+into a whole number of simulation steps, so behaviour never depends on frame rate.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant P as Processing<br/>Animation Thread
-    participant S as Sketch.start
+    participant P as AWT<br/>Event Dispatch Thread
+    participant S as Sketch.drawFrame
     participant G as Game.step<br/>(\ Sound)
     participant A as Audio
     participant V as View.render<br/>(\ Canvas)
 
-    P->>S: draw()
+    P->>S: Timer fires
     S->>S: nanoTime into accumulator<br/>(clamped to 5 steps)
     S->>S: freeze one Input.Snapshot
     S->>S: Input.ticksDue decides N,<br/>Input.acrossTicks gives the edges<br/>to the first tick only
@@ -192,7 +194,8 @@ sequenceDiagram
     end
     Note over A: Clip.start() returns at once,<br/>so the frame never stalls
     S->>V: render(world)
-    V-->>P: fill · rect · text
+    V-->>P: fill · rect · text<br/>onto the back buffer
+    S->>P: present: blit the buffer
 ```
 
 Two properties fall out of this shape:
@@ -255,7 +258,7 @@ flowchart LR
     R --> H1["runWithSurface"]
     R --> H2["runWithCollector"]
     R --> H3["runWithNoOp"]
-    H1 --> O1["a Processing window"]
+    H1 --> O1["a window on screen"]
     H2 --> O2["List of DrawCmd<br/>headless tests"]
     H3 --> O3["nothing<br/>benchmarks"]
 ```
@@ -264,10 +267,11 @@ Adding a fourth — a draw-call counter, an SVG exporter — means adding a func
 [Canvas.flix](src/Runtime/Canvas.flix), not touching the runtime.
 
 `Game.step` has a concrete `\ Sound` effect because of the JVM callback, not because Flix
-requires effects to be rigidly isolated. `Sketch.start` becomes Processing's fixed `draw`
-method and therefore cannot be generic over an effect variable; the handlers themselves remain
-effect-polymorphic, so they can run in a larger effect context. The runtime installs the
-concrete `Sound` handler inside `draw`, where the JVM boundary permits it.
+requires effects to be rigidly isolated. The frame is compiled into a fixed method on an
+anonymous `ActionListener` and therefore cannot be generic over an effect variable; the
+handlers themselves remain effect-polymorphic, so they can run in a larger effect context. The
+runtime installs the concrete `Sound` handler inside the frame, where the JVM boundary permits
+it.
 
 ---
 
@@ -282,8 +286,8 @@ concrete `Sound` handler inside `draw`, where the JVM boundary permits it.
   went the other way.
 - **Pixel art, no image files.** Sprites are rows of `#` and `.` in
   [Sprites.flix](src/Invaders/Sprites.flix), parsed once by `Sprite.of` into horizontal runs.
-  A full frame with 55 invaders and four bunkers costs about 1.9 ms: 0.13 ms simulation and
-  1.74 ms drawing.
+  A full frame with 55 invaders and four bunkers costs about 2 ms, most of it drawing —
+  roughly an eighth of the 16.7 ms a frame is given.
 - **Colours are checked, not eyeballed.** [TestContrast.flix](test/TestContrast.flix) asserts
   WCAG 2.1 ratios for the whole palette — 4.5:1 for text, 3:1 for shapes.
 - **Balance is a test.** [TestDifficulty.flix](test/TestDifficulty.flix) drives the real game
@@ -295,30 +299,32 @@ concrete `Sound` handler inside `draw`, where the JVM boundary permits it.
 
 ## Testing
 
-441 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
+485 tests, none of which open a window, an audio device, or the real filesystem — CI enforces
 all three with greps.
 
 | Area | Tests | What it pins down |
 | --- | --- | --- |
-| [TestGame](test/TestGame.flix) | 110 | every rule, hit boxes, levels, shield, bonus lives |
-| [TestSession](test/TestSession.flix) | 56 | screens, taking turns, typed initials |
+| [TestGame](test/TestGame.flix) | 131 | every rule, hit boxes, levels, shield, bonus lives |
+| [TestSession](test/TestSession.flix) | 57 | screens, taking turns, typed initials |
+| [TestDemo](test/TestDemo.flix) | 36 | the computer player: aim, dodge, when to fire, narrowing the block, and not shooting its own cover |
 | [TestAnimation](test/TestAnimation.flix) | 27 | elastic collisions; conservation of momentum and energy |
-| [TestBunkers](test/TestBunkers.flix) | 25 | damage, absorption, erosion, camping behind a drilled slit |
+| [TestBunkers](test/TestBunkers.flix) | 27 | damage, absorption, erosion, camping behind a drilled slit |
+| [TestCollide](test/TestCollide.flix) + [TestInput](test/TestInput.flix) | 27 | overlap convention, input edges, one frame across many ticks |
+| [TestBench](test/TestBench.flix) | 19 | the benchmark's own arithmetic — rates, worst cases, cut-short runs, counters that cannot go negative |
 | [TestSprites](test/TestSprites.flix) | 19 | run-length decomposition of the pixel art |
-| [TestDemo](test/TestDemo.flix) | 33 | the computer player: aim, dodge, when to fire, narrowing the block, and not shooting its own cover |
+| [TestSketch](test/TestSketch.flix) | 18 | the frame loop's arithmetic: rate clamping, tick length, and keeping the display on target |
 | [TestScores](test/TestScores.flix) | 16 | the table's format and ordering, with no handlers at all |
+| [TestStats](test/TestStats.flix) | 15 | the telemetry overlay, and that showing it changes nothing |
 | [TestCanvas](test/TestCanvas.flix) | 14 | the effect and its interpretations |
+| [TestTuning](test/TestTuning.flix) | 13 | the tuning file: round trip, overrides, clamping |
+| [TestView](test/TestView.flix) | 12 | banner placement against the attract panel, and the countdown |
+| [TestReplay](test/TestReplay.flix) | 11 | identical input replays to an identical world *and* an identical soundtrack |
 | [TestContrast](test/TestContrast.flix) | 10 | WCAG contrast of every palette colour |
 | [TestRng](test/TestRng.flix) | 10 | determinism, range, distribution |
-| [TestReplay](test/TestReplay.flix) | 11 | identical input replays to an identical world *and* an identical soundtrack |
-| [TestCollide](test/TestCollide.flix) + [TestInput](test/TestInput.flix) | 27 | overlap convention, input edges, one frame across many ticks |
 | [TestScoresFile](test/TestScoresFile.flix) | 8 | saving and loading, on a filesystem that does not exist |
-| [TestStats](test/TestStats.flix) | 15 | the telemetry overlay, and that showing it changes nothing |
-| [TestView](test/TestView.flix) | 12 | banner placement against the attract panel, and the countdown |
-| [TestScreenGraph](test/TestScreenGraph.flix) | 4 | no screen traps the player — reachability, in Datalog, over injected facts |
-| [TestBench](test/TestBench.flix) | 18 | the benchmark's own arithmetic — rates, worst cases, cut-short runs, counters that cannot go negative |
-| [TestTuning](test/TestTuning.flix) | 13 | the tuning file: round trip, overrides, clamping |
 | [TestDifficulty](test/TestDifficulty.flix) | 6 | the game is winnable, not trivial, and the demo reaches about level seven |
+| [TestStill](test/TestStill.flix) | 5 | the teaching sketch draws what it says it draws |
+| [TestScreenGraph](test/TestScreenGraph.flix) | 4 | no screen traps the player — reachability, in Datalog, over injected facts |
 
 ## Stats for nerds
 
@@ -334,9 +340,9 @@ STEPS    1  CATCHUP 0  BUNKERS  262
 FRAMES   1             DIGEST   Playing|t=900|x=288.0|..
 ```
 
-Two things about it are worth knowing. The timings bracket the **work**, not the frame:
-Processing sleeps to hold the target rate, so a stopwatch around a whole frame measures the
-rate limiter and reports ~16.7ms whatever the sketch costs. And `DIGEST` is the same
+Two things about it are worth knowing. The timings bracket the **work**, not the frame: the
+timer paces the loop to the target rate, so a stopwatch around a whole frame measures the
+pacing and reports ~16ms whatever the sketch costs. And `DIGEST` is the same
 fingerprint [the replay tests](test/TestReplay.flix) compare, so two runs that should be
 identical can be checked against each other by eye.
 
@@ -359,18 +365,18 @@ a million class files and several gigabytes, and every one of them lands in the 
 build` before building a release; `./flixw clean` does not get all of it.
 
 **The jar carries no dependency.** It holds this project's classes and its own font, and
-expects Processing Core beside it. The release build also strips the compiled test suite,
-which Flix packages along with everything else and which is half the artifact's size — 13 MB
-down to 6.5 MB — and then fails if a single Processing class made it in:
+needs nothing beside it — the window is Swing and the sound card is `javax.sound.sampled`,
+both of which are in the JDK. The release build also strips the compiled test suite, which
+Flix packages along with everything else and which is half the artifact's size — 13 MB down to
+6.5 MB:
 
 ```sh
-java -cp flix-invaders.jar:core-4.5.6.jar Main
+java -cp flix-invaders.jar Main
 ```
 
-`flix build-fatjar` would fold Processing in and must not be used: it is LGPL-2.1, and shading
-converts dynamic linking into static linking, which triggers the relinking obligation in
-section 6. Keeping it separate is also what makes it replaceable — see
-[THIRD-PARTY.md](THIRD-PARTY.md).
+The release workflow runs exactly that, under Xvfb, for 120 frames. Grepping the jar for a
+library it must not carry would only prove it does not have one; starting it with nothing else
+on the classpath proves it does not need one.
 
 Releases are cut by tagging. [`release.yaml`](.github/workflows/release.yaml) checks, tests,
 builds the jar, runs it headless under Xvfb for 120 frames, stamps
@@ -382,8 +388,8 @@ git tag v0.2.0 && git push --tags
 
 ## Non-goals
 
-Deliberately out of scope: image and audio assets, networking, a game engine, a browser
-playground, and a Processing Mode. Sprites are text in the source and sounds are arithmetic —
+Deliberately out of scope: image and audio assets, networking, a game engine, and a browser
+playground. Sprites are text in the source and sounds are arithmetic —
 the arcade font is the only binary the *game* loads. (The recording above is documentation; it
 is never read at runtime.)
 
@@ -411,5 +417,5 @@ is a pure function with tests around it.
 
 ## License
 
-[MIT](LICENSE). Links at runtime against Processing Core (LGPL-2.1) and bundles the
-Press Start 2P font (SIL OFL 1.1) — see [THIRD-PARTY.md](THIRD-PARTY.md).
+[MIT](LICENSE). Links against nothing but the JDK, and bundles the Press Start 2P font
+(SIL OFL 1.1) — see [THIRD-PARTY.md](THIRD-PARTY.md).

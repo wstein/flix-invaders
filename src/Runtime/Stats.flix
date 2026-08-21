@@ -5,10 +5,10 @@
 /// thing that can show it, so it travels from one to the other as an ordinary value. Nothing
 /// in between -- not the rules, not the cabinet -- learns that a clock exists.
 ///
-/// Timings are of the *work*, not of the frame. Processing sleeps to hold the target rate, so
-/// a stopwatch around a whole frame measures the rate limiter: at 60Hz every sketch reports
-/// about 16.7ms whether it spends 1ms or 15ms. `simMs` and `drawMs` bracket the simulation and
-/// the drawing themselves, which is the number that tells you anything.
+/// Timings are of the *work*, not of the frame. The loop waits to hold the target rate, so a
+/// stopwatch around a whole frame measures the pacing: at 60Hz every sketch reports about
+/// 16.7ms whether it spends 1ms or 15ms. `simMs` and `drawMs` bracket the simulation and the
+/// drawing themselves, which is the number that tells you anything.
 ///
 pub type alias Stats = {
     fps = Float32,

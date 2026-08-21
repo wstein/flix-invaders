@@ -1,7 +1,7 @@
 # Working on this project
 
-A Flix project driving a Processing Core window. The Flix version it targets is pinned in
-`flix.toml`.
+A Flix project driving a Swing window through Java2D, with no dependency outside the JDK.
+The Flix version it targets is pinned in `flix.toml`.
 
 ## Commands
 
@@ -49,8 +49,9 @@ own. `./flixw -- <args>` forces the compiler for anything ambiguous.
 
 ## Layout
 
-- `src/Runtime/` — the effect boundary. `Runtime/Sketch.flix` (window) and
-  `Runtime/Audio.flix` (sound card) are the **only** files that touch Java
+- `src/Runtime/` — the effect boundary. `Runtime/Surface.flix` (window, Swing and Java2D)
+  and `Runtime/Audio.flix` (sound card) are the **only** files that touch a toolkit;
+  `Runtime/Sketch.flix` owns the frame loop and names one Java class, for `System.nanoTime`
 - `src/Sketches/` — teaching sketches. Entry points, reached through `bin/sketch` and never
   imported, so nothing in `src/` depends on them and an "unused module" report will say so.
   `test/TestStill.flix` and `test/TestAnimation.flix` are what keeps them honest; a sketch
@@ -84,24 +85,37 @@ left the demo bot walking into a wall.
 
 ## Project-specific gotchas
 
-These cost real debugging time. See `docs/spike-result.md` for the full record.
+These cost real debugging time. `docs/spike-result.md` records the Processing spike this
+runtime grew out of; it is history now, and says so at the top, but the four findings that
+outlived the library are repeated here.
 
-- **Processing cannot find its own classes under Flix.** `PApplet` resolves its renderer and
-  its macOS helper via `Thread.currentThread().getContextClassLoader()`, but Flix loads jar
-  dependencies through an isolated `ExternalJarLoader`. Before `runSketch`, you must call
-  `Thread.currentThread().setContextClassLoader(sketch.getClass().getClassLoader())`.
-  Without it: *"The processing.awt.PGraphicsJava2D renderer is not in the class path."*
-- **`import` must be inside the `mod` block.** A top-level `import` does not reach into
-  `mod Foo { ... }`; you get `Undefined type`, which looks like a classpath problem and is not.
-- **Never name a receiver `_this`.** The leading underscore makes it a *hidden* variable
-  (`E6956`) that the body cannot use. This project names it `app`.
+- **`import` must be inside the `mod` block, and only there.** A top-level `import` is a
+  parse error (*expected `<declaration>`*), and one inside `mod Foo { ... }` is invisible
+  outside it. So a `pub type alias` naming Java types cannot live at file scope beside its
+  module: `Surface.Window` is declared *inside* `mod Surface` and referred to by its
+  qualified name, the way `Audio.Voices` is.
+- **Nested Java classes are named with `$`, and aliasing needs braces.**
+  `import java.awt.geom.{Rectangle2D$Float => RectangleF}` works;
+  `java.awt.geom.Rectangle2D.Float` is *Undefined Java class*, and `X => Y` without the
+  braces does not parse.
+- **`checked_cast(null)` is how a Java `null` is written.** It needs a type to land in, so
+  bind it first: `let noObserver: ImageObserver = checked_cast(null);`. Three calls in
+  `Surface` need one -- `drawImage`, `setLocationRelativeTo`, and the placeholder listener a
+  `Timer` is built with so that the real listener can close over the timer.
+- **Never name a receiver `_this` if the body needs it.** The leading underscore makes it a
+  *hidden* variable (`E6956`), and `_this` reads like the obvious choice. None of this
+  project's listeners use their receiver, so they name it `_a`; a body that does needs a name
+  without the underscore.
 - **Flix does not widen a pure function into an effectful one.** Passing a pure `step` where
   `\ Sound` is expected fails. Widen explicitly with `checked_ecast` — see `Sound.silent`.
 - **A *concrete* effect on the frame callback is fine; a polymorphic one is not.**
   `Sketch.start` cannot be generic over effect variables (`E6469`) because the anonymous
-  `PApplet` subclass compiles `draw` to a fixed JVM method. But `step: ((s, i) -> s \ Sound)`
-  with the handler installed inside `draw` compiles and runs — verified. Do not cite the
-  polymorphism limit as a reason a given effect is impossible; check which case you are in.
+  `ActionListener` compiles `actionPerformed` to a fixed JVM method. But
+  `step: ((s, i) -> s \ Sound)` with the handler installed inside the frame compiles and
+  runs — verified. The same limit runs the other way: what the callback does to the caller's
+  *region* is invisible from outside, which is why `Surface.loop` is `\ IO` and not
+  `\ IO + r`. Do not cite the polymorphism limit as a reason a given effect is impossible;
+  check which case you are in.
   `docs/ARCHITECTURE.md` explains why this is a boundary limit rather than a house style, so
   a reader does not conclude that Flix requires a rigid pure/impure divide.
 - **Wrapping a record in a single-case enum does NOT give you `Eq`/`ToString`.**
@@ -113,18 +127,29 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   `Static`. The errors point at the *next* token, so they read as unrelated syntax errors —
   and worse, a parse error inside one function makes the compiler report every *other*
   function it calls as an unused definition, which sends you hunting in the wrong file.
-- **`size`, `pixelDensity`, `fullScreen`, `smooth` are legal only inside `settings()`.**
-  Anywhere else they throw `IllegalStateException`.
-- **`exitActual` is Processing's only `System.exit(0)`**, and `flix run` does not fork a JVM.
-  Override it so closing the window returns control to `main`. It can fire more than once,
-  so keep the exit path idempotent. **The other half of that trade: nothing then exits the
-  JVM.** AWT's event thread is not a daemon, so returning from `main` leaves the process
-  alive. `./flixw run` hides this because its launcher owns the JVM; a plain `java -cp ...
-  Main` hangs forever. `Main` therefore ends with `Sys.Exit.exit(0)`, after the scores are
-  written -- and the release workflow runs the bare jar precisely to keep that honest.
-- **Handlers must be installed inside the `draw` callback.** They are stack-scoped, and
-  `draw` runs on Processing's Animation Thread — a handler installed around `runSketch` on
-  the main thread is invisible there.
+- **Closing the window must not exit the JVM, and then nothing else does either.** The score
+  table is written after the loop returns, so the frame carries `DO_NOTHING_ON_CLOSE` and a
+  `windowClosing` listener that only sets a flag. **The other half of that trade: AWT's event
+  thread is not a daemon**, so returning from `main` leaves the process alive. `./flixw run`
+  hides this because its launcher owns the JVM; a plain `java -cp ... Main` hangs forever.
+  `Main` therefore ends with `Sys.Exit.exit(0)`, after the scores are written -- and the
+  release workflow runs the bare jar precisely to keep that honest.
+- **`javax.swing.Timer` measures its delay from the moment it fires**, so whatever a frame
+  costs is added to every period after it: 16ms of delay settled at 54 frames a second here,
+  against the 60 the same machine used to manage. Each frame therefore schedules the next one
+  itself, against a deadline that moves by exactly one period -- `Surface.reschedule`, which
+  is pure and tested. Do not "fix" a slow display by shortening the nominal delay.
+- **Swing's repaint path copies the finished frame again.** `paintImmediately` on a `JPanel`
+  goes through the RepaintManager's own volatile back buffer before the blit, and was
+  observed to take twenty milliseconds. The window renders actively instead: a heavyweight
+  `java.awt.Canvas`, a two-buffer `BufferStrategy`, and `setIgnoreRepaint(true)` on both it
+  and the frame so the toolkit never paints behind the loop's back.
+- **Whole-pixel rounding is visible.** The formation marches at 0.65 pixels a tick, so
+  `fillRect(int, ...)` turns a glide into a stutter. `Surface` fills `Rectangle2D$Float` and
+  `Ellipse2D$Float` instead, reusing one of each rather than allocating per shape.
+- **Handlers must be installed inside the frame callback.** They are stack-scoped, and the
+  frame runs on AWT's event dispatch thread — a handler installed around `Surface.loop` on
+  the calling thread is invisible there.
 - **A frame is not a tick, and the edges belong to the first tick only.** The display runs at
   whatever the machine manages and the simulation at a fixed rate, so a frame may owe several
   ticks or none. Two things follow, and both were wrong here for a while: a frame that owes no
@@ -132,14 +157,17 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
   step sees it; and a catch-up frame must give `pressed`/`released` to its first tick only, or
   a one-off action fires once per stalled frame and a toggle can end up back where it started.
   `Input.ticksDue` and `Input.acrossTicks` are pure and tested; `Sketch` only walks the list.
-- **`runSketch` returns immediately.** The enclosing `region` must be kept alive by hand, or
-  the sketch will touch `Ref`s whose region has exited.
-- **Do not measure frame cost with a stopwatch.** Processing sleeps to hold the target
-  frame rate, so timing a run of N frames measures the rate limiter, not the work: any
-  sketch comfortably inside budget reports ~16.7ms per frame at 60Hz whether it uses 1ms or
-  15ms. To find the real cost, bracket the work inside `draw` with `System.nanoTime()` and
-  average over a hundred frames. Measured this way the whole game costs about 1.9ms per
-  frame, roughly a ninth of the budget.
+- **The frame runs on a thread the region was not created on.** `Surface.loop` therefore
+  blocks the calling thread until the window closes, or the region would exit while frames
+  were still touching its `Ref`s. It parks on an `AtomicBoolean` rather than a `Ref`: that is
+  the one value written on the event thread and read on the other one, and reading it is what
+  publishes everything the frames wrote before it was set.
+- **Do not measure frame cost with a stopwatch.** The loop waits to hold the target frame
+  rate, so timing a run of N frames measures the pacing, not the work: any sketch comfortably
+  inside budget reports ~16.7ms per frame at 60Hz whether it uses 1ms or 15ms. To find the
+  real cost, bracket the work inside the frame with `System.nanoTime()` and average over a
+  hundred frames. Measured this way the whole game costs about 2ms per frame, roughly an
+  eighth of the budget, and most of that is drawing.
 - **Use `System.nanoTime()` for frame timing.** The stdlib `Time.Clock` handler uses
   `System.currentTimeMillis()`, which is wall-clock and not monotonic.
 - **A machine with no sound card throws `IllegalArgumentException`, not
@@ -179,7 +207,8 @@ These cost real debugging time. See `docs/spike-result.md` for the full record.
 - **`getResourceAsStream` returns null for project files.** Flix's class loaders parent to
   the *platform* loader and never consult project resources. Read assets from a file path —
   and note it would start working under `flix build-jar`, so a resource-based path fails
-  inconsistently, which is worse.
+  inconsistently, which is worse. This is why `Surface.open` loads the arcade font from a
+  path, and why the release launcher unpacks `assets/` beside the jar.
 
 ## Writing Flix
 

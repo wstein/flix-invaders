@@ -143,11 +143,14 @@ system may reasonably ask why it is not `\ ef` — polymorphic, so the same rule
 with telemetry attached during play and with nothing attached under test. That is the obvious
 shape, and it is worth being clear that it is **a limit of the boundary, not a preference**.
 
-`Sketch.start` takes `step` as a callback and installs it on an anonymous `PApplet` subclass.
-That subclass compiles `draw` to a fixed JVM method, so `start` cannot be generic over effect
-*variables* — the attempt is rejected as `E6469`. A **concrete** effect is fine, which is why
-`\ Sound` works and `\ ef` does not. Anything effect-polymorphic in the rules would have to
-be made concrete again before it reached the window, which is the whole of the saving.
+`Sketch.start` takes `step` as a callback and reaches it through an anonymous
+`ActionListener` that the Swing timer fires. That listener compiles `actionPerformed` to a
+fixed JVM method, so `start` cannot be generic over effect *variables* — the attempt is
+rejected as `E6469`. A **concrete** effect is fine, which is why `\ Sound` works and `\ ef`
+does not. Anything effect-polymorphic in the rules would have to be made concrete again
+before it reached the window, which is the whole of the saving. The limit runs the other way
+too: what the callback does to the caller's region is invisible from outside it, which is why
+`Surface.loop` is typed `\ IO` rather than `\ IO + r`.
 
 The rest of the project is effect-polymorphic throughout, and that is where Flix earns its
 keep — every handler in it has a signature of the shape:
@@ -166,11 +169,20 @@ It is one JVM interop constraint at one callback, and a deliberate choice to kee
 readable — everywhere the constraint does not apply, effects are tracked, subtracted and
 handled rather than walled off.
 
-### 3. Touching Java (`Runtime/Sketch`, `Runtime/Audio`)
+### 3. Touching Java (`Runtime/Surface`, `Runtime/Sketch`, `Runtime/Audio`)
 
-`Sketch.flix` owns the window, the frame loop, key tracking and the Processing lifecycle.
+`Surface.flix` owns the window, the back buffer, the drawing primitives and the input
+devices. `Sketch.flix` owns the frame loop, and the only Java it names is `System.nanoTime`.
 `Audio.flix` owns waveform synthesis and a pool of `javax.sound.sampled` clips. Nothing else
 in `src/` imports a Java class.
+
+`Surface` is deliberately shaped like the library it replaced: `background`, `fill`, `rect`
+from its top-left corner, `ellipse` from its centre, `text` on its baseline. That is not
+nostalgia. The `Canvas` effect was designed against those conventions, everything above it
+draws in those terms, and keeping them meant the handler in `Sketch` stayed one line per
+operation and the whole of `Invaders/` and `Sketches/` did not change at all when the window
+did. It is a surface and not a framework: no sketch lifecycle to subclass, no global state,
+everything it knows travelling in the `Surface.Window` record it hands back.
 
 A frame is written as five beats, one function each, and `Sketch.drawFrame` is the list of
 them in order:
@@ -272,13 +284,14 @@ flowchart LR
     subgraph main["main thread"]
         M[main] --> ST[Sketch.start]
         ST --> AO[Audio.open]
-        ST --> RS[PApplet.runSketch]
+        ST --> RS[Surface.loop]
         RS --> PK["park until closed"]
     end
-    subgraph anim["Processing Animation Thread"]
-        D[draw] --> ADV["advance: N steps<br/>under the Sound handler"]
+    subgraph anim["AWT Event Dispatch Thread"]
+        D[Sketch.drawFrame] --> ADV["advance: N steps<br/>under the Sound handler"]
         ADV --> PL["Audio.play, per sound"]
         ADV --> RN[render under Canvas handler]
+        RN --> PR["Surface.present: blit and show"]
         KP["keyPressed and keyReleased"]
     end
     RS -.->|starts| D
@@ -286,15 +299,19 @@ flowchart LR
 
 Three facts make this safe:
 
-- **`runSketch` returns immediately.** The enclosing region would exit while `draw` is still
-  using its `Ref`s, so `main` parks until the sketch reports it has closed.
-- **Key events are drained after `draw` returns, on the same thread.** Processing queues
-  them, so the held-key set is only mutated between frames and needs no locking. This holds
-  *only* while `noLoop()` is never called — under `noLoop` events dispatch on the EDT
-  instead. The runtime never calls it.
-- **Effect handlers are stack-scoped.** A handler installed around `runSketch` on the main
-  thread is invisible inside `draw`. Both the `Canvas` handler and the audio flush are
-  therefore installed *inside* the callback, every frame.
+- **The frame runs on a thread the region was not created on.** `Surface.loop` therefore
+  blocks the calling thread until the window closes, or the region would exit while frames
+  were still touching its `Ref`s. It parks on an `AtomicBoolean` rather than a `Ref`: that is
+  the one value written on the event thread and read on the other, and reading it is also
+  what publishes the last world to the caller.
+- **Input, simulation and drawing share one thread.** The frame is a timer callback on the
+  event dispatch thread, which is where the key and mouse listeners already run and the only
+  thread Swing may be touched from. The held-key set is therefore mutated only between
+  frames and needs no locking — the same property Processing's animation thread gave, for
+  the same reason, and now visible in the types rather than buried in a library.
+- **Effect handlers are stack-scoped.** A handler installed around `Surface.loop` on the
+  calling thread is invisible inside the frame. Both the `Canvas` handler and the audio flush
+  are therefore installed *inside* the callback, every frame.
 
 ---
 
@@ -350,7 +367,8 @@ also be the reason for it.
 
 **The constraint that does exist is narrower than it looks.** `Game.step` has a concrete
 `\ Sound` effect because `Sketch.start` cannot be polymorphic over effect *variables* — the
-anonymous `PApplet` subclass compiles `draw` to a fixed JVM method. This is a JVM-callback
+anonymous `ActionListener` the timer fires compiles `actionPerformed` to a fixed JVM method
+(and before it, an anonymous `PApplet` compiled `draw` to one). This is a JVM-callback
 limit, not a preference for isolating effects: the `Canvas` and `Sound` handlers remain
 effect-polymorphic in the larger contexts they handle. A **concrete** effect on `step`, handled
 inside the callback, compiles fine. That was tested before anything was built on it:
@@ -400,7 +418,7 @@ parsing per invader per frame instead of once cost roughly half the frame rate w
 **Measured cost** (bracketing the work inside `draw` with `nanoTime`, not wall-clock — see
 below): simulation 0.13 ms, drawing 1.74 ms, about **1.9 ms of a 16.7 ms budget**.
 
-> Do not measure frame cost with a stopwatch. Processing sleeps to hold the target frame
+> Do not measure frame cost with a stopwatch. The loop waits to hold the target frame
 > rate, so timing a run of N frames measures the rate limiter and not the work — any sketch
 > inside budget reports ~16.7 ms whether it uses 1 ms or 15 ms.
 
@@ -997,7 +1015,10 @@ stop*, not what to prefer. An "invaders passed en route" bonus is separately cat
 | Predicting where the cannon will be when a bomb lands | The dodge scores a destination as though the cannon teleported there, which is plainly wrong — 96px of travel is 24 ticks, and every bomb falls 72px in that time. Replacing it with a model that works out when each bomb reaches the cannon's line and where the cannon will have got to by then made things **worse** at every tuning: 32-35 deaths against 24, and level 4.0-4.3 against 4.8. The flaw is that `bestSpot` re-decides every tick, so "where I will be" assumes a commitment the bot never makes; being optimistic about its own future movement, it concluded it would have left already and stood still. The naive destination-scored model is pessimistic, and pessimism is what a re-planning agent needs. Widening `dangerWidth` from 30 to 60 — reacting earlier rather than predicting better — cut deaths from 24 to 4. |
 | A single blast radius for both shots | Was `blastRadius() = 6.0` for everything, and it quietly killed the arcade's oldest trick. Every absorbed shot cratered a 12px hole, twice a bomb's width, so a channel drilled through your own shelter was a channel a bomb could drop down — measured: a bomb down a freshly drilled lane left the blocks untouched at 245 and took a life. Now split into `bulletCrater = 2.0` and `bombCrater = 6.0`. The asymmetry is the point, not an accident of tuning: your shot drills, theirs demolishes. |
 | The Processing Sound library | Not on Maven Central; the JitPack artifact contains zero classes. Would require republishing LGPL and Apache jars from this repo. `javax.sound.sampled` gives the same arcade bleeps with no dependency. |
-| `flix build-fatjar` for release | It shades `processing-core.jar`, converting dynamic linking into static and triggering LGPL-2.1 §6's relinking obligation. See [THIRD-PARTY.md](../THIRD-PARTY.md). |
+| Processing Core, in the end | It carried the project through the spike and the first seven releases, and everything above it was written against a vocabulary it defined. What it cost was a 1MB LGPL-2.1 jar that had to travel separately, be checksummed separately, and be argued about in a licence file — for a `JFrame`, a `Graphics2D` and a key listener. `Runtime/Surface.flix` keeps the vocabulary and adds no dependency; see *Touching Java* above for what did and did not change. |
+| A `JPanel` and `paintImmediately` | The obvious Swing shape, and the one the migration was first written in. Swing's repaint machinery copies the finished frame through a volatile back buffer of its own before the blit, and was measured taking twenty milliseconds. Active rendering onto a `BufferStrategy` presents in about 0.6ms and does not spike. |
+| A repeating `javax.swing.Timer` | It measures its delay from the moment it fires, so every frame's cost is added to the period after it: 16ms of delay settled at 54 frames a second against the 60 the same machine managed under Processing. Each frame now schedules the next against a deadline — `Surface.reschedule`, pure and tested. |
+| Rounding coordinates to whole pixels | Java2D's integer `fillRect` is the cheaper call, and `Graphics.drawImage` needs no float shapes. But the formation marches at 0.65 pixels a tick; rounding turns that glide into a stutter you can see. `Surface` fills a reused `Rectangle2D$Float` instead. |
 
 ---
 
@@ -1005,10 +1026,11 @@ stop*, not what to prefer. An "invaders passed en route" bonus is separately cat
 
 `./flixw` downloads the compiler version pinned in `flix.toml`, verifies it against the
 SHA-256 in `.flixw/lock.toml`, and caches it by content, so local runs and CI are
-identical and an altered jar is refused rather than executed. Processing Core is a single pinned jar fetched from
-Maven Central — `[jar-dependencies]`, not `[mvn-dependencies]`, because core's POM drags in
-JOGL umbrella artifacts and a Kotlin stdlib that the JAVA2D renderer never loads. Verified at
-runtime with `-verbose:class`: no `com.jogamp` class is ever loaded.
+identical and an altered jar is refused rather than executed. `flix.toml` declares no
+dependencies at all: the window is Swing, the drawing is Java2D and the sound is
+`javax.sound.sampled`, so a Java 21 runtime is the whole of what the game needs. The release
+check is the same statement made executable — the jar is run with nothing else on the
+classpath, and would not start if that stopped being true.
 
 CI runs `check`, `test`, a formatting gate, and a grep asserting no test opens a window or an
 audio device. A separate smoke workflow launches every sketch on Linux (under Xvfb), macOS
@@ -1016,7 +1038,7 @@ and Windows and checks it starts, draws and exits cleanly.
 
 ## See also
 
-- [spike-result.md](spike-result.md) — the integration spike, and the classloader problem
-  that nearly blocked it
+- [spike-result.md](spike-result.md) — the Processing spike this runtime grew out of, kept
+  as it was written and superseded at the top
 - [SMOKE-CHECKLIST.md](SMOKE-CHECKLIST.md) — the manual per-platform test
 - [../AGENTS.md](../AGENTS.md) — the gotchas, each of which cost real debugging time

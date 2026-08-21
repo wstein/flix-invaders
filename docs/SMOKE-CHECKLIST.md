@@ -20,7 +20,7 @@ Steps 4 to 17 apply to `invaders`; the rest apply to all three.
 | # | Check | Expected |
 |---|-------|----------|
 | 1 | The window opens | A single window appears, titled as configured |
-| 2 | Window size | Matches the configured width × height, and geometry looks the same on HiDPI and standard displays (`pixelDensity(1)` is pinned) |
+| 2 | Window size | Matches the configured width × height, and geometry looks the same on HiDPI and standard displays |
 | 3 | It animates | Motion is smooth and runs at roughly 60 Hz |
 | 4 | Left / right arrows | The player moves in the expected direction and stops at both edges without wrapping |
 | 5 | Space | Fires; repeated presses behave sensibly |
@@ -61,20 +61,25 @@ rm   "${XDG_CONFIG_HOME:-$HOME/.config}/flix-invaders/scores.txt"   # start over
 
 ## Why some of these are called out
 
-- **Step 2** — Processing defaults to `pixelDensity(2)` on HiDPI displays, which would make
-  geometry display-dependent. The runtime pins `pixelDensity(1)` in `settings()`.
-- **Step 6** — Processing filters key auto-repeat by default, so the runtime tracks its own
-  held-key set. `PApplet.pressedKeys` is package-private and unavailable to us.
+- **Step 2** — the sketch draws into a back buffer of exactly the configured size, which is
+  then blitted to the window, so one sketch pixel is one image pixel on every display. A
+  toolkit left to scale for HiDPI would make geometry display-dependent.
+- **Step 6** — key auto-repeat delivers repeated presses, and on some window systems a
+  release before each one. The runtime keeps its own held-key set and reads it once per
+  frame, so a repeat that arrives and is undone between two frames is invisible; what a step
+  sees is the set, and the edges are the difference between two readings of it.
 - **Step 16** — the table is read before the window opens and written after it closes, by
   `Main.flix` alone. Nothing else in the project can reach a filesystem, so if this fails the
   fault is in one small function rather than anywhere in the game.
 - **Step 17** — `Scores.parse` drops lines it cannot read instead of failing, and `load`
   distinguishes "no file yet" from "could not read the file". Deleting the file must be silent;
   a file that cannot be read must print a message and still start.
-- **Steps 18 and 19** — `PApplet.exitActual` is the only `System.exit(0)` in Processing, and
-  `flix run` does not fork a JVM. The runtime overrides it so control returns to `main`
-  instead of the process being killed mid-frame. It can fire more than once, so the exit
-  path must be idempotent.
+- **Steps 18 and 19** — closing must stop the loop, not the JVM: the score table is written
+  after `Sketch.start` returns. Escape is handled by `Surface`, which is why `Key.Escape`
+  never reaches a step and nothing above the runtime may use it; the close button arrives as
+  `windowClosing` against `DO_NOTHING_ON_CLOSE`. Both set the same flag, so both are
+  idempotent and either may fire more than once. `main` then exits the JVM explicitly,
+  because AWT's event thread is not a daemon and would otherwise keep the process alive.
 
 ## Results
 

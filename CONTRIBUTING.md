@@ -2,7 +2,7 @@
 
 Issues, documentation fixes, teaching-sketch ideas, and small game improvements
 are welcome. Please open an issue before starting a substantial redesign so the
-work fits the project's purpose: a small, readable Flix and Processing example.
+work fits the project's purpose: a small, readable Flix creative-coding example.
 
 ## Development setup
 

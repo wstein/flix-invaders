@@ -1,5 +1,20 @@
 # M0 spike result — Gate 1
 
+> **Superseded on 2026-08-21.** This is the record of the M0 spike, kept as it was written.
+> The project no longer depends on Processing Core: the window is a `JFrame`, drawing goes
+> through `Graphics2D`, and `Runtime/Surface.flix` offers the Processing-shaped vocabulary
+> the rest of the code was already written against. The context-class-loader fix below,
+> `pixelDensity`, `exitActual` and the `PApplet` findings are therefore history rather than
+> guidance -- see [ARCHITECTURE.md](ARCHITECTURE.md) for what the runtime does now.
+>
+> Four findings outlived the library that produced them, and are still live in
+> [AGENTS.md](../AGENTS.md): `import` must be inside the `mod` block; a receiver may not be
+> named `_this`; a handler must be installed inside the frame callback, because handlers are
+> stack-scoped; and a callback compiled to a fixed JVM method cannot be effect-polymorphic.
+> So is the generalisation the class-loader blocker taught, which is why it is written down
+> here rather than deleted: *any* Java library that loads classes reflectively will need the
+> thread-context loader pointed at something that can see it.
+
 **Date:** 2026-08-06
 **Outcome:** **PASS, with no Java in the repository.**
 **Environment:** macOS (darwin 25.5.0, Apple Silicon), OpenJDK 21.0.12 (Homebrew),
