@@ -6,3 +6,6 @@ artifact/
 build/
 lib/
 crash_report_*.txt
+out/
+.metals/
+.idea/
