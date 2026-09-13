@@ -296,6 +296,50 @@ mod Sketch {
     }
 
     ///
+    /// Opens the resources and references that remain fixed for one run of the frame loop.
+    ///
+    /// A `Loop` collects the resulting resources with the pure callbacks. It is built once,
+    /// before any frame runs, so the callback has one stable value rather than reconstructing
+    /// window, audio, or timing state per frame.
+    ///
+    def openLoop(rc: Region[r],
+                 cfg: Config,
+                 init: Int64 -> s,
+                 step: (s, Snapshot) -> s \ Sound,
+                 view: (s, Stats) -> Unit \ Canvas
+    ): Loop[s, r] \ IO + r = {
+        let hz = clampHz(cfg#hz);
+        let stepNs = stepNsFor(hz);
+        let budgetNs = stepNs * Int32.toInt64(maxCatchUpSteps());
+
+        let refs = {
+            world = Ref.fresh(rc, init(cfg#seed)),
+            heldPrev = Ref.fresh(rc, (Set.empty(): Set[Key])),
+            accNs = Ref.fresh(rc, 0i64),
+            prevNs = Ref.fresh(rc, System.nanoTime()),
+            frames = Ref.fresh(rc, 0),
+            stats = Ref.fresh(rc, Stats.empty())
+        };
+
+        let surface = Surface.open(rc, cfg#title, width = cfg#width, height = cfg#height,
+                                   cfg#fontPath);
+        Surface.textSize(Surface.sheet(surface), defaultTextSize());
+        let voices = Audio.open();
+
+        { cfg = cfg, stepNs = stepNs, budgetNs = budgetNs, surface = surface,
+          voices = voices, refs = refs, step = step, view = view }
+    }
+
+    ///
+    /// Closes a loop's resources after its frame callback has stopped and returns its last world.
+    ///
+    def closeLoop(loop: Loop[s, r]): s \ IO + r = {
+        Surface.close(loop#surface);
+        Audio.close(loop#voices);
+        Ref.get(loop#refs#world)
+    }
+
+    ///
     /// Drives a window from a pure state function.
     ///
     /// Opens the window, instantiates the sound engine, and runs until the window closes.
@@ -324,40 +368,13 @@ mod Sketch {
                   view: ((s, Stats) -> Unit \ Canvas)
     ): s \ IO =
         region rc {
-
-        let hz = clampHz(cfg#hz);
-        let stepNs = stepNsFor(hz);
-        let budgetNs = stepNs * Int32.toInt64(maxCatchUpSteps());
-
-        let refs = {
-            world = Ref.fresh(rc, init(cfg#seed)),
-            heldPrev = Ref.fresh(rc, (Set.empty(): Set[Key])),
-            accNs = Ref.fresh(rc, 0i64),
-            prevNs = Ref.fresh(rc, System.nanoTime()),
-            frames = Ref.fresh(rc, 0),
-            stats = Ref.fresh(rc, Stats.empty())
-        };
-
-        let surface = Surface.open(rc, cfg#title, width = cfg#width, height = cfg#height,
-                                   cfg#fontPath);
-        Surface.textSize(Surface.sheet(surface), defaultTextSize());
-
-        // Opened once. An empty pool means the machine has no usable audio device, and every
-        // Audio call then does nothing.
-        let voices = Audio.open();
-
-        // Assembled here and never rebuilt: each frame is handed one value rather than eight.
-        let loop = { cfg = cfg, stepNs = stepNs, budgetNs = budgetNs, surface = surface,
-                     voices = voices, refs = refs, step = step, view = view };
+        let loop = openLoop(rc, cfg, init, step, view);
 
         // The display is asked for the same rate as the simulation. They are not the same
         // thing -- the accumulator exists precisely because a frame is not a tick -- but
         // there is no reason to draw more often than the world changes.
-        Surface.loop(surface, stepNs, () -> drawFrame(loop));
-
-        Surface.close(surface);
-        Audio.close(voices);
-        Ref.get(refs#world)
+        Surface.loop(loop#surface, loop#stepNs, () -> drawFrame(loop));
+        closeLoop(loop)
     }
 
     ///
