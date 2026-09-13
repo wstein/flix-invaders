@@ -350,13 +350,14 @@ mod Sprites {
     ///
     /// The frame for an invader of `kind`, alternating on `frame`.
     ///
-    pub def forKind(kind: InvaderKind, frame: Int32): Sprite = {
-        let first = Int32.remainder(frame, 2) == 0;
-        match kind {
-            case InvaderKind.Squid => if (first) squidA() else squidB()
-            case InvaderKind.Crab => if (first) crabA() else crabB()
-            case InvaderKind.Octopus => if (first) octopusA() else octopusB()
+    pub def forKind(kind: InvaderKind, frame: Int32): Sprite =
+        match (kind, Int32.remainder(frame, 2)) {
+            case (InvaderKind.Squid, 0) => squidA()
+            case (InvaderKind.Squid, _) => squidB()
+            case (InvaderKind.Crab, 0) => crabA()
+            case (InvaderKind.Crab, _) => crabB()
+            case (InvaderKind.Octopus, 0) => octopusA()
+            case (InvaderKind.Octopus, _) => octopusB()
         }
-    }
 
 }
