@@ -70,6 +70,11 @@ The metrics report is a review aid, not a score to optimise. Fix real findings o
 contextual one is intentional. Keep commits focused and use Conventional Commit subjects such
 as `fix(input): preserve an edge until a simulated tick`.
 
+For a focused production-code review, use `./flixw metrics report --file "src/**" --format md`.
+This is a presentation filter: it narrows the rendered findings without changing measurements,
+comparisons, quality gates, or the project-wide summary. Use the unfiltered report before a
+commit; combine `--file` with `--rule` or `--severity` when inspecting one category.
+
 **Controls:** `1` or `2` at the title screen picks one or two players; arrows move, space
 fires, enter moves on, **F3** shows stats for nerds. With two players, player one plays their
 whole game before player two starts, after a `PLAYER 2 / GET READY` count — the arcade

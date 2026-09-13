@@ -24,14 +24,19 @@ from the project root: `main` resolves `assets/` relative to the caller.
 - `./flixw build-jar` — package to `artifact/`; **`rm -rf build` first**, see the gotcha below
 - `./flixw doc` — write API documentation to `build/doc/`, matching this compiler exactly
 - `./flixw metrics report --format md` — review-ready code metrics and findings
+- `./flixw metrics report --file "src/**" --format md` — render only production findings for a
+  focused review; this presentation filter leaves the measurements, quality gates, and summary
+  project-wide
 - `./flixw metrics report --format json --view findings --severity warning` — compact,
   actionable metric findings; use `--view summary` for a project snapshot
 - `bin/bench` — measure the demo bot over ten seeds; **run this before and after any change to
   `src/Invaders/Demo.flix` or to a tuning constant in `Rules`**
 
-Run metrics after tests and before every commit. Fix genuine findings or document why they are
-intentional; do not mechanically optimise rankings or contextual handler/effect facts, which
-are measurements rather than policy. The plugin version and digest are pinned in
+Run the unfiltered metrics report after tests and before every commit. Use `--file "src/**"`
+(optionally with `--rule` or `--severity`) to inspect a scoped set of rendered findings without
+changing policy. Fix genuine findings or document why they are intentional; do not mechanically
+optimise rankings or contextual handler/effect facts, which are measurements rather than policy.
+The plugin version and digest are pinned in
 `.flixw/lock.toml`. If it is not installed locally, `./flixw metrics` prints the pinned install
 command.
 
