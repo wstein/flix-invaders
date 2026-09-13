@@ -51,15 +51,16 @@ pub eff Sound {
 
 mod Sound {
 
+    /// The type of a `Sound` interpretation that returns a result and the recorded commands.
+    type alias SoundCollector[a: Type, b: Type, ef: Eff] =
+        a -> (b, List[SoundCmd]) \ ef - Sound
+
     ///
     /// Interprets `Sound` by recording what was played instead of playing it.
     ///
     /// Pure: the accumulator lives in a region that is fully discharged here, so this needs
     /// no `IO` and touches no device. This is what the sound tests use.
     ///
-    type alias SoundCollector[a: Type, b: Type, ef: Eff] =
-        a -> (b, List[SoundCmd]) \ ef - Sound
-
     pub def handleWithCollector(f: a -> b \ ef)
         : SoundCollector[a, b, ef] =
         input -> region rc {

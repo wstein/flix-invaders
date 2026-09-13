@@ -184,6 +184,9 @@ mod Input {
         if (n <= 0) Nil
         else s :: List.repeat(n - 1, steady(s))
 
+    /// The type of an `Input` interpretation that supplies one snapshot to a computation.
+    type alias InputHandler[a: Type, b: Type, ef: Eff] = a -> b \ ef - Input
+
     ///
     /// Interprets `Input` by answering every `poll` with the same snapshot.
     ///
@@ -191,8 +194,6 @@ mod Input {
     /// held" would let a test that forgot to supply input pass while asserting on a world
     /// nobody played.
     ///
-    type alias InputHandler[a: Type, b: Type, ef: Eff] = a -> b \ ef - Input
-
     pub def handleWith(s: Snapshot, f: a -> b \ ef)
         : InputHandler[a, b, ef] = input ->
         run {

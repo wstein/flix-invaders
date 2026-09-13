@@ -64,6 +64,10 @@ mod Canvas {
         List.forEach(processCmd, cmds)
     }
 
+    /// The type of a `Canvas` interpretation that returns a result and the recorded commands.
+    type alias CmdCollector[a: Type, b: Type, ef: Eff] =
+        a -> (b, List[DrawCmd]) \ ef - Canvas
+
     ///
     /// Interprets `Canvas` by recording every drawing operation instead of performing it.
     ///
@@ -75,9 +79,6 @@ mod Canvas {
     /// eighth interpretation of `Canvas` means adding a function here, not editing the
     /// runtime.
     ///
-    type alias CmdCollector[a: Type, b: Type, ef: Eff] =
-        a -> (b, List[DrawCmd]) \ ef - Canvas
-
     pub def handleWithCollector(dims: (Int32, Int32),
                                 f: a -> b \ ef)
         : CmdCollector[a, b, ef] =

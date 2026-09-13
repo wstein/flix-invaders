@@ -87,6 +87,7 @@ mod Scores {
     pub def best(entries: List[Entry]): Int32 =
         List.foldLeft((top, e) -> Int32.max(top, e#score), 0, entries)
 
+    /// Cleans a score-table name using the same rules as interactive initials entry.
     pub def clean(input: String): String = sanitize(input)
 
     ///
