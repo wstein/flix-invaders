@@ -1,7 +1,8 @@
 # >>> flixw >>>
-/flixw text eol=lf
-/.flixw/flixw.java text eol=lf
+/flixw text eol=lf linguist-vendored
+/.flixw/flixw.java text eol=lf linguist-vendored
 /.flixw/lock.toml text eol=lf
 /.flixw/.gitignore text eol=lf
-/flixw.cmd text eol=crlf
+/.flixw/.sccignore text eol=lf
+/flixw.cmd text eol=crlf linguist-vendored
 # <<< flixw <<<
