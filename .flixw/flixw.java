@@ -1,4 +1,4 @@
-// flixw 0.31.3 -- stage 0. GENERATED: this is the documented source with its
+// flixw 0.31.4 -- stage 0. GENERATED: this is the documented source with its
 // comments removed, which is why it reads as bare mechanism.
 //
 // The commentary is the security story -- why each check exists, and which
@@ -8,7 +8,7 @@
 //   https://wstein.github.io/flixw/          docs, and the lock schema
 //   https://github.com/wstein/flixw          the source this was made from
 //
-// Reproducible on purpose: `java tests/strip.java 0.31.3` at tag vsrc/flixw.java <version> regenerates
+// Reproducible on purpose: `java tests/strip.java 0.31.4` at tag vsrc/flixw.java <version> regenerates
 // this file byte for byte, so the readable source and the running one can be
 // checked against each other rather than taken on trust.
 import java.io.ByteArrayOutputStream;
@@ -44,7 +44,7 @@ import java.util.regex.Pattern;
 
 public final class flixw {
 
-  static final String WRAPPER_VERSION = "0.31.3";
+  static final String WRAPPER_VERSION = "0.31.4";
   static final String WRAPPER_DIR = ".flixw";
   static final int MIN_JAVA = 21;
 
@@ -60,9 +60,9 @@ public final class flixw {
     List.of("pin", "info", "doctor", "validate", "help", "plugin", "task", "examples", "local");
 
   static final List<String> BUILTIN_VERBS = List.of(
-    "init", "check", "build", "build-jar", "build-fatjar", "build-pkg", "clean",
+    "init", "check", "build", "build-classes", "build-jar", "build-fatjar", "build-pkg", "clean",
     "doc", "format", "run", "test", "repl", "lsp", "lsp-vscode", "release",
-    "outdated", "eff-check", "eff-lock");
+    "outdated", "stat", "eff-check", "eff-lock");
 
   static final class Fail extends RuntimeException {
     private static final long serialVersionUID = 1L;
@@ -3526,7 +3526,8 @@ public final class flixw {
   static void completionScript(List<String> args, Path root, Lock lock, Path jar, Jvm jvm,
                 List<String> compilerVerbs, String identity) {
     String shell = completionShell(args);
-    helpTopic(List.of("completion", shell), root, lock, jar, jvm, compilerVerbs, identity, false);
+    helpTopic(List.of("completion", shell), root, lock, jar, jvm, compilerVerbs, identity,
+         List.of(), false);
   }
 
   static final String COMPLETION_USAGE =
@@ -3606,33 +3607,46 @@ public final class flixw {
   }
 
   static void helpTopic(List<String> rest, Path root, Lock lock, Path jar, Jvm jvm,
-             List<String> compilerVerbs, String identity) {
-    helpTopic(rest, root, lock, jar, jvm, compilerVerbs, identity, true);
+             List<String> compilerVerbs, String identity, List<String> jvmOpts,
+             boolean degrade) {
+    try {
+      System.exit(renderHelp(rest, root, lock, jar, jvm, compilerVerbs, identity, jvmOpts));
+    } catch (IOException | RuntimeException e) {
+      if (!degrade) throw e instanceof RuntimeException r ? r
+                : w005("cannot run the completion generator: " + why((IOException) e));
+      offlineHelp(identity, e);
+    }
   }
 
-  static void helpTopic(List<String> rest, Path root, Lock lock, Path jar, Jvm jvm,
-             List<String> compilerVerbs, String identity, boolean degrade) {
-    Path ctx = null;
-    Integer rc = null;
+  static int renderHelp(List<String> rest, Path root, Lock lock, Path jar, Jvm jvm,
+             List<String> compilerVerbs, String identity, List<String> jvmOpts)
+      throws IOException {
+    Path ctx = Files.createTempFile("flixw-help-", ".txt");
     try {
-      Path asset = ensureAsset(HELP_ASSET);
-      Path picocli = ensureAsset(PICOCLI_ASSET);
-      ctx = Files.createTempFile("flixw-help-", ".txt");
+      Path asset = ensureAsset(HELP_ASSET), picocli = ensureAsset(PICOCLI_ASSET);
       Files.writeString(ctx, helpContext(root, lock, jar, jvm, compilerVerbs, identity,
                         env("FLIX_JAR") != null),
                StandardCharsets.UTF_8);
       List<String> a = new ArrayList<>(List.of(ctx.toString()));
       a.addAll(rest.subList(0, Math.min(3, rest.size())));
-      rc = runAsset(asset, picocli, a);
-    } catch (IOException | RuntimeException e) {
-      if (!degrade) throw e instanceof RuntimeException r ? r
-                : w005("cannot run the completion generator: " + why((IOException) e));
-      offlineHelp(identity, e);
-    } finally {
-      if (ctx != null) { try { Files.deleteIfExists(ctx); } catch (IOException ignored) { } }
-    }
 
-    if (rc != null) System.exit(rc);
+      a.addAll(jvmOpts);
+      return runAsset(asset, picocli, a);
+    } finally {
+      try { Files.deleteIfExists(ctx); } catch (IOException ignored) { }
+    }
+  }
+
+  static boolean compilerVerbHelp(String verb, Path root, Lock lock, Path jar, Jvm jvm,
+                  List<String> compilerVerbs, String identity,
+                  List<String> jvmOpts) {
+    try {
+      return renderHelp(List.of("flix-direct", verb), root, lock, jar, jvm,
+               compilerVerbs, identity, jvmOpts) == 0;
+    } catch (IOException | RuntimeException e) {
+      tr("cannot render compiler help for " + verb + ": " + why(e));
+      return false;
+    }
   }
 
   static void offlineHelp(String identity, Exception e) {
@@ -3899,9 +3913,14 @@ public final class flixw {
       || (!forcedCompiler && ("--help".equals(first) || "-h".equals(first)) && argv.size() == 1)) {
 
       helpTopic(forward.subList(Math.min(1, forward.size()), forward.size()),
-           root, lock, jar, jvm, compilerVerbs, verbId);
+           root, lock, jar, jvm, compilerVerbs, verbId, opts, true);
       return;
     }
+
+    if (toCompiler && !forcedCompiler && first != null && compilerVerbs.contains(first)
+      && exactCompilerHelp(forward)
+      && compilerVerbHelp(first, root, lock, jar, jvm, compilerVerbs, verbId, opts))
+      return;
 
     if (!toCompiler && pluginOwner != null && !WRAPPER_VERBS.contains(first)) {
       runDeclaredPlugin(pluginOwner, first, forward.subList(1, forward.size()),
@@ -3929,6 +3948,10 @@ public final class flixw {
               + " and will be removed in the next wrapper release");
 
     launch(jvm.exe(), opts, jar, forward);
+  }
+
+  static boolean exactCompilerHelp(List<String> argv) {
+    return argv.size() == 2 && ("--help".equals(argv.get(1)) || "-h".equals(argv.get(1)));
   }
 
   static void routingNotice(String verb, String compilerVersion) {
