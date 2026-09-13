@@ -3,10 +3,11 @@
 wrapperVersion = "0.31.3"
 
 [compiler]
-repo    = "wstein/flix-fork"
-version = "0.75.3+stable.names.4"
-url     = "https://github.com/wstein/flix-fork/releases/download/v0.75.3%2Bstable.names.4/flix-0.75.3%2Bstable.names.4.jar"
-sha256  = "cc390057ea2284b1724781d671522201558b7e87cc73b3b3067a3fdd3ea3e3cb"
+repo    = "flix/flix"
+version = "0.76.0"
+url     = "https://github.com/flix/flix/releases/download/v0.76.0/flix.jar"
+sha256  = "d8d9a3870e199c03ed6364ea9430f56f67bfd38c332c411628a6a7cb88b2b0b4"
+reported_version = "0.76.0"
 
 [java]
 version = "21"
