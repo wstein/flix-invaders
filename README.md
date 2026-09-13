@@ -46,11 +46,29 @@ cd flix-invaders
 
 ./flixw check       # type-check; the fast feedback loop
 ./flixw test        # 501 tests -- no window, no audio device, no filesystem
+./flixw metrics report --format md # review-ready code metrics and findings
 ./flixw run         # play
 bin/bench          # measure the demo bot over ten seeds
 bin/bench --wide   # sixty seeds instead; the only sample that settles a close call
 bin/bench --recalc # search for better bot numbers and save them
 ```
+
+## Developing it
+
+Changes to game behaviour follow Red-Green-Refactor: write a focused failing test, make the
+smallest change that passes it, then refactor with the suite still green. Before committing,
+run:
+
+```sh
+./flixw format
+./flixw check
+./flixw test
+./flixw metrics report --format md
+```
+
+The metrics report is a review aid, not a score to optimise. Fix real findings or explain why a
+contextual one is intentional. Keep commits focused and use Conventional Commit subjects such
+as `fix(input): preserve an edge until a simulated tick`.
 
 **Controls:** `1` or `2` at the title screen picks one or two players; arrows move, space
 fires, enter moves on, **F3** shows stats for nerds. With two players, player one plays their
@@ -416,6 +434,8 @@ is a pure function with tests around it.
 - [docs/spike-result.md](docs/spike-result.md) — what the integration spike proved, and the
   non-obvious thing that nearly blocked it
 - [docs/SMOKE-CHECKLIST.md](docs/SMOKE-CHECKLIST.md) — the manual per-platform test
+- [docs/METRIC-SMELLS.md](docs/METRIC-SMELLS.md) — how to interpret metric findings without
+  distorting the game to satisfy them
 - [AGENTS.md](AGENTS.md) — working notes and the gotchas that cost real time
 
 ## License
