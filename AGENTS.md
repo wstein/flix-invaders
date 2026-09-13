@@ -23,8 +23,17 @@ from the project root: `main` resolves `assets/` relative to the caller.
 - `./flixw build` — compile to `build/class`
 - `./flixw build-jar` — package to `artifact/`; **`rm -rf build` first**, see the gotcha below
 - `./flixw doc` — write API documentation to `build/doc/`, matching this compiler exactly
+- `./flixw metrics report --format md` — review-ready code metrics and findings
+- `./flixw metrics report --format json --view findings --severity warning` — compact,
+  actionable metric findings; use `--view summary` for a project snapshot
 - `bin/bench` — measure the demo bot over ten seeds; **run this before and after any change to
   `src/Invaders/Demo.flix` or to a tuning constant in `Rules`**
+
+Run metrics after tests and before every commit. Fix genuine findings or document why they are
+intentional; do not mechanically optimise rankings or contextual handler/effect facts, which
+are measurements rather than policy. The plugin version and digest are pinned in
+`.flixw/lock.toml`. If it is not installed locally, `./flixw metrics` prints the pinned install
+command.
 
 The wrapper's own verbs, which never reach the compiler:
 
@@ -35,6 +44,10 @@ The wrapper's own verbs, which never reach the compiler:
 - `./flixw pin [<owner>/<repo>] [<version>]` — rewrite the lock. The optional repository is
   what lets this project pin a fork rather than upstream `flix/flix`
 - `./flixw wrapper --upgrade` — move to a newer flixw
+- `./flixw local add <path>` / `./flixw local <verb>` — override declared GitHub dependencies
+  with local checkouts for development
+- `./flixw examples <verb> <name>` — run, check, build, or test an isolated package in
+  `examples/<name>`
 
 A verb the compiler implements always wins, so this list shrinks by itself as Flix grows its
 own. `./flixw -- <args>` forces the compiler for anything ambiguous.
@@ -85,6 +98,31 @@ usually means, and what not to do about it. Read it before acting on that plan. 
 there is a proxy for readable code, and this project has more than once satisfied the proxy
 while breaking the game -- most memorably a formatting pass that dropped one subtraction and
 left the demo bot walking into a wall.
+
+## Test-driven development
+
+Follow Red-Green-Refactor for changes to `src/`:
+
+1. **Red:** write a focused failing test under `test/` that describes the behaviour to add or
+   the bug to fix; run `./flixw test` and confirm it fails for that reason.
+2. **Green:** make the smallest implementation change that passes the test; rerun
+   `./flixw test`.
+3. **Refactor:** improve the design without changing behaviour; finish with `./flixw format`
+   and `./flixw metrics report --format md`.
+
+Keep production changes and their tests together. Existing code may make a focused regression
+test impractical; when that is genuinely so, explain the constraint in the test or commit
+instead of inventing a superficial test.
+
+## Commits
+
+Make commits atomic and focused: each should be one coherent, independently reviewable and
+revertible change. Keep its tests and implementation together; do not mix unrelated refactors,
+formatting, or cleanup. Before committing, run relevant tests and the required metrics report.
+
+Use Conventional Commits with a concise imperative subject:
+`<type>(<optional-scope>): <description>`. Prefer `feat`, `fix`, `test`, `refactor`, `docs`,
+`build`, and `ci`; mark breaking changes with `!` or a `BREAKING CHANGE:` footer.
 
 ## Project-specific gotchas
 
@@ -229,10 +267,14 @@ matches this project's compiler exactly.
 The mistakes that show up most often:
 
 - `def main(): Unit \ IO = ...` — arguments come from `Env.getArgs()`, not from parameters
+- use built-in `Util.Json`, not the third-party `flix-json` package
 - effects are written with `\`, not `&`
 - effect operations are called like ordinary functions; there is no `do` keyword
 - handlers are `run { ... } with handler E { ... }`; chain them rather than nesting `run`
 - annotations are uppercase: `@Test`, `@Lazy`, `@Parallel`, `@MustUse`
+- companion enums, structs, effects, and traits go first inside their module
+- Datalog `inject` names predicate arity (`Edge/2`); predicate symbols are inferred, so do not
+  write old `rel` or `lat` declarations
 - Java types need an `import` in the *enclosing module*, and Java interop carries `IO` unless
   the compiler's purity table says otherwise
 
