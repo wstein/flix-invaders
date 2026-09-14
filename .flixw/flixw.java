@@ -1,4 +1,4 @@
-// flixw 0.31.4 -- stage 0. GENERATED: this is the documented source with its
+// flixw 0.32.0 -- stage 0. GENERATED: this is the documented source with its
 // comments removed, which is why it reads as bare mechanism.
 //
 // The commentary is the security story -- why each check exists, and which
@@ -8,7 +8,7 @@
 //   https://wstein.github.io/flixw/          docs, and the lock schema
 //   https://github.com/wstein/flixw          the source this was made from
 //
-// Reproducible on purpose: `java tests/strip.java 0.31.4` at tag vsrc/flixw.java <version> regenerates
+// Reproducible on purpose: `java tests/strip.java 0.32.0` at tag vsrc/flixw.java <version> regenerates
 // this file byte for byte, so the readable source and the running one can be
 // checked against each other rather than taken on trust.
 import java.io.ByteArrayOutputStream;
@@ -44,7 +44,7 @@ import java.util.regex.Pattern;
 
 public final class flixw {
 
-  static final String WRAPPER_VERSION = "0.31.4";
+  static final String WRAPPER_VERSION = "0.32.0";
   static final String WRAPPER_DIR = ".flixw";
   static final int MIN_JAVA = 21;
 
@@ -720,18 +720,32 @@ public final class flixw {
   static final String INFO_USAGE = "usage: ./flixw info [--verbose | -v]";
   static final String DOCTOR_USAGE = "usage: ./flixw doctor [--fix]";
   static final String VALIDATE_USAGE = "usage: ./flixw validate";
-  static final String EXAMPLES_USAGE =
-     "usage: ./flixw examples list"
-    + "\n          or: ./flixw examples <verb> [flags] <name> [-- args]"
-    + "\n          or: ./flixw examples local <verb> <name> [-- args]"
-    + "\n          verbs: run check build build-classes build-jar build-fatjar"
-    + " build-pkg clean doc format outdated eff-check eff-lock test";
 
-  static final String LOCAL_USAGE =
-     "usage: ./flixw local add <path>   (override a declared GitHub dependency)"
-    + "\n          or: ./flixw local list | remove <coordinate> | status"
-    + "\n          or: ./flixw local <verb> [-- args]"
-    + "\n          verbs: run check build build-jar build-fatjar build-pkg test doc";
+  static boolean localHelpTopic(List<String> rest) {
+    if (rest.isEmpty() || !rest.get(0).equals("local")) return false;
+    String selector = rest.size() == 1 ? "--help"
+            : rest.size() == 2 && localHelpSubcommand(rest.get(1))
+            ? "--help=" + rest.get(1) : null;
+    if (selector == null) return false;
+    assetHelp(LOCAL_ASSET, selector); return true;
+  }
+
+  static boolean localHelpArgs(List<String> rest) {
+    if (rest.isEmpty()) return false;
+    if (rest.get(0).equals("--help") || rest.get(0).equals("-h")) {
+      assetHelp(LOCAL_ASSET, "--help"); return true;
+    }
+    if (rest.size() > 1 && (rest.get(1).equals("--help") || rest.get(1).equals("-h"))
+      && localHelpSubcommand(rest.get(0))) {
+      assetHelp(LOCAL_ASSET, "--help=" + rest.get(0)); return true;
+    }
+    return false;
+  }
+
+  static boolean localHelpSubcommand(String sub) {
+    return Set.of("add", "list", "remove", "status", "run", "check", "build", "build-jar",
+           "build-fatjar", "build-pkg", "test", "doc").contains(sub);
+  }
 
   static boolean wantsHelp(List<String> rest) {
     int dd = rest.indexOf("--");
@@ -1824,10 +1838,12 @@ public final class flixw {
       }
 
       case "help" -> {
+        if (localHelpTopic(rest)) return;
         if (!rest.isEmpty())
           throw w008("./flixw help: unknown argument " + q(rest.get(0))
               + "\n       usage: ./flixw help");
-        wrapperHelp();
+        helpTopic(List.of(), root, lock, jar, jvm,
+             compilerVerbs == null ? List.of() : compilerVerbs, verbId, List.of(), true);
       }
 
       case "info" -> {
@@ -1915,7 +1931,7 @@ public final class flixw {
       case "examples" -> {
 
         if (!rest.isEmpty() && (rest.get(0).equals("--help") || rest.get(0).equals("-h"))) {
-          System.out.println(EXAMPLES_USAGE); return;
+          assetHelp(EXAMPLES_ASSET, "--help"); return;
         }
 
         if (!rest.isEmpty() && rest.get(0).equals("local")) {
@@ -1939,7 +1955,7 @@ public final class flixw {
         a.add(helpText == null ? "" : helpText);
         a.add(String.valueOf(upstream));
         a.addAll(rest.isEmpty() ? List.of("list") : rest);
-        System.exit(runAsset(asset, null, a));
+        System.exit(runAsset(asset, ensureAsset(PICOCLI_ASSET), a));
       }
 
       case "local" -> dispatchLocal(root, jar, jvm, false, rest);
@@ -1950,26 +1966,28 @@ public final class flixw {
   static final Set<String> LOCAL_BOOKKEEPING_VERBS = Set.of("add", "list", "remove", "status");
 
   static void dispatchLocal(Path root, Path jar, Jvm jvm, boolean forExample, List<String> rest) {
-    String usage = forExample ? EXAMPLES_USAGE : LOCAL_USAGE;
+    if (!forExample && localHelpArgs(rest)) return;
 
     boolean help = !rest.isEmpty() && (rest.get(0).equals("--help") || rest.get(0).equals("-h"))
           || forExample && rest.size() > 1
            && (rest.get(1).equals("--help") || rest.get(1).equals("-h"));
     if (help) {
-      System.out.println(usage); return;
+      assetHelp(LOCAL_ASSET, forExample ? "--examples-help" : "--help"); return;
     }
     String mode;
     List<String> verbAndArgs;
     if (forExample) {
       if (rest.size() < 2)
-        throw w009("examples local needs a verb and an example name" + "\n       " + usage);
+        throw w009("examples local needs a verb and an example name"
+            + "\n       run: ./flixw examples local --help");
 
       if (rest.get(1).equals("--"))
-        throw w009("examples local: <name> is required before '--'" + "\n       " + usage);
+        throw w009("examples local: <name> is required before '--'"
+            + "\n       run: ./flixw examples local --help");
 
       if (rest.get(0).startsWith("-") || rest.get(1).startsWith("-"))
         throw w009("examples local: expected '<verb> <name>', not a flag in either position"
-            + "\n       " + usage);
+            + "\n       run: ./flixw examples local --help");
       mode = "example:" + rest.get(1);
       verbAndArgs = new ArrayList<>();
       verbAndArgs.add(rest.get(0));
@@ -1995,7 +2013,7 @@ public final class flixw {
     a.addAll(opts);
     a.add(mode);
     a.addAll(verbAndArgs);
-    System.exit(runAsset(asset, null, a));
+    System.exit(runAsset(asset, ensureAsset(PICOCLI_ASSET), a));
   }
 
   static Map<String, String> readLocalOverrides(Path root) {
@@ -3419,7 +3437,7 @@ public final class flixw {
     switch (op) {
       case "--help" -> {
         if (!rest.isEmpty()) throw w008(wrapperUsage("'--help' takes no arguments"));
-        wrapperHelp();
+        helpTopic(List.of("wrapper"), null, null, null, null, List.of(), null, List.of(), true);
       }
       case "--version" -> {
         if (!rest.isEmpty()) throw w008(wrapperUsage("'--version' takes no arguments"));
@@ -3547,8 +3565,13 @@ public final class flixw {
 
   static final String LOCAL_ASSET = "flixw-local.java";
 
-  static final String PICOCLI_VERSION = "4.7.7";
+  static final String PICOCLI_VERSION = "4.7.8";
   static final String PICOCLI_ASSET = "picocli-" + PICOCLI_VERSION + ".jar";
+
+  static void assetHelp(String assetName, String selector) {
+    int rc = runAsset(ensureAsset(assetName), ensureAsset(PICOCLI_ASSET), List.of(selector));
+    if (rc != 0) throw w009("cannot render help for " + assetName + " (exit " + rc + ")");
+  }
 
   static String storedHelp(String identity) {
     try {
@@ -3563,6 +3586,7 @@ public final class flixw {
 
   static String helpContext(Path root, Lock lock, Path jar, Jvm jvm, List<String> compilerVerbs,
                String identity, boolean override) {
+    if (compilerVerbs == null) compilerVerbs = List.of();
     StringBuilder b = new StringBuilder();
     b.append("flixwVersion=").append(WRAPPER_VERSION).append('\n');
     b.append("projectRoot=").append(root == null ? "" : root).append('\n');
@@ -3910,6 +3934,9 @@ public final class flixw {
     }
 
     if (!toCompiler && "help".equals(first)
+      && localHelpTopic(forward.subList(Math.min(1, forward.size()), forward.size())))
+      return;
+    if (!toCompiler && "help".equals(first)
       || (!forcedCompiler && ("--help".equals(first) || "-h".equals(first)) && argv.size() == 1)) {
 
       helpTopic(forward.subList(Math.min(1, forward.size()), forward.size()),
@@ -3964,47 +3991,10 @@ public final class flixw {
     System.out.println("""
             flixw %s -- repository-local Flix bootstrap
 
-              ./flixw <verb> [args]     the pinned stock compiler, or a wrapper verb
-              ./flixw -- <args>         forced compiler pass-through
-              ./flixw help [<topic>]    the full table: flix, wrapper, plugin, task
-              ./flixw completion <shell>   a TAB-completion script, on stdout
-              ./flixw wrapper [--help | --version | --upgrade | --install-jdk | --purge [days] [--yes] | --schema]
-                               (--upgrade also takes [<version>] and/or --pre-release)
-
-              wrapper verbs   %s
-              FLIX_JAR=<path> runs a local build, unverified (see docs/CONTRACT.md)
-            """.formatted(WRAPPER_VERSION, String.join(" ", WRAPPER_VERBS)));
-    System.out.println();
-    System.out.println("cache            " + cacheHome());
-    System.out.println("java             " + System.getProperty("java.home")
-            + "  (" + Runtime.version().feature() + ")");
-
-    Path root = null;
-    try { root = findRoot(wrapperAnchor()); } catch (Fail ignored) { }
-    if (root == null) {
-      System.out.println("project          (none found; run inside a project for the routing table)");
-      return;
-    }
-    System.out.println("project root     " + root);
-    Lock lock;
-    try { lock = readLock(lockPath(root)); } catch (Fail f) {
-      System.out.println("lock             " + f.getMessage().split("\n")[0]); return;
-    }
-    System.out.println("compiler         " + lock.version() + "  " + lock.sha256());
-    Path vf = verbsFile(compilerPath(lock), lock.sha256());
-    List<String> cv = null;
-    if (Files.isRegularFile(vf)) {
-      try {
-        cv = new ArrayList<>(Files.readAllLines(vf));
-        cv.removeIf(String::isBlank);
-      } catch (IOException ignored) {}
-    }
-    System.out.println("compiler verbs   " + (cv == null
-      ? "(not captured yet; run any compiler verb once)" : String.join(" ", cv)));
-    List<String> fb = new ArrayList<>(WRAPPER_VERBS);
-    if (cv != null) fb.removeAll(cv);
-    System.out.println("wrapper verbs    " + String.join(" ", fb));
-    System.out.println("pass-through     ./flixw -- <args>");
+              ./flixw help            full help (fetches the verified renderer on a cold cache)
+              ./flixw wrapper --help  wrapper reference
+              ./flixw -- --help       stock compiler help, unedited
+            """.formatted(WRAPPER_VERSION));
   }
 
   static Path sourceLaunchPath() {
