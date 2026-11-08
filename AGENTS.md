@@ -14,7 +14,9 @@ It does **not** change the working directory, which the `bin/flix` it replaced d
 from the project root: `main` resolves `assets/` relative to the caller.
 
 - `./flixw check` — type-check without generating code; the fast feedback loop, and the linter
-- `./flixw format` — the formatter; run it before every commit
+- `./flixw format` — optional formatter; inspect its diff before keeping any changes.
+  Flix 0.79.0 can comment out record fields while reporting success
+  (<https://github.com/flix/flix/issues/13676>), so formatting is not a commit or CI requirement
 - `./flixw test` — run every `@Test` function under `test/`
 - `./flixw run` — run `main`; recompiles the whole project first, so it is the slow way in
 - `bin/play` — run the game, compiling only when a source actually changed. About 1.4s
@@ -112,8 +114,8 @@ Follow Red-Green-Refactor for changes to `src/`:
    the bug to fix; run `./flixw test` and confirm it fails for that reason.
 2. **Green:** make the smallest implementation change that passes the test; rerun
    `./flixw test`.
-3. **Refactor:** improve the design without changing behaviour; finish with `./flixw format`
-   and `./flixw metrics report --format md`.
+3. **Refactor:** improve the design without changing behaviour; rerun `./flixw check`,
+   `./flixw test`, and `./flixw metrics report --format md`.
 
 Keep production changes and their tests together. Existing code may make a focused regression
 test impractical; when that is genuinely so, explain the constraint in the test or commit

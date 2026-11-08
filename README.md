@@ -60,11 +60,15 @@ smallest change that passes it, then refactor with the suite still green. Before
 run:
 
 ```sh
-./flixw format
 ./flixw check
 ./flixw test
 ./flixw metrics report --format md
 ```
+
+Formatting is not required locally or in CI. Flix 0.79.0's formatter can comment out
+record fields while reporting success ([upstream issue](https://github.com/flix/flix/issues/13676)).
+If you run `./flixw format`, inspect its diff and rerun the checks above before keeping
+the changes. Formatting enforcement can be reconsidered after a fixed release is validated.
 
 The metrics report is a review aid, not a score to optimise. Fix real findings or explain why a
 contextual one is intentional. Keep commits focused and use Conventional Commit subjects such
