@@ -91,10 +91,6 @@ jobs:
             exit 1
           fi
 
-      - name: Verify formatting
-        run: |
-          ./flixw format
-          if ! git diff --exit-code -- src test; then
-            echo "::error::Run './flixw format' and commit the result."
-            exit 1
-          fi
+      # Do not run the formatter in CI: Flix 0.79.0 can comment out record fields
+      # while reporting success (https://github.com/flix/flix/issues/13676).
+      # Reassess formatting enforcement after a fixed release is validated.
