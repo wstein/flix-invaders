@@ -102,6 +102,8 @@ mod Tuning {
     /// kind of value, quietly takes the default: this file is a set of overrides, and a typo in
     /// one number should cost you that number rather than the whole run.
     ///
+    /// stragglers is not read from the file, and not written to it. See below.
+    ///
     pub def decode(base: Tuning, text: String): Result[String, Tuning] =
         match fields(text) {
             case None => Err("not a JSON object")
@@ -120,7 +122,6 @@ mod Tuning {
                 shelterRelief = number(members, "shelterRelief", base#shelterRelief),
                 blockedCost = number(members, "blockedCost", base#blockedCost),
                 calm = number(members, "calm", base#calm),
-                // Not read from the file, and not written to it. See below.
                 stragglers = base#stragglers,
                 finishFlank = number(members, "finishFlank", base#finishFlank),
                 narrowTo = number(members, "narrowTo", base#narrowTo),
@@ -144,6 +145,11 @@ mod Tuning {
         Float32.max(low, Float32.min(high, value))
 
     /// Clamps all values of a Tuning record to their legal bounds to prevent unplayable state.
+    ///
+    /// Below 1, fireWindow only permits shots the geometry guarantees, which measures far
+    /// worse; above 20 the window covers the field and the bot fires at empty sky.
+    /// At 0, imminence ignores how far down a target has come, which is the one thing that
+    /// ends games.
     pub def sane(t: Tuning): Tuning = {
         aimJitter = within(0, 60, t#aimJitter),
         judgeFor = within(1, 300, t#judgeFor),
@@ -163,11 +169,7 @@ mod Tuning {
         finishFlank = withinF(0.0f32, 20.0f32, t#finishFlank),
         narrowTo = withinF(0.0f32, 1.0f32, t#narrowTo),
         narrowing = withinF(0.0f32, 20.0f32, t#narrowing),
-        // Below 1 the bot may only take shots the geometry guarantees, which measures far
-        // worse; above 20 the window covers the field and it fires at empty sky.
         fireWindow = withinF(1.0f32, 20.0f32, t#fireWindow),
-        // At 0 the bot ignores how far down a target has come, which is the one thing that
-        // ends games.
         imminence = withinF(0.1f32, 40.0f32, t#imminence)
     }
 

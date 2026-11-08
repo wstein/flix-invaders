@@ -101,12 +101,12 @@ mod Bench {
     def activelyInEndgame(w: World): Bool =
         w#phase == Phase.Playing and w#pause == 0 and alive(w) <= 8
 
+    // A cleared formation is restored to 55, which would read as negative kills.
     def observeEndgame(before: World, after: World, endgame: Endgame): Endgame =
         if (not activelyInEndgame(before)) endgame
         else
             { pixels = endgame#pixels + Float32.abs(after#playerX - before#playerX),
               ticks = endgame#ticks + 1,
-              // A cleared formation is restored to 55, which would read as negative kills.
               kills = endgame#kills + Int32.max(0, alive(before) - alive(after)) }
 
     type alias BenchAccumulator = { deaths = Int32,
@@ -518,11 +518,12 @@ mod Bench {
                           argDescriptor = ArgDescr.OptArg(parseRounds, "ROUNDS"),
                           explanation = "search for a better tuning "
                               + "(default ${defaultRounds()} rounds) and save it if it wins" };
-        let configOpt = { optionIds = 'c' :: Nil,
-                          optionNames = "config" :: Nil,
-                          argDescriptor =
-                              ArgDescr.ReqArg(given -> Some(Flag.Config(given)), "PATH"),
-                          explanation = "use PATH instead of the file beside the high scores" };
+        let configOpt = {
+            optionIds = 'c' :: Nil,
+            optionNames = "config" :: Nil,
+            argDescriptor = ArgDescr.ReqArg(given -> Some(Flag.Config(given)), "PATH"),
+            explanation = "use PATH instead of the file beside the high scores"
+        };
         let defaultsOpt = { optionIds = 'd' :: Nil,
                             optionNames = "defaults" :: Nil,
                             argDescriptor = ArgDescr.NoArg(Flag.Defaults),

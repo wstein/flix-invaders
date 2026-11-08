@@ -43,6 +43,8 @@ def main(): Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, Sys.Exit, IO } = {
 ///
 def runSession(saved: List[Entry], tuning: Tuning): Session \ IO = {
     let limit = Sketch.maxFramesFromEnv();
+    // fontPath is relative to the working directory, which ./flixw deliberately does not
+    // change -- run the game from the project root.
     Sketch.start(
         { title = "Flix Invaders",
           width = 640,
@@ -50,8 +52,6 @@ def runSession(saved: List[Entry], tuning: Tuning): Session \ IO = {
           seed = Sketch.freshSeed(),
           hz = 60,
           maxFrames = limit,
-          // Relative to the working directory, which ./flixw deliberately does not
-          // change -- run the game from the project root.
           fontPath = Some("assets/PressStart2P-Regular.ttf") },
         seed -> Session.withTuning(seed, saved, tuning),
         Session.step,

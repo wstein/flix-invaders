@@ -528,12 +528,14 @@ mod Game {
     /// The next level: a fresh formation and fresh bunkers, marching faster and dropping
     /// more bombs. Score, lives and the generator carry over.
     ///
+    /// Each wave starts lower than the last until the cycle resets, so a later wave is
+    /// not merely faster -- it is shorter.
+    /// The shot counter is per board, as the saucer's value is.
+    ///
     def nextLevel(w: World): World =
         { phase = Phase.Playing,
           level = w#level + 1,
           pause = 0,
-          // Each wave starts lower than the last until the cycle resets, so a later wave is
-          // not merely faster -- it is shorter.
           invaders = formation(w#level + 1),
           bunkers = Bunkers.initial(),
           bullets = Nil,
@@ -543,7 +545,6 @@ mod Game {
           mystery = None,
           mysteryTimer = Rules.mysteryInterval(),
           marchNote = 0,
-          // The shot counter is per board, as the saucer's value is.
           shotsFired = 0,
           marchedSince = 0.0f32,
           playerX = Rules.fieldWidth() / 2.0f32 | w }
