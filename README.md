@@ -2,7 +2,7 @@
 
 [![Build and Test](https://github.com/wstein/flix-invaders/actions/workflows/build-and-test.yaml/badge.svg?branch=main)](https://github.com/wstein/flix-invaders/actions/workflows/build-and-test.yaml)
 [![Latest release](https://img.shields.io/github/v/release/wstein/flix-invaders?display_name=tag&sort=semver)](https://github.com/wstein/flix-invaders/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 
 A **Flix creative-coding pilot on Swing and Java2D**: an arcade game where the rules are a
 pure function, the tests never open a window, and the effect system marks exactly where the
@@ -443,7 +443,11 @@ is a pure function with tests around it.
   distorting the game to satisfy them
 - [AGENTS.md](AGENTS.md) — working notes and the gotchas that cost real time
 
+## Author
+
+Werner Stein — <werner.stein@gmail.com>.
+
 ## License
 
-[MIT](LICENSE). Links against nothing but the JDK, and bundles the Press Start 2P font
+[MIT](LICENSE.md). Links against nothing but the JDK, and bundles the Press Start 2P font
 (SIL OFL 1.1) — see [THIRD-PARTY.md](THIRD-PARTY.md).
