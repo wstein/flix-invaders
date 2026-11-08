@@ -1,7 +1,4 @@
 [package]
-name        = "flix-invaders"
-description = "A Flix creative-coding pilot on Swing and Java2D."
-version     = "0.2.0"
-flix        = "0.76.0"
-license     = "MIT"
-authors     = ["Werner Stein <werner.stein@gmail.com>"]
+version    = "0.2.0"
+repository = "github:wstein/flix-invaders"
+flix       = "0.79.0"
