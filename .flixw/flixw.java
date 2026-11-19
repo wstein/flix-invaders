@@ -1,4 +1,4 @@
-// flixw 0.32.0 -- stage 0. GENERATED: this is the documented source with its
+// flixw 0.34.9 -- stage 0. GENERATED: this is the documented source with its
 // comments removed, which is why it reads as bare mechanism.
 //
 // The commentary is the security story -- why each check exists, and which
@@ -8,7 +8,7 @@
 //   https://wstein.github.io/flixw/          docs, and the lock schema
 //   https://github.com/wstein/flixw          the source this was made from
 //
-// Reproducible on purpose: `java tests/strip.java 0.32.0` at tag vsrc/flixw.java <version> regenerates
+// Reproducible on purpose: `java tests/strip.java 0.34.9` at tag vsrc/flixw.java <version> regenerates
 // this file byte for byte, so the readable source and the running one can be
 // checked against each other rather than taken on trust.
 import java.io.ByteArrayOutputStream;
@@ -44,7 +44,7 @@ import java.util.regex.Pattern;
 
 public final class flixw {
 
-  static final String WRAPPER_VERSION = "0.32.0";
+  static final String WRAPPER_VERSION = "0.34.9";
   static final String WRAPPER_DIR = ".flixw";
   static final int MIN_JAVA = 21;
 
@@ -62,7 +62,7 @@ public final class flixw {
   static final List<String> BUILTIN_VERBS = List.of(
     "init", "check", "build", "build-classes", "build-jar", "build-fatjar", "build-pkg", "clean",
     "doc", "format", "run", "test", "repl", "lsp", "lsp-vscode", "release",
-    "outdated", "stat", "eff-check", "eff-lock");
+    "install", "remove", "upgrade", "outdated", "stat", "eff-check", "eff-lock");
 
   static final class Fail extends RuntimeException {
     private static final long serialVersionUID = 1L;
@@ -713,31 +713,30 @@ public final class flixw {
 
   static final String PIN_USAGE =
      "usage: ./flixw pin [<owner>/<repo>] [<version>] [--java <version>]"
-    + " [--editor-jar=copy|off]"
+    + " [--editor-jar=copy|off] [--fetch]"
+    + "\n          or: ./flixw pin --local <path/to/flix.jar-or-checkout> | --stock"
     + "\n          or: ./flixw pin <owner>/<repo>@<version>   (one token, a fork)"
     + "\n          or: ./flixw pin --refresh   (rewrite the lock in this release's shape)";
 
   static final String INFO_USAGE = "usage: ./flixw info [--verbose | -v]";
   static final String DOCTOR_USAGE = "usage: ./flixw doctor [--fix]";
   static final String VALIDATE_USAGE = "usage: ./flixw validate";
+  static final String EXAMPLES_USAGE = "usage: ./flixw examples [<verb> <name> [-- args]]";
+  static final String LOCAL_USAGE = "usage: ./flixw local [add | list | remove | status | <verb>]";
+  static final String EXAMPLES_LOCAL_USAGE = "usage: ./flixw examples local <verb> <name> [-- args]";
 
-  static boolean localHelpTopic(List<String> rest) {
-    if (rest.isEmpty() || !rest.get(0).equals("local")) return false;
-    String selector = rest.size() == 1 ? "--help"
-            : rest.size() == 2 && localHelpSubcommand(rest.get(1))
-            ? "--help=" + rest.get(1) : null;
-    if (selector == null) return false;
-    assetHelp(LOCAL_ASSET, selector); return true;
-  }
-
-  static boolean localHelpArgs(List<String> rest) {
+  static boolean localHelpArgs(List<String> rest, Path root, Lock lock, Path jar, Jvm jvm,
+                List<String> compilerVerbs, String verbId) {
     if (rest.isEmpty()) return false;
     if (rest.get(0).equals("--help") || rest.get(0).equals("-h")) {
-      assetHelp(LOCAL_ASSET, "--help"); return true;
+      renderWrapperHelp("local", LOCAL_USAGE, root, lock, jar, jvm, compilerVerbs, verbId, List.of());
+      return true;
     }
     if (rest.size() > 1 && (rest.get(1).equals("--help") || rest.get(1).equals("-h"))
       && localHelpSubcommand(rest.get(0))) {
-      assetHelp(LOCAL_ASSET, "--help=" + rest.get(0)); return true;
+      renderWrapperHelp(List.of("local", rest.get(0)), LOCAL_USAGE, root, lock, jar, jvm,
+               compilerVerbs, verbId, List.of());
+      return true;
     }
     return false;
   }
@@ -757,8 +756,6 @@ public final class flixw {
 
   static boolean validPluginName(String name) { return name.matches(PLUGIN_NAME_PATTERN); }
 
-  record Asset(String name, String url) {}
-
   static String checkRepo(String repo, String where) {
     if (!repo.matches(REPO_PATTERN))
       throw w002(where + ": " + q(repo) + " is not an owner/repository");
@@ -767,21 +764,23 @@ public final class flixw {
 
   static String encodeTag(String tag) { return tag.replace("+", "%2B"); }
 
-  static Asset resolveRelease(String repo, String version) {
+  static List<String> forkAssets(String repo, String version) {
+    String base = "https://github.com/" + repo + "/releases/download/" + encodeTag("v" + version) + "/";
+    return List.of(base + encodeTag("flix-" + version + ".jar"), base + encodeTag("flix.jar"));
+  }
+
+  static String resolveRelease(String repo, String version) {
     if (repo.equals(UPSTREAM_REPO)) {
       String u = "https://github.com/" + UPSTREAM_REPO + "/releases/download/v"
           + canonical(version) + "/flix.jar";
-      return new Asset("flix.jar", u);
+      return u;
     }
-    String base = "https://github.com/" + repo + "/releases/download/"
-          + encodeTag("v" + version) + "/";
     List<String> tried = new ArrayList<>();
-    for (String name : List.of("flix-" + version + ".jar", "flix.jar")) {
-      String u = base + encodeTag(name);
+    for (String u : forkAssets(repo, version)) {
       tried.add(u);
       if (assetExists(u)) {
         validateUrl(u, repo + " release v" + version);
-        return new Asset(name, u);
+        return u;
       }
     }
     throw w005("no compiler jar found in " + repo + " release " + q("v" + version)
@@ -814,11 +813,11 @@ public final class flixw {
   }
 
   record Pin(String repo, String version, String java, boolean clearJava, boolean refresh,
-       String editorJar) {}
+       String editorJar, String localJar, boolean stock, boolean fetch) {}
 
   static Pin parsePin(List<String> args, Lock existing) {
-    String repo = null, version = null, java = null, clearJava = null, editorJar = null;
-    boolean repoGiven = false, refresh = false;
+    String repo = null, version = null, java = null, clearJava = null, editorJar = null, localJar = null;
+    boolean repoGiven = false, refresh = false, stock = false, fetch = false;
     for (int i = 0; i < args.size(); i++) {
       String a = args.get(i);
       if (a.equals("--java")) {
@@ -830,11 +829,22 @@ public final class flixw {
         if (v.equals("none")) clearJava = "yes"; else { validateJavaPin(v, "pin"); java = v; }
       } else if (a.equals("--refresh")) {
         refresh = true;
+      } else if (a.equals("--fetch")) {
+        fetch = true;
       } else if (a.startsWith("--editor-jar=")) {
         if (editorJar != null) throw w009("pin: two --editor-jar values given");
         editorJar = a.substring("--editor-jar=".length());
         if (!editorJar.equals("copy") && !editorJar.equals("off"))
           throw w008("pin: --editor-jar must be 'copy' or 'off', not " + q(editorJar));
+      } else if (a.equals("--local")) {
+        if (localJar != null) throw w009("pin: two --local values given");
+        if (i + 1 >= args.size())
+          throw w002("pin: --local needs a JAR or Flix checkout path\n       for example:"
+              + " ./flixw pin --local ../flix");
+        localJar = args.get(++i);
+      } else if (a.equals("--stock")) {
+        if (stock) throw w009("pin: two --stock flags given");
+        stock = true;
       } else if (a.startsWith("--")) {
         throw w008("pin: unknown option " + q(a) + "\n       " + PIN_USAGE);
       } else if (a.contains("/")) {
@@ -859,7 +869,8 @@ public final class flixw {
     }
     if (refresh) {
 
-      if (version != null || repoGiven || java != null || clearJava != null || editorJar != null)
+      if (version != null || repoGiven || java != null || clearJava != null || editorJar != null
+        || localJar != null || stock || fetch)
         throw w008("pin: --refresh takes no other arguments -- it rewrites the lock"
             + " in the shape flixw " + WRAPPER_VERSION + " writes,"
             + "\n       from the values already in it, without moving the pin"
@@ -867,11 +878,25 @@ public final class flixw {
       if (existing == null)
         throw w002("pin: --refresh needs a lock that parses"
             + "\n       run: ./flixw pin <version>");
-      return new Pin(null, null, null, false, true, null);
+      return new Pin(null, null, null, false, true, null, null, false, false);
+    }
+    if (localJar != null || stock) {
+      if (localJar != null && stock)
+        throw w008("pin: --local and --stock are alternatives\n       " + PIN_USAGE);
+      if (version != null || repoGiven || java != null || clearJava != null || editorJar != null
+        || fetch)
+        throw w008("pin: local compiler selection takes no release-pin options"
+            + "\n       " + PIN_USAGE);
+      if (existing == null)
+        throw w002("pin: --local or --stock needs an existing lock"
+            + "\n       run: ./flixw pin <version>");
+      return new Pin(null, null, null, false, false, null, localJar, stock, false);
     }
 
     if (version == null && java == null && clearJava == null && editorJar == null)
       throw w002("pin: no version\n       " + PIN_USAGE);
+
+    if (version == null && fetch) throw w002("pin: --fetch needs a version\n       " + PIN_USAGE);
 
     if (version == null && repoGiven)
       throw w002("pin: a repository needs a version -- changing it means fetching"
@@ -885,7 +910,7 @@ public final class flixw {
     if (version != null) version = validateVersion(stripTagPrefix(version), "pin");
     if (repo == null) repo = existing != null && existing.repo() != null
                ? existing.repo() : UPSTREAM_REPO;
-    return new Pin(repo, version, java, clearJava != null, false, editorJar);
+    return new Pin(repo, version, java, clearJava != null, false, editorJar, null, false, fetch);
   }
 
   static boolean insideCompilerCache(Path jar) {
@@ -987,6 +1012,7 @@ public final class flixw {
           if (!Files.isRegularFile(jar))
             throw w007("cannot install " + jar + ": " + e.getMessage());
         }
+        recordFetch(lock.sha256(), lock.url());
       } finally { try { Files.deleteIfExists(tmp); } catch (IOException ignored) {} }
     }
     tr("compiler present");
@@ -998,6 +1024,11 @@ public final class flixw {
     writePinRecord(lock.sha256(), lock.repo() == null ? UPSTREAM_REPO : lock.repo(), lock.version());
     markUsed("compiler/" + lock.sha256());
     return jar;
+  }
+
+  static String downloadAdvice(int status) {
+    return status >= 500 ? "the server failed, not the request -- try again in a moment."
+              : "check that flix.toml names a published release.";
   }
 
   static void download(String url, Path dest) {
@@ -1012,9 +1043,10 @@ public final class flixw {
         throw w005("refusing a redirect off https: " + redact(res.uri().toString()));
       if (res.statusCode() != 200)
         throw w005("HTTP " + res.statusCode() + " for " + redact(url)
-            + "\n       check that flix.toml names a published release.");
+            + "\n       " + downloadAdvice(res.statusCode()));
     } catch (IOException e) {
-      throw w005("download failed: " + redact(url) + "\n       " + e.getMessage());
+
+      throw w005("download failed: " + redact(url) + "\n       " + why(e));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw w005("download interrupted");
@@ -1579,7 +1611,7 @@ public final class flixw {
     } catch (Fail f) {
 
       w010(f.getMessage().split("\n")[0]
-       + "\n          using the built-in verb table for Flix 0.75.x;"
+       + "\n          using the built-in verb table for Flix 0.77.x;"
        + " compiler-first dispatch still applies");
       return BUILTIN_VERBS;
     }
@@ -1606,6 +1638,22 @@ public final class flixw {
       List<String> lines = Files.readAllLines(pinRecordFile(identity), StandardCharsets.UTF_8);
       return lines.size() < 2 ? null : new PinRecord(lines.get(0), lines.get(1));
     } catch (IOException e) { return null; }
+  }
+
+  static List<String> fetchedFrom(String digest) {
+    try { return Files.readAllLines(cacheHome().resolve("verbs").resolve(digest + ".fetched"),
+                    StandardCharsets.UTF_8); }
+    catch (IOException e) { return List.of(); }
+  }
+
+  static void recordFetch(String digest, String url) {
+    Path f = cacheHome().resolve("verbs").resolve(digest + ".fetched");
+    if (fetchedFrom(digest).contains(url)) return;
+    try {
+      Files.createDirectories(f.getParent());
+      Files.writeString(f, url + "\n", StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.CREATE,
+               java.nio.file.StandardOpenOption.APPEND);
+    } catch (IOException e) { tr("cannot record where " + digest + " was fetched from: " + why(e)); }
   }
 
   static void writePinRecord(String identity, String repo, String version) {
@@ -1709,6 +1757,10 @@ public final class flixw {
   }
 
   static int runAsset(Path asset, Path classpath, List<String> args) {
+    return runAsset(asset, classpath, null, args);
+  }
+
+  static int runAsset(Path asset, Path classpath, Path resources, List<String> args) {
     Path classes = compileAsset(asset, classpath);
     if (classes == null)
       throw w005("cannot compile " + asset.getFileName() + "\n"
@@ -1719,6 +1771,7 @@ public final class flixw {
     try {
       urls.add(classes.toUri().toURL());
       if (classpath != null) urls.add(classpath.toUri().toURL());
+      if (resources != null) urls.add(resources.toUri().toURL());
       try (URLClassLoader loader = new URLClassLoader("flixw-asset",
           urls.toArray(new URL[0]), ClassLoader.getPlatformClassLoader())) {
         java.lang.reflect.Method run = loader.loadClass(assetMainClass(asset))
@@ -1831,23 +1884,19 @@ public final class flixw {
               Jvm jvm, List<String> compilerVerbs, String verbId) {
     switch (verb) {
       case "pin" -> {
-        if (wantsHelp(rest)) { System.out.println(PIN_USAGE); return; }
+        if (wantsHelp(rest)) { renderWrapperHelp("pin", PIN_USAGE, root, lock, jar, jvm, compilerVerbs, verbId, List.of()); return; }
         if (rest.isEmpty())
           throw w009(PIN_USAGE);
         pin(root, parsePin(rest, lock));
       }
 
       case "help" -> {
-        if (localHelpTopic(rest)) return;
-        if (!rest.isEmpty())
-          throw w008("./flixw help: unknown argument " + q(rest.get(0))
-              + "\n       usage: ./flixw help");
-        helpTopic(List.of(), root, lock, jar, jvm,
+        helpTopic(rest, root, lock, jar, jvm,
              compilerVerbs == null ? List.of() : compilerVerbs, verbId, List.of(), true);
       }
 
       case "info" -> {
-        if (wantsHelp(rest)) { System.out.println(INFO_USAGE); return; }
+        if (wantsHelp(rest)) { renderWrapperHelp("info", INFO_USAGE, root, lock, jar, jvm, compilerVerbs, verbId, List.of()); return; }
         boolean verbose = rest.contains("--verbose") || rest.contains("-v");
         for (String a : rest)
           if (!a.equals("--verbose") && !a.equals("-v"))
@@ -1856,7 +1905,7 @@ public final class flixw {
         if (verbose) { System.out.println(); listCache(lock, jvm); }
       }
       case "validate" -> {
-        if (wantsHelp(rest)) { System.out.println(VALIDATE_USAGE); return; }
+        if (wantsHelp(rest)) { renderWrapperHelp("validate", VALIDATE_USAGE, root, lock, jar, jvm, compilerVerbs, verbId, List.of()); return; }
 
         if (!rest.isEmpty())
           throw w008("./flixw validate: unknown argument " + q(rest.get(0))
@@ -1865,7 +1914,7 @@ public final class flixw {
         if (bad > 0) throw w009(bad + " validation failure(s)");
       }
       case "doctor" -> {
-        if (wantsHelp(rest)) { System.out.println(DOCTOR_USAGE); return; }
+        if (wantsHelp(rest)) { renderWrapperHelp("doctor", DOCTOR_USAGE, root, lock, jar, jvm, compilerVerbs, verbId, List.of()); return; }
         boolean fix = rest.contains("--fix");
         for (String a : rest)
           if (!a.equals("--fix"))
@@ -1889,7 +1938,7 @@ public final class flixw {
         String sub = rest.get(0);
 
         if (sub.equals("--help") || sub.equals("-h")) {
-          System.out.println(PLUGIN_USAGE);
+          renderWrapperHelp("plugin", PLUGIN_USAGE, root, lock, jar, jvm, compilerVerbs, verbId, List.of());
           return;
         }
         List<String> args = rest.subList(1, rest.size());
@@ -1914,7 +1963,11 @@ public final class flixw {
       case "task" -> {
         Map<String, String> tasks = readTasks(root);
 
-        if (rest.isEmpty() || rest.get(0).equals("--help") || rest.get(0).equals("-h")) {
+        if (rest.size() == 1 && (rest.get(0).equals("--help") || rest.get(0).equals("-h"))) {
+          renderWrapperHelp("task", tasks.isEmpty() ? "(no tasks in " + tasksPath(root) + ")" : String.join("\n", tasks.keySet()), root, lock, jar, jvm, compilerVerbs, verbId, List.of());
+          return;
+        }
+        if (rest.isEmpty()) {
           if (tasks.isEmpty()) System.out.println("(no tasks in " + tasksPath(root) + ")");
           else tasks.keySet().forEach(System.out::println);
           return;
@@ -1931,11 +1984,12 @@ public final class flixw {
       case "examples" -> {
 
         if (!rest.isEmpty() && (rest.get(0).equals("--help") || rest.get(0).equals("-h"))) {
-          assetHelp(EXAMPLES_ASSET, "--help"); return;
+          renderWrapperHelp("examples", EXAMPLES_USAGE, root, lock, jar, jvm, compilerVerbs, verbId, List.of());
+          return;
         }
 
         if (!rest.isEmpty() && rest.get(0).equals("local")) {
-          dispatchLocal(root, jar, jvm, true, rest.subList(1, rest.size()));
+          dispatchLocal(root, lock, jar, jvm, true, rest.subList(1, rest.size()), compilerVerbs, verbId);
           return;
         }
 
@@ -1948,7 +2002,8 @@ public final class flixw {
 
         String helpText = verbId == null ? "" : storedHelp(verbId);
 
-        boolean upstream = isUpstream(lock, env("FLIX_JAR") != null);
+        boolean upstream = isUpstream(lock, env("FLIX_JAR") != null
+                      || readLocalCompiler(root) != null);
         List<String> a = new ArrayList<>(List.of(root.toString(), jvm.exe().toString(),
                             jar.toString(), String.valueOf(opts.size())));
         a.addAll(opts);
@@ -1958,21 +2013,27 @@ public final class flixw {
         System.exit(runAsset(asset, ensureAsset(PICOCLI_ASSET), a));
       }
 
-      case "local" -> dispatchLocal(root, jar, jvm, false, rest);
+      case "local" -> dispatchLocal(root, lock, jar, jvm, false, rest, compilerVerbs, verbId);
       default -> throw w009("no wrapper implementation for " + q(verb));
     }
   }
 
   static final Set<String> LOCAL_BOOKKEEPING_VERBS = Set.of("add", "list", "remove", "status");
 
-  static void dispatchLocal(Path root, Path jar, Jvm jvm, boolean forExample, List<String> rest) {
-    if (!forExample && localHelpArgs(rest)) return;
+  static void dispatchLocal(Path root, Lock lock, Path jar, Jvm jvm, boolean forExample,
+               List<String> rest, List<String> compilerVerbs, String verbId) {
+    if (!forExample && localHelpArgs(rest, root, lock, jar, jvm, compilerVerbs, verbId)) return;
 
     boolean help = !rest.isEmpty() && (rest.get(0).equals("--help") || rest.get(0).equals("-h"))
           || forExample && rest.size() > 1
            && (rest.get(1).equals("--help") || rest.get(1).equals("-h"));
     if (help) {
-      assetHelp(LOCAL_ASSET, forExample ? "--examples-help" : "--help"); return;
+      String sub = forExample && rest.size() > 1 && !rest.get(0).startsWith("-") ? rest.get(0) : null;
+      List<String> topic = sub != null ? List.of("examples-local", sub)
+                      : List.of(forExample ? "examples-local" : "local");
+      renderWrapperHelp(topic, forExample ? EXAMPLES_LOCAL_USAGE : LOCAL_USAGE,
+               root, lock, jar, jvm, compilerVerbs, verbId, List.of());
+      return;
     }
     String mode;
     List<String> verbAndArgs;
@@ -2488,6 +2549,18 @@ public final class flixw {
           : got.equals(lock.sha256()) ? "  (the jar the lock pins)"
           : "  (NOT the jar the lock pins)"));
       }
+    } else {
+      LocalCompiler local = root == null ? null : readLocalCompiler(root);
+      if (local != null) {
+        System.out.println("override         local compiler=" + local.path()
+                + "  (unverified; not stock-compatibility evidence)");
+        if (jar != null && Files.isRegularFile(jar)) {
+          String got = sha256(jar);
+          System.out.println("override digest  " + got
+            + (got.equals(local.selectedSha256()) ? "  (matches selection)"
+             : "  (changed since selection)"));
+        }
+      }
     }
     System.out.println("compiler verbs   " + (cv == null ? "(not captured)" : String.join(" ", cv)));
     List<String> fallback = new ArrayList<>(WRAPPER_VERBS);
@@ -2797,7 +2870,9 @@ public final class flixw {
     }
     if (jar != null && Files.isRegularFile(jar)) System.out.println("ok    cached compiler digest");
 
-    if (root != null && lock != null && jar != null && Files.isRegularFile(jar)) {
+    LocalCompiler localCompiler = root == null ? null : readLocalCompiler(root);
+    Path activeJar = localCompiler == null ? jar : localCompiler.path();
+    if (root != null && lock != null && activeJar != null && Files.isRegularFile(activeJar)) {
       Path editorJar = root.resolve("flix.jar");
       EditorJarPref pref = readEditorJarPref(root);
       if (pref == null || !pref.mode().equals("off")) {
@@ -2808,13 +2883,15 @@ public final class flixw {
           System.out.println("warn  ./flix.jar is a broken link"
                   + " (./flixw pin --editor-jar=copy)");
         else {
-          boolean managed = Files.isSymbolicLink(editorJar)
-            || (pref != null && pref.mode().equals("copy"));
-          String kind = Files.isSymbolicLink(editorJar) ? "link" : "managed copy";
-          if (sha256(editorJar).equals(lock.sha256()))
-            System.out.println("ok    ./flix.jar (" + kind + ") matches the pinned compiler");
+          boolean managed = ownsEditorJar(editorJar, pref,
+                           localCompiler == null ? null : localCompiler.path());
+          String kind = Files.isSymbolicLink(editorJar) ? "link" : managed ? "managed copy" : "unmanaged copy";
+          if (sha256(editorJar).equals(sha256(activeJar)))
+            System.out.println("ok    ./flix.jar (" + kind + ") matches the "
+              + (localCompiler == null ? "pinned" : "active local") + " compiler");
           else if (managed)
-            System.out.println("warn  ./flix.jar (" + kind + ") does not match the pinned"
+            System.out.println("warn  ./flix.jar (" + kind + ") does not match the "
+                    + (localCompiler == null ? "pinned" : "active local")
                     + " compiler (./flixw pin --editor-jar=copy, or re-run"
                     + " ./flixw pin)");
           else
@@ -2909,6 +2986,75 @@ public final class flixw {
     } catch (IOException ignored) { }
   }
 
+  static Path localCompilerFile(Path root) {
+    return root.resolve(WRAPPER_DIR).resolve("local").resolve("compiler.toml");
+  }
+
+  record LocalCompiler(Path path, String selectedSha256) {}
+
+  static LocalCompiler readLocalCompiler(Path root) {
+    Path file = localCompilerFile(root);
+    if (!Files.isRegularFile(file)) return null;
+    String path = null, sha = null;
+    try {
+      for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+        String t = stripComment(line).strip();
+        if (t.isEmpty()) continue;
+        int eq = t.indexOf('=');
+        if (eq < 1) throw w009(file + " does not parse");
+        String key = t.substring(0, eq).strip();
+        String value = unquoteToml(t.substring(eq + 1).strip(), file.toString());
+        if (key.equals("path") && path == null) path = value;
+        else if (key.equals("selected_sha256") && sha == null) sha = value;
+        else throw w009(file + " has an unknown or repeated key " + q(key));
+      }
+    } catch (IOException e) { throw w009("cannot read " + file + ": " + why(e)); }
+    if (path == null || sha == null || !sha.matches("[0-9a-f]{64}")) throw w009(file + " needs quoted path and selected_sha256 values");
+    try {
+      Path jar = Paths.get(path);
+      if (!jar.isAbsolute()) throw w009(file + " names a non-absolute path");
+      return new LocalCompiler(jar, sha);
+    } catch (java.nio.file.InvalidPathException e) {
+      throw w009(file + " has an invalid path: " + why(e));
+    }
+  }
+
+  static void writeLocalCompiler(Path root, Path jar, String selectedSha256) {
+    try {
+      Path file = localCompilerFile(root); Files.createDirectories(file.getParent());
+      writeAtomic(file, "# Generated by flixw. Local compiler selection; do not commit.\n"
+              + "path = \"" + tomlEscape(jar.toString()) + "\"\n"
+              + "selected_sha256 = \"" + selectedSha256 + "\"\n");
+    } catch (IOException e) { throw w009("cannot write local compiler selection: " + why(e)); }
+  }
+
+  static void clearLocalCompiler(Path root) {
+    try { Files.deleteIfExists(localCompilerFile(root)); }
+    catch (IOException e) { throw w009("cannot clear local compiler selection: " + why(e)); }
+  }
+
+  static final String MILL_COMPILER_JAR = "out/flix/assembly.dest/out.jar";
+
+  static LocalCompiler selectLocalCompiler(Path root, String typedPath) {
+    try {
+      Path selected = Paths.get(typedPath).toRealPath();
+      Path jar = Files.isDirectory(selected) ? selected.resolve(MILL_COMPILER_JAR) : selected;
+      if (!Files.isRegularFile(jar)) {
+        if (Files.isDirectory(selected))
+          throw w008("pin: no built Flix compiler in " + q(typedPath)
+              + "\n       looked for: " + MILL_COMPILER_JAR
+              + "\n       build it: (cd " + typedPath + " && ./mill flix.assembly)");
+        throw w008("pin: --local=" + typedPath + " is not a readable JAR");
+      }
+      jar = jar.toRealPath();
+      return new LocalCompiler(jar, sha256(jar));
+    } catch (java.nio.file.InvalidPathException e) {
+      throw w008("pin: --local has an invalid path " + q(typedPath));
+    } catch (IOException e) {
+      throw w008("pin: --local=" + typedPath + " is not a readable file or checkout");
+    }
+  }
+
   static Path editorJarPrefsFile(Path root) {
     return root.resolve(WRAPPER_DIR).resolve("local").resolve("editor-jar.toml");
   }
@@ -2944,10 +3090,18 @@ public final class flixw {
   }
 
   static boolean ownsEditorJar(Path link, EditorJarPref pref) {
+    return ownsEditorJar(link, pref, null);
+  }
+
+  static boolean ownsEditorJar(Path link, EditorJarPref pref, Path localCompiler) {
     try {
       if (Files.isSymbolicLink(link)) {
-        Path real = link.toRealPath();
-        Path compilers = cacheHome().resolve("compilers").toRealPath();
+        if (localCompiler != null) try { if (Files.isSameFile(link, localCompiler)) return true; }
+          catch (IOException ignored) { }
+        Path named = Files.readSymbolicLink(link);
+        if (!named.isAbsolute()) named = link.getParent().resolve(named);
+        if (localCompiler != null && named.normalize().equals(localCompiler.toAbsolutePath().normalize())) return true;
+        Path real = link.toRealPath(), compilers = cacheHome().resolve("compilers").toRealPath();
         return real.startsWith(compilers);
       }
       return pref != null && pref.sha256() != null && pref.sha256().equals(sha256(link));
@@ -2956,11 +3110,10 @@ public final class flixw {
 
   static boolean tryEditorJarLink(Path link, Path target, boolean hard) {
     try {
-      Files.createDirectories(link.getParent());
-      Path tmp = Files.createTempFile(link.getParent(), ".flix.jar-", ".part");
-      Files.delete(tmp);
-      if (hard) Files.createLink(tmp, target); else Files.createSymbolicLink(tmp, target);
-      Files.move(tmp, link, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+      Files.createDirectories(link.getParent()); Path tmp = Files.createTempFile(link.getParent(), ".flix.jar-", ".part");
+      Files.delete(tmp); if (hard) Files.createLink(tmp, target); else Files.createSymbolicLink(tmp, target);
+      try { Files.move(tmp, link, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
+      catch (IOException e) { try { Files.move(tmp, link, StandardCopyOption.REPLACE_EXISTING); } catch (IOException replace) { Files.deleteIfExists(link); Files.move(tmp, link); } }
       return true;
     } catch (IOException | UnsupportedOperationException e) { return false; }
   }
@@ -2980,10 +3133,12 @@ public final class flixw {
   static void maintainEditorJar(Path root, Path jar, String requestedMode) {
     ensureGitignored(root, "/flix.jar");
     EditorJarPref pref = readEditorJarPref(root);
+    LocalCompiler local = readLocalCompiler(root);
+    Path localJar = local == null ? null : local.path();
     Path link = root.resolve("flix.jar");
     if ("off".equals(requestedMode)) {
 
-      if (Files.exists(link, LinkOption.NOFOLLOW_LINKS) && ownsEditorJar(link, pref)) {
+      if (Files.exists(link, LinkOption.NOFOLLOW_LINKS) && ownsEditorJar(link, pref, localJar)) {
         try { Files.delete(link); } catch (IOException e) { tr("cannot remove flix.jar: " + e.getMessage()); }
       }
       writeEditorJarPref(root, "off", null);
@@ -2996,7 +3151,7 @@ public final class flixw {
       pref = null;
     }
     boolean exists = Files.exists(link, LinkOption.NOFOLLOW_LINKS);
-    if (exists && !ownsEditorJar(link, pref) && !"copy".equals(requestedMode)) {
+    if (exists && !ownsEditorJar(link, pref, localJar) && !"copy".equals(requestedMode)) {
       System.err.println("flixw: note: ./flix.jar exists and was not created by this"
               + " project's flixw -- leave it, or run"
               + " ./flixw pin --editor-jar=copy to replace it");
@@ -3004,10 +3159,10 @@ public final class flixw {
     }
 
     if (tryEditorJarLink(link, jar, false)) return;
-    if (tryEditorJarLink(link, jar, true)) return;
+    if (tryEditorJarLink(link, jar, true)) { writeEditorJarPref(root, "hard", sha256(link)); return; }
 
-    boolean copy = "copy".equals(requestedMode) || (pref != null && pref.mode().equals("copy"));
-    boolean persist = "copy".equals(requestedMode);
+    boolean copy = "copy".equals(requestedMode) || (pref != null && pref.mode().equals("copy")) || (local != null && isWindows());
+    boolean persist = "copy".equals(requestedMode) || (local != null && isWindows());
     if (!copy && requestedMode == null && System.console() != null) {
       System.err.print("flixw: could not link ./flix.jar for VS Code (a different volume"
               + " than the cache, or no symlink privilege). Create a managed copy"
@@ -3037,6 +3192,29 @@ public final class flixw {
     }
   }
 
+  record Cached(Path jar, String digest, String url) {}
+
+  static Cached cachedFor(String repo, String version, Lock had) {
+    Path dir = cacheHome().resolve("compilers");
+    String prefix = "flix-" + canonical(version) + "-";
+    List<String> want = repo.equals(UPSTREAM_REPO) ? List.of(resolveRelease(repo, version))
+                           : forkAssets(repo, version);
+    List<Cached> found = new ArrayList<>();
+    try (var s = Files.list(dir)) {
+      for (Path jar : s.toList()) {
+        String n = jar.getFileName().toString();
+        if (!n.startsWith(prefix) || !n.endsWith(".jar")) continue;
+        String digest = n.substring(prefix.length(), n.length() - ".jar".length());
+        if (!digest.matches("[0-9a-f]{64}")) continue;
+        List<String> from = fetchedFrom(digest);
+        for (String url : want)
+          if (from.contains(url)) { found.add(new Cached(jar, digest, url)); break; }
+      }
+    } catch (IOException | RuntimeException e) { return null; }
+    for (Cached c : found) if (had != null && c.digest().equals(had.sha256())) return c;
+    return found.size() == 1 ? found.get(0) : null;
+  }
+
   static void pin(Path root, Pin what) {
     if (what.refresh()) { refreshPin(root); return; }
     String repo = what.repo(), version = what.version(), java = what.java();
@@ -3046,6 +3224,23 @@ public final class flixw {
     Lock had = null;
     if (Files.isRegularFile(lockFile0)) {
       try { had = readLock(lockFile0); } catch (Fail ignored) { }
+    }
+    if (what.localJar() != null) {
+      LocalCompiler local = selectLocalCompiler(root, what.localJar());
+      writeLocalCompiler(root, local.path(), local.selectedSha256());
+      maintainEditorJar(root, local.path(), null);
+      System.err.println("flixw: selected local compiler " + local.path());
+      System.err.println("       " + local.selectedSha256().substring(0, 16)
+              + "... (unverified; the lock remains the fallback)");
+      return;
+    }
+    if (what.stock()) {
+      LocalCompiler local = readLocalCompiler(root);
+      if (had != null && local != null) try { maintainEditorJar(root, acquire(had), null); }
+        catch (Fail e) { System.err.println("flixw: note: could not restore ./flix.jar: " + e.getMessage()); }
+      clearLocalCompiler(root);
+      System.err.println("flixw: local compiler selection cleared; using the locked compiler");
+      return;
     }
 
     String javaPin = clearJava ? null : (java != null ? java : had == null ? null : had.java());
@@ -3067,8 +3262,8 @@ public final class flixw {
       if (what.editorJar() != null) {
 
         try {
-          Path jar = acquire(had);
-          maintainEditorJar(root, jar, what.editorJar());
+          LocalCompiler local = readLocalCompiler(root);
+          maintainEditorJar(root, local != null ? local.path() : acquire(had), what.editorJar());
         } catch (Fail e) {
           System.err.println("flixw: note: could not reach the pinned compiler to"
                   + " update ./flix.jar: " + e.getMessage());
@@ -3077,8 +3272,8 @@ public final class flixw {
       warnMissingJava(javaPin);
       return;
     }
-    Asset asset = resolveRelease(repo, version);
-    String url = asset.url();
+    Cached reuse = what.fetch() ? null : cachedFor(repo, version, had);
+    String url = reuse != null ? reuse.url() : resolveRelease(repo, version);
     Path wrapperDir = root.resolve(WRAPPER_DIR);
     Path tmp;
     try {
@@ -3096,15 +3291,27 @@ public final class flixw {
       catch (IOException ignored) { }
     }
     try {
-      download(rewriteBase(url), tmp);
-      String digest = sha256(tmp);
+      String digest;
+      if (reuse != null) {
+
+        digest = reuse.digest();
+        if (!sha256(reuse.jar()).equals(digest))
+          throw w006("cached " + reuse.jar() + " no longer matches the digest in its name"
+              + "\n       run: ./flixw pin --fetch " + version
+              + "   (downloads it afresh and replaces the entry)");
+      } else {
+        download(rewriteBase(url), tmp);
+        digest = sha256(tmp);
+      }
 
       Path jar = cacheHome().resolve("compilers")
             .resolve("flix-" + canonical(version) + "-" + digest + ".jar");
-      if (!Files.isRegularFile(jar)) {
+
+      if (reuse == null && (!Files.isRegularFile(jar) || !sha256(jar).equals(digest))) {
         try {
           Files.createDirectories(jar.getParent());
-          Files.move(tmp, jar, StandardCopyOption.ATOMIC_MOVE);
+          Files.move(tmp, jar, StandardCopyOption.ATOMIC_MOVE,
+               StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException ignored) { }
       }
 
@@ -3115,10 +3322,14 @@ public final class flixw {
                  had == null ? Map.of() : had.plugins());
 
       writePinRecord(digest, repo, version);
+      if (reuse == null) recordFetch(digest, url);
 
       writeAtomic(lockFile, lock);
       System.err.println("flixw: pinned Flix " + version + " from " + repo
               + " (" + digest.substring(0, 16) + "...)");
+      if (reuse != null)
+        System.err.println("       from the cache, nothing downloaded;"
+                + " ./flixw pin --fetch " + version + " downloads it afresh");
       if (!repo.equals(UPSTREAM_REPO))
         System.err.println("       a fork is not stock-compatibility evidence;"
                 + " see docs/LIMITATIONS.md");
@@ -3131,7 +3342,11 @@ public final class flixw {
         System.err.println("       note: flix.toml asks for " + floor + " or newer,"
                 + " so this lock will not run until one of them moves");
 
-      if (Files.isRegularFile(jar)) maintainEditorJar(root, jar, what.editorJar());
+      if (Files.isRegularFile(jar) && readLocalCompiler(root) == null)
+        maintainEditorJar(root, jar, what.editorJar());
+      else if (readLocalCompiler(root) != null)
+        System.err.println("       note: local compiler override remains active"
+                + " (./flixw pin --stock to use this pin)");
     } catch (IOException e) {
       if (snapshot) restore(lockFile, oldLock);
       throw w009("pin failed: " + why(e));
@@ -3312,7 +3527,7 @@ public final class flixw {
       String name = f.length == 2 ? sumsName(f[1]) : "";
 
       boolean companion = name.matches("flixw-[a-z0-9-]+\\.java")
-              || name.equals(PICOCLI_ASSET);
+              || name.equals(PICOCLI_ASSET) || name.equals(SPECS_ASSET);
       if (companion && !out.contains(name))
         out.add(name);
     }
@@ -3357,8 +3572,8 @@ public final class flixw {
     if (want == null || !want.matches("[0-9a-f]{64}"))
       throw w005("the published SHA256SUMS names no digest for flixw.java");
 
-    Path current = root.resolve(WRAPPER_DIR).resolve("flixw.java");
-    if (Files.isRegularFile(current) && sha256(current).equals(want)) {
+    Path current = root == null ? null : root.resolve(WRAPPER_DIR).resolve("flixw.java");
+    if (current != null && Files.isRegularFile(current) && sha256(current).equals(want)) {
 
       System.out.println("flixw " + WRAPPER_VERSION
               + " is the newest release. Nothing to do.");
@@ -3380,6 +3595,8 @@ public final class flixw {
       if (!got.equals(want))
         throw w006("digest mismatch for the downloaded flixw.java"
             + "\n       published " + want + "\n       downloaded " + got);
+
+      selfCompile(fresh);
 
       Matcher m = Pattern.compile("WRAPPER_VERSION\\s*=\\s*\"([^\"]+)\"")
                .matcher(Files.readString(fresh, StandardCharsets.UTF_8));
@@ -3410,9 +3627,11 @@ public final class flixw {
       Path javaExe = exeIn(System.getProperty("java.home"));
 
       Path installer = ensureAsset(SETUP_ASSET, published == null ? WRAPPER_VERSION : published);
-      ProcessBuilder pb = new ProcessBuilder(javaExe.toString(), installer.toString(),
-                         "setup", root.toString(), fresh.toString())
-                  .inheritIO();
+      ProcessBuilder pb = root == null
+        ? new ProcessBuilder(javaExe.toString(), installer.toString(),
+                  "global-upgrade", fresh.toString()).inheritIO()
+        : new ProcessBuilder(javaExe.toString(), installer.toString(),
+                  "setup", root.toString(), fresh.toString()).inheritIO();
 
       pb.environment().remove("FLIXW_SOURCE");
       pb.environment().remove("FLIXW_RELAUNCHED");
@@ -3434,11 +3653,13 @@ public final class flixw {
   static void wrapperNamespace(List<String> argv) {
     String op = argv.size() > 1 ? argv.get(1) : "--help";
     List<String> rest = argv.subList(Math.min(2, argv.size()), argv.size());
+
+    if (isHelpFlag(op)) {
+      if (!rest.isEmpty()) throw w008(wrapperUsage("'" + op + "' takes no arguments"));
+      renderWrapperHelp("wrapper", wrapperUsage(""), null, null, null, null, List.of(), null, List.of());
+      return;
+    }
     switch (op) {
-      case "--help" -> {
-        if (!rest.isEmpty()) throw w008(wrapperUsage("'--help' takes no arguments"));
-        helpTopic(List.of("wrapper"), null, null, null, null, List.of(), null, List.of(), true);
-      }
       case "--version" -> {
         if (!rest.isEmpty()) throw w008(wrapperUsage("'--version' takes no arguments"));
         System.out.println("flixw " + WRAPPER_VERSION);
@@ -3447,9 +3668,10 @@ public final class flixw {
       }
       case "--upgrade" -> {
         String to = null;
-        boolean pre = false;
+        boolean pre = false, global = false;
         for (String a : rest) {
           if (a.equals("--pre-release")) { pre = true; continue; }
+          if (a.equals("--global")) { global = true; continue; }
           if (to != null)
             throw w008(wrapperUsage("'--upgrade' takes at most one version"));
           to = strip(a);
@@ -3460,7 +3682,7 @@ public final class flixw {
         if (pre && to != null)
           throw w008(wrapperUsage("'--upgrade --pre-release' takes no version"));
 
-        upgradeWrapper(findRoot(wrapperAnchor()), to, pre);
+        upgradeWrapper(global ? null : findRoot(wrapperAnchor()), to, pre);
       }
       case "--install-jdk" -> {
         if (!rest.isEmpty()) throw w008(wrapperUsage("'--install-jdk' takes no arguments"));
@@ -3489,27 +3711,19 @@ public final class flixw {
   }
 
   static String wrapperUsage(String problem) {
-    return "./flixw wrapper: " + problem
-      + "\n       usage: ./flixw wrapper [--help | --version | --upgrade"
-      + "\n                              | --install-jdk | --purge [days] [--yes] | --schema]"
-      + "\n         --help         the routing table for this project"
-      + "\n         --version      the wrapper version and how stage 0 was launched"
-      + "\n         --upgrade [<version>]  move this project to the newest published"
-      + "\n                        flixw, or to the release you name"
-      + "\n                        (to repair the files it has: ./flixw doctor --fix)"
-      + "\n         --pre-release  with --upgrade and no version, the newest published"
-      + "\n                        release even if still finishing its own verification"
-      + "\n                        (releases/latest skips it until that passes)"
-      + "\n         --install-jdk  fetch a verified Temurin " + MIN_JAVA + " into the cache"
-      + "\n         --purge [days] [--yes]  ask before deleting cache entries unused for"
-      + "\n                        that many days, 14 by default"
-      + "\n         --schema       the JSON Schema for " + WRAPPER_DIR + "/lock.toml, on stdout"
-      + "\n       (a TAB-completion script is ./flixw completion <shell>)";
+    String p = problem.isEmpty() ? "" : problem + "\n       ";
+    return "./flixw wrapper: " + p
+      + "usage: ./flixw wrapper [--help | --version | --upgrade"
+      + "\n                              | --install-jdk | --purge [days] [--yes] | --schema]";
   }
 
   static final List<String> COMPLETION_SHELLS = List.of("bash", "zsh", "fish", "pwsh");
 
   static boolean completionEarly(List<String> args) {
+    if (!args.isEmpty() && (args.get(0).equals("--help") || args.get(0).equals("-h"))) {
+      renderWrapperHelp("completion", COMPLETION_USAGE, null, null, null, null, null, null, List.of());
+      return true;
+    }
     completionShell(args);
     Path root = null;
     try { root = findRoot(wrapperAnchor()); } catch (Fail ignored) { }
@@ -3559,19 +3773,16 @@ public final class flixw {
 
   static final String INSPECT_ASSET = "flixw-inspect.java";
 
-  static final String HELP_ASSET = "flixw-help.java";
+  static final String CLI_ASSET = "flixw-cli.java";
 
   static final String EXAMPLES_ASSET = "flixw-examples.java";
 
   static final String LOCAL_ASSET = "flixw-local.java";
 
-  static final String PICOCLI_VERSION = "4.7.8";
+  static final String PICOCLI_VERSION = "4.9.4";
   static final String PICOCLI_ASSET = "picocli-" + PICOCLI_VERSION + ".jar";
 
-  static void assetHelp(String assetName, String selector) {
-    int rc = runAsset(ensureAsset(assetName), ensureAsset(PICOCLI_ASSET), List.of(selector));
-    if (rc != 0) throw w009("cannot render help for " + assetName + " (exit " + rc + ")");
-  }
+  static final String SPECS_ASSET = "flixw-specs.jar";
 
   static String storedHelp(String identity) {
     try {
@@ -3645,9 +3856,12 @@ public final class flixw {
   static int renderHelp(List<String> rest, Path root, Lock lock, Path jar, Jvm jvm,
              List<String> compilerVerbs, String identity, List<String> jvmOpts)
       throws IOException {
-    Path ctx = Files.createTempFile("flixw-help-", ".txt");
+    Path ctx = Files.createTempFile("flixw-cli-", ".txt");
     try {
-      Path asset = ensureAsset(HELP_ASSET), picocli = ensureAsset(PICOCLI_ASSET);
+      Path asset = ensureAsset(CLI_ASSET), picocli = ensureAsset(PICOCLI_ASSET), specs = null;
+
+      try { specs = ensureAsset(SPECS_ASSET); }
+      catch (Fail f) { if (f.code.equals("FLIXW006")) throw f; tr("specs: " + f.getMessage()); }
       Files.writeString(ctx, helpContext(root, lock, jar, jvm, compilerVerbs, identity,
                         env("FLIX_JAR") != null),
                StandardCharsets.UTF_8);
@@ -3655,22 +3869,35 @@ public final class flixw {
       a.addAll(rest.subList(0, Math.min(3, rest.size())));
 
       a.addAll(jvmOpts);
-      return runAsset(asset, picocli, a);
+      return runAsset(asset, picocli, specs, a);
     } finally {
       try { Files.deleteIfExists(ctx); } catch (IOException ignored) { }
     }
   }
 
-  static boolean compilerVerbHelp(String verb, Path root, Lock lock, Path jar, Jvm jvm,
+  static boolean compilerVerbHelp(String verb, String flag, Path root, Lock lock, Path jar, Jvm jvm,
                   List<String> compilerVerbs, String identity,
                   List<String> jvmOpts) {
     try {
-      return renderHelp(List.of("flix-direct", verb), root, lock, jar, jvm,
-               compilerVerbs, identity, jvmOpts) == 0;
+      List<String> a = flag == null ? List.of("flix-direct", verb) : List.of("flix-direct", verb, flag);
+      return renderHelp(a, root, lock, jar, jvm, compilerVerbs, identity, jvmOpts) == 0;
     } catch (IOException | RuntimeException e) {
       tr("cannot render compiler help for " + verb + ": " + why(e));
       return false;
     }
+  }
+
+  static void renderWrapperHelp(String verb, String fallback, Path root, Lock lock, Path jar,
+                 Jvm jvm, List<String> compilerVerbs, String identity, List<String> opts) {
+    renderWrapperHelp(List.of(verb), fallback, root, lock, jar, jvm, compilerVerbs, identity, opts);
+  }
+
+  static void renderWrapperHelp(List<String> words, String fallback, Path root, Lock lock, Path jar,
+                 Jvm jvm, List<String> compilerVerbs, String identity, List<String> opts) {
+    try {
+      if (renderHelp(words, root, lock, jar, jvm, compilerVerbs, identity, opts) == 0) return;
+    } catch (IOException | RuntimeException ignored) { }
+    System.out.println(fallback);
   }
 
   static void offlineHelp(String identity, Exception e) {
@@ -3854,7 +4081,7 @@ public final class flixw {
       routingNotice(first, lock == null ? "none" : lock.version());
       if (first.equals("pin")) {
         List<String> rest = argv.subList(1, argv.size());
-        if (wantsHelp(rest)) System.out.println(PIN_USAGE);
+        if (wantsHelp(rest)) renderWrapperHelp("pin", PIN_USAGE, root, lock, null, null, null, null, List.of());
         else pin(root, parsePin(rest, lock));
       } else if (bareHelp) {
         wrapperVerb("help", List.of(), root, lock, null, null, null, null);
@@ -3872,7 +4099,7 @@ public final class flixw {
     if ("pin".equals(first) && !forcedCompiler) {
       routingNotice("pin", lock.version());
       List<String> rest = argv.subList(1, argv.size());
-      if (wantsHelp(rest)) System.out.println(PIN_USAGE);
+      if (wantsHelp(rest)) renderWrapperHelp("pin", PIN_USAGE, root, lock, null, null, null, null, List.of());
       else pin(root, parsePin(rest, lock));
       return;
     }
@@ -3894,13 +4121,23 @@ public final class flixw {
 
     Path jar;
     String fj = env("FLIX_JAR");
-    boolean override = fj != null;
+    LocalCompiler local = fj == null ? readLocalCompiler(root) : null;
+    boolean override = fj != null || local != null;
     if (override) {
-      jar = Paths.get(fj).toAbsolutePath();
-      if (!Files.isRegularFile(jar)) throw w008("FLIX_JAR=" + fj + " is not a file");
-      System.err.println("flixw: note: FLIX_JAR override in use; the JAR is NOT digest-verified"
-              + " and this run is not stock-compatibility evidence");
-      reportOverrideGap(lock, jar);
+      if (fj != null) {
+        jar = Paths.get(fj).toAbsolutePath();
+        if (!Files.isRegularFile(jar)) throw w008("FLIX_JAR=" + fj + " is not a file");
+        System.err.println("flixw: note: FLIX_JAR override in use; the JAR is NOT digest-verified"
+                + " and this run is not stock-compatibility evidence");
+        reportOverrideGap(lock, jar);
+      } else {
+        jar = local.path();
+        if (!Files.isRegularFile(jar))
+          throw w008("local compiler " + jar + " is not a readable file"
+              + "\n       run: ./flixw pin --stock   (to restore the locked compiler)");
+        System.err.println("flixw: note: local compiler override in use; the JAR is NOT digest-verified"
+                + " and this run is not stock-compatibility evidence");
+      }
     } else jar = acquire(lock);
 
     String verbId = verbIdentity(jar, lock, override);
@@ -3909,6 +4146,7 @@ public final class flixw {
 
     if (lock != null)
       reportVersionGap("the pinned compiler", lock.version(), lock.reportedVersion());
+
     selfCompile(selfSource());
 
     boolean toCompiler; List<String> forward = argv;
@@ -3934,10 +4172,7 @@ public final class flixw {
     }
 
     if (!toCompiler && "help".equals(first)
-      && localHelpTopic(forward.subList(Math.min(1, forward.size()), forward.size())))
-      return;
-    if (!toCompiler && "help".equals(first)
-      || (!forcedCompiler && ("--help".equals(first) || "-h".equals(first)) && argv.size() == 1)) {
+      || (!forcedCompiler && isHelpFlag(first) && argv.size() == 1)) {
 
       helpTopic(forward.subList(Math.min(1, forward.size()), forward.size()),
            root, lock, jar, jvm, compilerVerbs, verbId, opts, true);
@@ -3945,9 +4180,10 @@ public final class flixw {
     }
 
     if (toCompiler && !forcedCompiler && first != null && compilerVerbs.contains(first)
-      && exactCompilerHelp(forward)
-      && compilerVerbHelp(first, root, lock, jar, jvm, compilerVerbs, verbId, opts))
+      && exactCompilerHelp(forward)) {
+      compilerVerbHelp(first, forward.get(1), root, lock, jar, jvm, compilerVerbs, verbId, opts);
       return;
+    }
 
     if (!toCompiler && pluginOwner != null && !WRAPPER_VERBS.contains(first)) {
       runDeclaredPlugin(pluginOwner, first, forward.subList(1, forward.size()),
@@ -3978,7 +4214,11 @@ public final class flixw {
   }
 
   static boolean exactCompilerHelp(List<String> argv) {
-    return argv.size() == 2 && ("--help".equals(argv.get(1)) || "-h".equals(argv.get(1)));
+    return argv.size() == 2 && isHelpFlag(argv.get(1));
+  }
+
+  static boolean isHelpFlag(String arg) {
+    return arg != null && ("--help".equals(arg) || "-h".equals(arg) || arg.matches("^--[A-Za-z0-9_-]*help$"));
   }
 
   static void routingNotice(String verb, String compilerVersion) {
