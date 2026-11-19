@@ -1,4 +1,4 @@
 [package]
 version    = "0.2.0"
 repository = "github:wstein/flix-invaders"
-flix       = "0.79.0"
+flix       = "0.80.0"
