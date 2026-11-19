@@ -1,0 +1,11 @@
+{
+  "name": "flix-invaders",
+  "private": true,
+  "scripts": {
+    "format:check": "prettier --check --no-error-on-unmatched-pattern \"src/**/*.flix\" \"test/**/*.flix\""
+  },
+  "devDependencies": {
+    "prettier": "3.10.1",
+    "prettier-plugin-flix": "https://github.com/wstein/prettier-plugin-flix/releases/download/v0.80.0/prettier-plugin-flix-0.80.0.tgz"
+  }
+}

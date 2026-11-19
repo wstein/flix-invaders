@@ -10,3 +10,4 @@ out/
 .metals/
 .idea/
 /flix.jar
+/node_modules/
