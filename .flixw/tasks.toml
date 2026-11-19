@@ -1,0 +1,5 @@
+# Prettier with prettier-plugin-flix does the formatting. `./flixw format` is the
+# compiler's own formatter verb and compiler verbs win over tasks, so these tasks use
+# other names.
+fmt       = "npx prettier --write \"src/**/*.flix\" \"test/**/*.flix\""
+fmt-check = "npm run format:check"
