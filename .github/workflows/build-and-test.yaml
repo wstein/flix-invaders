@@ -91,6 +91,5 @@ jobs:
             exit 1
           fi
 
-      # Do not run the formatter in CI: Flix 0.79.0 can comment out record fields
-      # while reporting success (https://github.com/flix/flix/issues/13676).
-      # Reassess formatting enforcement after a fixed release is validated.
+      # Formatting is checked by the separate Format workflow (format.yaml), which runs
+      # Prettier with prettier-plugin-flix. The compiler's own formatter is not used.

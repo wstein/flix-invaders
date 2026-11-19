@@ -1,0 +1,4 @@
+{
+  "plugins": ["prettier-plugin-flix"],
+  "printWidth": 100
+}
