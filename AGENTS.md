@@ -14,9 +14,10 @@ It does **not** change the working directory, which the `bin/flix` it replaced d
 from the project root: `main` resolves `assets/` relative to the caller.
 
 - `./flixw check` — type-check without generating code; the fast feedback loop, and the linter
-- `./flixw format` — optional formatter; inspect its diff before keeping any changes.
-  Flix 0.79.0 can comment out record fields while reporting success
-  (<https://github.com/flix/flix/issues/13676>), so formatting is not a commit or CI requirement
+- `npm ci`, then `npm run format:check` (or `./flixw task fmt-check`) — check the formatting of the
+  Flix files under `src/` and `test/`; CI runs it in the Format workflow. Node.js 22
+- `./flixw task fmt` — rewrite them with Prettier and prettier-plugin-flix. Do not use
+  `./flixw format`, the compiler's own formatter, which this project no longer uses
 - `./flixw test` — run every `@Test` function under `test/`
 - `./flixw run` — run `main`; recompiles the whole project first, so it is the slow way in
 - `bin/play` — run the game, compiling only when a source actually changed. About 1.4s

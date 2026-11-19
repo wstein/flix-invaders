@@ -19,7 +19,9 @@ cd flix-invaders
 Before opening a pull request, run:
 
 ```sh
-./flixw format
+npm ci                      # once; Node.js 22 for the Prettier check
+./flixw task fmt            # Prettier with prettier-plugin-flix, not ./flixw format
+npm run format:check        # or ./flixw task fmt-check
 ./flixw check
 ./flixw test
 ```

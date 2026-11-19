@@ -5,7 +5,7 @@
 # file, type in it, save it, and it is still formatted.
 #
 # Rules that require parsing Flix — spacing, wrapping, alignment — are left to
-# `flix format`, which is the authority on them.
+# Prettier with prettier-plugin-flix (`./flixw task fmt`), which is the authority on them.
 
 root = true
 
