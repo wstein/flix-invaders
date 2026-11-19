@@ -13,8 +13,8 @@ reported_version = "0.80.0"
 version = "21"
 
 [plugins.flixw-metrics]
-version = "0.5.0"
-sha256  = "d806e21d463ee569621257b89938bc4846c1aaa3041d79bfbd6da9fba97d51bb"
-source  = "https://github.com/wstein/flixw-metrics/releases/download/v0.5.0/plugin.jar"
+version = "0.6.0"
+sha256  = "ca608b6d6765280a0dd799224ba8a1c0a4fb5bdc7f13b91928133229fc5c385a"
+source  = "https://github.com/wstein/flixw-metrics/releases/download/v0.6.0/plugin.jar"
 description = "code metrics, counted by the compiler not by reading text"
 command = "metrics"

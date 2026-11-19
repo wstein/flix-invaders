@@ -34,7 +34,12 @@ from the project root: `main` resolves `assets/` relative to the caller.
 - `bin/bench` — measure the demo bot over ten seeds; **run this before and after any change to
   `src/Invaders/Demo.flix` or to a tuning constant in `Rules`**
 
-Run the unfiltered metrics report after tests and before every commit. Use `--file "src/**"`
+Run the unfiltered metrics report after tests and before every commit. Metrics 0.6.0 does
+not yet support the pinned Flix 0.80.0: `./flixw metrics` prints "the pinned compiler has no
+supported engine API" and exits 2 without a report (checked here). Until a plugin release lists
+0.80.0, say in the commit or pull request that no metrics report could be produced instead of
+treating the empty run as a clean result. The committed `metric.json` predates it and is not
+regenerated. Use `--file "src/**"`
 (optionally with `--rule` or `--severity`) to inspect a scoped set of rendered findings without
 changing policy. Fix genuine findings or document why they are intentional; do not mechanically
 optimise rankings or contextual handler/effect facts, which are measurements rather than policy.
