@@ -1,5 +1,4 @@
 mod TestStill {
-
     use Assert.assertEq
     use Assert.assertTrue
     use Assert.assertTrueWithMsg
@@ -40,14 +39,20 @@ mod TestStill {
     @Test
     def testTheSceneDrawsASunAndSomeBuildings(): Unit \ Assert = {
         let cmds = scene();
-        let ellipses = List.count(cmd -> match cmd {
-            case DrawCmd.Ellipse(_, _, _, _) => true
-            case _ => false
-        }, cmds);
-        let rects = List.count(cmd -> match cmd {
-            case DrawCmd.Rect(_, _, _, _) => true
-            case _ => false
-        }, cmds);
+        let ellipses = List.count(
+            cmd -> match cmd {
+                case DrawCmd.Ellipse(_, _, _, _) => true
+                case _ => false
+            },
+            cmds
+        );
+        let rects = List.count(
+            cmd -> match cmd {
+                case DrawCmd.Rect(_, _, _, _) => true
+                case _ => false
+            },
+            cmds
+        );
         assertTrueWithMsg(ellipses >= 1, "the sun is gone");
         // Ground, three buildings, two windows each.
         assertTrueWithMsg(rects >= 4, "only ${rects} rectangles left in the skyline")
@@ -61,18 +66,25 @@ mod TestStill {
     ///
     @Test
     def testEverythingDrawnIsAtLeastPartlyVisible(): Unit \ Assert =
-        List.forEach(cmd -> match cmd {
-            case DrawCmd.Rect(x, y, w, h) =>
-                assertTrueWithMsg(visible(x, y, w, h), "rect at (${x}, ${y}) is off-canvas")
-            case DrawCmd.Ellipse(x, y, w, h) =>
-                // Ellipses are centred, rectangles are not.
-                assertTrueWithMsg(visible(x - w / 2.0f32, y - h / 2.0f32, w, h),
-                    "ellipse at (${x}, ${y}) is off-canvas")
-            case DrawCmd.Text(s, x, y) =>
-                assertTrueWithMsg(visible(x, y, 1.0f32, 1.0f32),
-                    "text \"${s}\" starts off-canvas at (${x}, ${y})")
-            case _ => ()
-        }, scene())
+        List.forEach(
+            cmd -> match cmd {
+                case DrawCmd.Rect(x, y, w, h) =>
+                    assertTrueWithMsg(visible(x, y, w, h), "rect at (${x}, ${y}) is off-canvas")
+                case DrawCmd.Ellipse(x, y, w, h) =>
+                    // Ellipses are centred, rectangles are not.
+                    assertTrueWithMsg(
+                        visible(x - w / 2.0f32, y - h / 2.0f32, w, h),
+                        "ellipse at (${x}, ${y}) is off-canvas"
+                    )
+                case DrawCmd.Text(s, x, y) =>
+                    assertTrueWithMsg(
+                        visible(x, y, 1.0f32, 1.0f32),
+                        "text \"${s}\" starts off-canvas at (${x}, ${y})"
+                    )
+                case _ => ()
+            },
+            scene()
+        )
 
     ///
     /// Every colour on screen is one `TestContrast` already vouches for.
@@ -83,14 +95,21 @@ mod TestStill {
     @Test
     def testEveryColourComesFromThePalette(): Unit \ Assert = {
         let known = Palette.background() :: Palette.textColors() ::: Palette.shapeColors();
-        let vouched = (c, place) ->
-            assertTrueWithMsg(List.memberOf(c, known), "${place} uses ${c}, which is not in the palette");
-        List.forEach(cmd -> match cmd {
-            case DrawCmd.Clear(c) => vouched(c, "the sky")
-            case DrawCmd.Fill(c) => vouched(c, "a shape")
-            case DrawCmd.FillAlpha(c, _) => vouched(c, "an overlay")
-            case _ => ()
-        }, scene())
+        let vouched =
+            (c, place) ->
+                assertTrueWithMsg(
+                    List.memberOf(c, known),
+                    "${place} uses ${c}, which is not in the palette"
+                );
+        List.forEach(
+            cmd -> match cmd {
+                case DrawCmd.Clear(c) => vouched(c, "the sky")
+                case DrawCmd.Fill(c) => vouched(c, "a shape")
+                case DrawCmd.FillAlpha(c, _) => vouched(c, "an overlay")
+                case _ => ()
+            },
+            scene()
+        )
     }
 
     @Test
@@ -99,5 +118,4 @@ mod TestStill {
         assertEq(expected = scene(), scene());
         assertTrue(not List.isEmpty(scene()))
     }
-
 }

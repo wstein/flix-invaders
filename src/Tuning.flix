@@ -19,7 +19,6 @@
 /// means the configs already written with it recover on their own.
 ///
 mod Tuning {
-
     use Util.Json.Json
 
     def fileName(): String = "tuning.json"
@@ -35,40 +34,48 @@ mod Tuning {
     ///
     def aimGroup(t: Tuning): List[String] =
         "  \"aimJitter\":        ${t#aimJitter}," ::
-        "  \"judgeFor\":         ${t#judgeFor}," ::
-        "  \"judgeSpread\":      ${t#judgeSpread}," :: Nil
+            "  \"judgeFor\":         ${t#judgeFor}," ::
+            "  \"judgeSpread\":      ${t#judgeSpread}," ::
+            Nil
 
     def lapseGroup(t: Tuning): List[String] =
         "  \"lapseOneIn\":       ${t#lapseOneIn}," ::
-        "  \"lapseFor\":         ${t#lapseFor}," ::
-        "  \"lapseSpread\":      ${t#lapseSpread}," :: Nil
+            "  \"lapseFor\":         ${t#lapseFor}," ::
+            "  \"lapseSpread\":      ${t#lapseSpread}," ::
+            Nil
 
     def movementGroup(t: Tuning): List[String] =
-        "  \"startAt\":          ${t#startAt}," ::
-        "  \"reverseAt\":        ${t#reverseAt}," :: Nil
+        "  \"startAt\":          ${t#startAt}," :: "  \"reverseAt\":        ${t#reverseAt}," :: Nil
 
     def dangerGroup(t: Tuning): List[String] =
         "  \"dangerWidth\":      ${t#dangerWidth}," ::
-        "  \"selfPreservation\": ${t#selfPreservation}," ::
-        "  \"urgency\":          ${t#urgency}," ::
-        "  \"shelterRelief\":    ${t#shelterRelief}," ::
-        "  \"blockedCost\":      ${t#blockedCost}," :: Nil
+            "  \"selfPreservation\": ${t#selfPreservation}," ::
+            "  \"urgency\":          ${t#urgency}," ::
+            "  \"shelterRelief\":    ${t#shelterRelief}," ::
+            "  \"blockedCost\":      ${t#blockedCost}," ::
+            Nil
 
     def targetGroup(t: Tuning): List[String] =
         "  \"calm\":             ${t#calm}," ::
-        "  \"finishFlank\":      ${t#finishFlank}," ::
-        "  \"narrowTo\":         ${t#narrowTo}," ::
-        "  \"narrowing\":        ${t#narrowing}," ::
-        "  \"fireWindow\":       ${t#fireWindow}," ::
-        "  \"imminence\":        ${t#imminence}" :: Nil
+            "  \"finishFlank\":      ${t#finishFlank}," ::
+            "  \"narrowTo\":         ${t#narrowTo}," ::
+            "  \"narrowing\":        ${t#narrowing}," ::
+            "  \"fireWindow\":       ${t#fireWindow}," ::
+            "  \"imminence\":        ${t#imminence}" ::
+            Nil
 
     /// Encodes a Tuning configuration record into formatted JSON text.
     pub def encode(t: Tuning): String =
-        let groups = aimGroup(t) ::: "" ::
-                     lapseGroup(t) ::: "" ::
-                     movementGroup(t) ::: "" ::
-                     dangerGroup(t) ::: "" ::
-                     targetGroup(t);
+        let groups =
+            aimGroup(t) :::
+                "" ::
+                lapseGroup(t) :::
+                "" ::
+                movementGroup(t) :::
+                "" ::
+                dangerGroup(t) :::
+                "" ::
+                targetGroup(t);
         String.unlines("{" :: groups ::: "}" :: Nil)
 
     // -- reading -----------------------------------------------------------------------------
@@ -90,8 +97,7 @@ mod Tuning {
 
     def whole(members: Map[String, Json], key: String, fallback: Int32): Int32 =
         match Map.get(key, members) {
-            case Some(Json.JNumber(v)) =>
-                Option.getWithDefault(fallback, BigDecimal.tryToInt32(v))
+            case Some(Json.JNumber(v)) => Option.getWithDefault(fallback, BigDecimal.tryToInt32(v))
             case _ => fallback
         }
 
@@ -190,10 +196,8 @@ mod Tuning {
         }
 
     /// Serializes and writes a Tuning configuration record to disk at the specified path.
-    pub def save(file: String, dir: String, t: Tuning)
-        : Result[String, Unit] \ Fs.FileWrite =
-        Fs.FileWrite.mkDirs(dir)
-            |> Result.flatMap(_ -> Fs.FileWrite.write(str = encode(t), file))
-            |> Result.mapErr(why -> "${why}")
-
+    pub def save(file: String, dir: String, t: Tuning): Result[String, Unit] \ Fs.FileWrite =
+        Fs.FileWrite.mkDirs(dir) |>
+            Result.flatMap(_ -> Fs.FileWrite.write(str = encode(t), file)) |>
+            Result.mapErr(why -> "${why}")
 }

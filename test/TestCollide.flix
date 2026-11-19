@@ -1,5 +1,4 @@
 mod TestCollide {
-
     use Assert.assertTrue
     use Assert.assertFalse
 
@@ -15,7 +14,9 @@ mod TestCollide {
 
     @Test
     def testConcentricRectanglesOverlap(): Unit \ Assert =
-        assertTrue(hits(at(100.0f32, 100.0f32), box(), at(100.0f32, 100.0f32), size(10.0f32, 10.0f32)))
+        assertTrue(
+            hits(at(100.0f32, 100.0f32), box(), at(100.0f32, 100.0f32), size(10.0f32, 10.0f32))
+        )
 
     @Test
     def testPartialOverlapCounts(): Unit \ Assert =
@@ -70,7 +71,12 @@ mod TestCollide {
     @Test
     def testABulletSizedRectHitsAnInvaderSizedRect(): Unit \ Assert =
         // The real pairing the game relies on.
-        assertTrue(hits(at(200.0f32, 100.0f32), Rules.bulletSize(),
-                        at(200.0f32, 100.0f32), Rules.invaderSize()))
-
+        assertTrue(
+            hits(
+                at(200.0f32, 100.0f32),
+                Rules.bulletSize(),
+                at(200.0f32, 100.0f32),
+                Rules.invaderSize()
+            )
+        )
 }

@@ -37,7 +37,6 @@ pub type alias Bouncing = {
 }
 
 mod Animation {
-
     ///
     /// The field the balls bounce in, which is also the window `main` opens.
     ///
@@ -113,14 +112,13 @@ mod Animation {
     pub def initial(seed: Int64): Bouncing =
         { balls = makeBalls(4, 0, Rng.fromSeed(seed)), nudge = 0.0f32 }
 
-    def clampBounds(pos: Float32, vel: Float32,
-                    minPos: Float32, maxPos: Float32): (Float32, Float32) =
+    def clampBounds(pos: Float32, vel: Float32, minPos: Float32, maxPos: Float32): (
+        Float32,
+        Float32
+    ) =
         if (pos < minPos)
             (minPos, Float32.abs(vel))
-        else if (pos > maxPos)
-            (maxPos, -Float32.abs(vel))
-        else
-            (pos, vel)
+        else if (pos > maxPos) (maxPos, -Float32.abs(vel)) else (pos, vel)
 
     ///
     /// Reflects a ball off the walls and moves it one step.
@@ -147,8 +145,10 @@ mod Animation {
 
     /// Keeps a ball inside the field without touching its velocity.
     def clampToField(b: Ball): Ball =
-        { x = clampTo(b#radius, fieldWidth() - b#radius, b#x),
-          y = clampTo(b#radius, fieldHeight() - b#radius, b#y) | b }
+        {
+            x = clampTo(b#radius, fieldWidth() - b#radius, b#x),
+            y = clampTo(b#radius, fieldHeight() - b#radius, b#y) | b
+        }
 
     ///
     /// The mass of a ball.
@@ -178,8 +178,7 @@ mod Animation {
     /// has done that by the time this is called. Without the check a pair can get stuck,
     /// flipping their velocities every step and vibrating in place instead of parting.
     ///
-    def bounceBalls(a1: Ball, b1: Ball,
-                    masses: Masses, norm: CollisionNorm): (Ball, Ball) =
+    def bounceBalls(a1: Ball, b1: Ball, masses: Masses, norm: CollisionNorm): (Ball, Ball) =
         if (norm#closing >= 0.0f32)
             (a1, b1)
         else {
@@ -189,8 +188,10 @@ mod Animation {
             let deltaAy = impulse / massA * norm#ny;
             let deltaBx = impulse / massB * norm#nx;
             let deltaBy = impulse / massB * norm#ny;
-            ({ dx = a1#dx - deltaAx, dy = a1#dy - deltaAy | a1 },
-             { dx = b1#dx + deltaBx, dy = b1#dy + deltaBy | b1 })
+            (
+                { dx = a1#dx - deltaAx, dy = a1#dy - deltaAy | a1 },
+                { dx = b1#dx + deltaBx, dy = b1#dy + deltaBy | b1 }
+            )
         }
 
     ///
@@ -228,14 +229,11 @@ mod Animation {
             let overlap = touching - distance;
             let shareA = overlap * (massB / total);
             let shareB = overlap * (massA / total);
-            let a1 = { x = a#x - nx * shareA,
-                       y = a#y - ny * shareA | a };
-            let b1 = { x = b#x + nx * shareB,
-                       y = b#y + ny * shareB | b };
+            let a1 = { x = a#x - nx * shareA, y = a#y - ny * shareA | a };
+            let b1 = { x = b#x + nx * shareB, y = b#y + ny * shareB | b };
 
             // Closing speed along the normal. Negative means they are approaching.
-            let closing = (b#dx - a#dx) * nx
-                + (b#dy - a#dy) * ny;
+            let closing = (b#dx - a#dx) * nx + (b#dy - a#dy) * ny;
             let masses = { a = massA, b = massB };
             let norm = { nx = nx, ny = ny, closing = closing };
             bounceBalls(a1, b1, masses, norm)
@@ -279,14 +277,20 @@ mod Animation {
     ///
     pub def view(world: Bouncing): Unit \ Canvas = {
         Canvas.clear(Palette.background());
-        List.forEach(b -> {
-            Canvas.fill(b#tint);
-            Canvas.ellipse(b#x, b#y, b#radius * 2.0f32, b#radius * 2.0f32)
-        }, world#balls);
+        List.forEach(
+            b -> {
+                Canvas.fill(b#tint);
+                Canvas.ellipse(b#x, b#y, b#radius * 2.0f32, b#radius * 2.0f32)
+            },
+            world#balls
+        );
         Canvas.fill(Palette.dim());
         Canvas.textSize(13.0f32);
-        Canvas.text("left/right arrows nudge the balls -- they bounce off each other too",
-            24.0f32, fieldHeight() - 28.0f32)
+        Canvas.text(
+            "left/right arrows nudge the balls -- they bounce off each other too",
+            24.0f32,
+            fieldHeight() - 28.0f32
+        )
     }
 
     /// Entry point for running the standalone animation sketch.
@@ -294,15 +298,18 @@ mod Animation {
         let limit = Sketch.maxFramesFromEnv();
         // The demo sketches have nothing to persist; only the game reads the closing state.
         discard Sketch.start(
-            { title = "Animation",
-              width = fieldWidthPx(),
-              height = fieldHeightPx(),
-              seed = 2026i64,
-              hz = 60,
-              maxFrames = limit, fontPath = None },
+            {
+                title = "Animation",
+                width = fieldWidthPx(),
+                height = fieldHeightPx(),
+                seed = 2026i64,
+                hz = 60,
+                maxFrames = limit,
+                fontPath = None
+            },
             initial,
             Sound.silent(step),
-            (world, _stats) -> view(world))
+            (world, _stats) -> view(world)
+        )
     }
-
 }

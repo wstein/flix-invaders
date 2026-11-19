@@ -7,11 +7,9 @@
 /// behind the tags before this existed, and nothing noticed.
 ///
 mod Meta {
-
     /// The semantic version string of the build.
     pub def version(): String = "0.2.0"
 
     /// The version as it appears on screen.
     pub def label(): String = "v${version()}"
-
 }

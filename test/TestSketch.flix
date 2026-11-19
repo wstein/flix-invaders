@@ -7,7 +7,6 @@
 /// exercised by the bounded windowed run the smoke workflow makes instead.
 ///
 mod TestSketch {
-
     use Assert.assertEq
     use Assert.assertFalse
     use Assert.assertTrue
@@ -96,8 +95,7 @@ mod TestSketch {
     /// use it for anything else, and this is where that is written down.
     ///
     @Test
-    def testEscapeClosesTheWindow(): Unit \ Assert =
-        assertTrue(Surface.closesWindow(27))
+    def testEscapeClosesTheWindow(): Unit \ Assert = assertTrue(Surface.closesWindow(27))
 
     @Test
     def testTheKeysTheGamePlaysWithReachTheGame(): Unit \ Assert = {
@@ -236,5 +234,4 @@ mod TestSketch {
         let covered = Int32.toInt64(frames) * frameNs;
         assertEq(expected = Int64.tryToInt32(covered / stepNs), Some(ran))
     }
-
 }

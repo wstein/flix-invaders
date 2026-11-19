@@ -26,7 +26,6 @@ pub type alias Stats = {
 /// testable without opening a window.
 ///
 mod Stats {
-
     /// Initial zeroed telemetry statistics record.
     pub def empty(): Stats =
         { fps = 0.0f32, simMs = 0.0f32, drawMs = 0.0f32, steps = 0, frames = 0, catchUps = 0 }
@@ -80,12 +79,14 @@ mod Stats {
     ///
     pub def observe(previous: Stats, sample: Sample): Stats = {
         let first = previous#frames == 0;
-        { fps = blend(first, previous#fps, rateFrom(sample#frameNs)),
-          simMs = blend(first, previous#simMs, millis(sample#simNs)),
-          drawMs = blend(first, previous#drawMs, millis(sample#drawNs)),
-          steps = sample#steps,
-          frames = previous#frames + 1,
-          catchUps = previous#catchUps + (if (sample#clamped) 1 else 0) }
+        {
+            fps = blend(first, previous#fps, rateFrom(sample#frameNs)),
+            simMs = blend(first, previous#simMs, millis(sample#simNs)),
+            drawMs = blend(first, previous#drawMs, millis(sample#drawNs)),
+            steps = sample#steps,
+            frames = previous#frames + 1,
+            catchUps = previous#catchUps + (if (sample#clamped) 1 else 0)
+        }
     }
 
     ///
@@ -115,5 +116,4 @@ mod Stats {
         let padded = if (fraction < 10) "0${fraction}" else "${fraction}";
         "${parts / 100}.${padded}"
     }
-
 }

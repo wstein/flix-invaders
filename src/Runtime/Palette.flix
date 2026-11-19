@@ -7,7 +7,6 @@
 /// point -- a sketch that looks fine on one display should stay legible on another.
 ///
 mod Palette {
-
     /// The background every sketch clears to. Near-black, like an arcade cabinet.
     pub def background(): Color = Color.Rgb(8, 8, 14)
 
@@ -59,8 +58,16 @@ mod Palette {
     /// Colours used for shapes on `background`. Must reach a 3.0 contrast ratio.
     ///
     pub def shapeColors(): List[Color] =
-        silhouette() :: sun() :: coral() :: mint() :: azure()
-            :: invaderGreen() :: invaderCyan() :: invaderMagenta()
-            :: cannonGreen() :: ground() :: shot() :: Nil
-
+        silhouette() ::
+            sun() ::
+            coral() ::
+            mint() ::
+            azure() ::
+            invaderGreen() ::
+            invaderCyan() ::
+            invaderMagenta() ::
+            cannonGreen() ::
+            ground() ::
+            shot() ::
+            Nil
 }

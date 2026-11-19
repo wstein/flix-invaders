@@ -17,7 +17,6 @@ pub enum SoundCmd with Eq, Order, ToString {
 }
 
 mod SoundCmd {
-
     ///
     /// How many notes the marching bassline cycles through.
     ///
@@ -28,14 +27,13 @@ mod SoundCmd {
     ///
     pub def all(): List[SoundCmd] =
         SoundCmd.Shoot ::
-        SoundCmd.InvaderDies ::
-        SoundCmd.PlayerDies ::
-        SoundCmd.MysteryAppears ::
-        SoundCmd.MysteryDies ::
-        SoundCmd.ShieldBlock ::
-        SoundCmd.ExtraLife ::
-        List.map(n -> SoundCmd.MarchStep(n), List.range(0, marchNotes()))
-
+            SoundCmd.InvaderDies ::
+            SoundCmd.PlayerDies ::
+            SoundCmd.MysteryAppears ::
+            SoundCmd.MysteryDies ::
+            SoundCmd.ShieldBlock ::
+            SoundCmd.ExtraLife ::
+            List.map(n -> SoundCmd.MarchStep(n), List.range(0, marchNotes()))
 }
 
 ///
@@ -50,10 +48,8 @@ pub eff Sound {
 }
 
 mod Sound {
-
     /// The type of a `Sound` interpretation that returns a result and the recorded commands.
-    type alias SoundCollector[a: Type, b: Type, ef: Eff] =
-        a -> (b, List[SoundCmd]) \ ef - Sound
+    type alias SoundCollector[a: Type, b: Type, ef: Eff] = a -> (b, List[SoundCmd]) \ ef - Sound
 
     ///
     /// Interprets `Sound` by recording what was played instead of playing it.
@@ -61,15 +57,17 @@ mod Sound {
     /// Pure: the accumulator lives in a region that is fully discharged here, so this needs
     /// no `IO` and touches no device. This is what the sound tests use.
     ///
-    pub def handleWithCollector(f: a -> b \ ef)
-        : SoundCollector[a, b, ef] =
+    pub def handleWithCollector(f: a -> b \ ef): SoundCollector[a, b, ef] =
         input -> region rc {
             let acc: Ref[List[SoundCmd], rc] = Ref.fresh(rc, Nil);
             let emit = cmd -> Ref.put(cmd :: Ref.get(acc), acc);
             let result = run {
                 f(input)
             } with handler Sound {
-                def play(cmd, k) = { emit(cmd); k() }
+                def play(cmd, k) = {
+                    emit(cmd);
+                    k()
+                }
             };
             (result, List.reverse(Ref.get(acc)))
         }
@@ -77,15 +75,13 @@ mod Sound {
     ///
     /// Runs `f`, returning its result together with everything it played.
     ///
-    pub def runWithCollector(f: Unit -> a \ ef)
-        : (a, List[SoundCmd]) \ ef - Sound =
+    pub def runWithCollector(f: Unit -> a \ ef): (a, List[SoundCmd]) \ ef - Sound =
         handleWithCollector(f)()
 
     ///
     /// Runs `f` and returns only what it played.
     ///
-    pub def played(f: Unit -> a \ ef): List[SoundCmd] \ ef - Sound =
-        snd(runWithCollector(f))
+    pub def played(f: Unit -> a \ ef): List[SoundCmd] \ ef - Sound = snd(runWithCollector(f))
 
     ///
     /// Lifts a step that makes no sound into one that is allowed to.
@@ -94,8 +90,7 @@ mod Sound {
     /// `checked_ecast` widens the effect without changing behaviour -- the escape hatch the
     /// Flix style guide sanctions for exactly this ("if necessary, effect casts are OK").
     ///
-    pub def silent(f: (a, b) -> c): (a, b) -> c \ Sound =
-        (x, y) -> checked_ecast(f(x, y))
+    pub def silent(f: (a, b) -> c): (a, b) -> c \ Sound = (x, y) -> checked_ecast(f(x, y))
 
     ///
     /// Interprets `Sound` by discarding it.
@@ -110,5 +105,4 @@ mod Sound {
         } with handler Sound {
             def play(_cmd, k) = k()
         }
-
 }

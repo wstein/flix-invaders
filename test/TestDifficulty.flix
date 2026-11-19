@@ -1,5 +1,4 @@
 mod TestDifficulty {
-
     use Assert.assertTrueWithMsg
 
     ///
@@ -22,15 +21,14 @@ mod TestDifficulty {
     def aim(w: World): Snapshot = Demo.aim(Demo.defaults(), w)
 
     def playRaw(budget: Int32, w: World): World \ Sound =
-        if (budget <= 0 or w#phase == Phase.Lost) w
-        else playRaw(budget - 1, Game.step(w, aim(w)))
+        if (budget <= 0 or w#phase == Phase.Lost) w else playRaw(budget - 1, Game.step(w, aim(w)))
 
-    def play(budget: Int32, w: World): World =
-        Sound.runWithNoOp(() -> playRaw(budget, w))
+    def play(budget: Int32, w: World): World = Sound.runWithNoOp(() -> playRaw(budget, w))
 
     /// The same, driven by the shaky bot the attract screen actually runs.
     def playShakyRaw(budget: Int32, w: World, hand: Hand): World \ Sound =
-        if (budget <= 0 or w#phase == Phase.Lost) w
+        if (budget <= 0 or w#phase == Phase.Lost)
+            w
         else {
             let (input, next) = Demo.imperfect(Demo.defaults(), w, hand);
             playShakyRaw(budget - 1, Game.step(w, input), next)
@@ -54,7 +52,7 @@ mod TestDifficulty {
                 n
             else {
                 let safe = { lives = 99, bombs = Nil | w };
-        let steppedW = Game.step(safe, Input.empty());
+                let steppedW = Game.step(safe, Input.empty());
                 loop(n - 1, steppedW)
             };
         20000 - Sound.runWithNoOp(() -> loop(20000, Game.initial(1i64)))
@@ -67,9 +65,11 @@ mod TestDifficulty {
         // that, while the shipped bot reaches level 5 on it. The guard here is "the game is
         // winnable at all"; `testTheDemoSurvivesToAboutLevelFour` is the sharper one.
         let cleared = List.count(seed -> play(6000, Game.initial(seed))#level > 1, seeds());
-        assertTrueWithMsg(cleared >= List.length(seeds()) - 1,
-            "a bot that never misses cleared level one on only ${cleared} of ${List.length(seeds())} seeds; "
-            + "the game is too hard")
+        assertTrueWithMsg(
+            cleared >= List.length(seeds()) - 1,
+            "a bot that never misses cleared level one on only ${cleared} of ${List.length(seeds())} seeds; " +
+                "the game is too hard"
+        )
     }
 
     ///
@@ -84,11 +84,15 @@ mod TestDifficulty {
     def testTheDemoSurvivesToAboutLevelFour(): Unit \ Assert = {
         let reached = List.map(seed -> playShaky(wholeGame(), seed)#level, seeds());
         let good = List.count(level -> level >= 4, reached);
-        assertTrueWithMsg(good >= List.length(seeds()) - 1,
-            "the demo reached only ${reached} across ${List.length(seeds())} seeds; "
-            + "it should get to about level four");
-        assertTrueWithMsg(List.forAll(level -> level < 10, reached),
-            "the demo ran away to ${reached}; it is meant to be beatable, not immortal")
+        assertTrueWithMsg(
+            good >= List.length(seeds()) - 1,
+            "the demo reached only ${reached} across ${List.length(seeds())} seeds; " +
+                "it should get to about level four"
+        );
+        assertTrueWithMsg(
+            List.forAll(level -> level < 10, reached),
+            "the demo ran away to ${reached}; it is meant to be beatable, not immortal"
+        )
     }
 
     ///
@@ -124,18 +128,22 @@ mod TestDifficulty {
     def testTheDemoHasNotRegressedByAWholeLevel(): Unit \ Assert = {
         let reached = List.map(seed -> playShaky(wholeGame(), seed)#level, seeds());
         let meanTenths = (List.sum(reached) * 10) / List.length(seeds());
-        assertTrueWithMsg(meanTenths >= 43,
-            "the demo averaged level ${meanTenths / 10}.${meanTenths `Int32.remainder` 10} "
-            + "across ${reached}; it reached 4.6 when that figure was last written down")
+        assertTrueWithMsg(
+            meanTenths >= 43,
+            "the demo averaged level ${meanTenths / 10}.${meanTenths `Int32.remainder` 10} " +
+                "across ${reached}; it reached 4.6 when that figure was last written down"
+        )
     }
 
     @Test
     def testTheFirstLevelIsNotTrivialEither(): Unit \ Assert = {
         // The other side of the same guard: if the game never ends, there is no pressure.
         let ended = List.count(seed -> playShaky(wholeGame(), seed)#phase == Phase.Lost, seeds());
-        assertTrueWithMsg(ended == List.length(seeds()),
-            "the bot was still alive on ${List.length(seeds()) - ended} seeds after "
-            + "${wholeGame()} ticks; the game is too easy")
+        assertTrueWithMsg(
+            ended == List.length(seeds()),
+            "the bot was still alive on ${List.length(seeds()) - ended} seeds after " +
+                "${wholeGame()} ticks; the game is too easy"
+        )
     }
 
     @Test
@@ -153,19 +161,23 @@ mod TestDifficulty {
         // three that a five-shot magazine used to buy.
         let ticks = descentTicks();
         let reach = Rules.playerY() - Rules.playerSize()#y - Rules.formationBottom();
-        let flight = Float32.tryToInt32(Float32.ceil(reach / Rules.bulletSpeed()))
-            |> Option.getWithDefault(Rules.shotFlightTicks());
+        let flight =
+            Float32.tryToInt32(Float32.ceil(reach / Rules.bulletSpeed())) |>
+                Option.getWithDefault(Rules.shotFlightTicks());
         let shots = ticks / Int32.max(1, flight);
-        assertTrueWithMsg(shots > Rules.totalInvaders() * 2,
-            "only ${shots} shots fit into the ${ticks}-tick descent for ${Rules.totalInvaders()} "
-            + "invaders (flight ${flight} ticks)")
+        assertTrueWithMsg(
+            shots > Rules.totalInvaders() * 2,
+            "only ${shots} shots fit into the ${ticks}-tick descent for ${Rules.totalInvaders()} " +
+                "invaders (flight ${flight} ticks)"
+        )
     }
 
     @Test
     def testTheDescentIsNotSoSlowThatNothingHappens(): Unit \ Assert = {
         let ticks = descentTicks();
-        assertTrueWithMsg(ticks < 7200,
-            "the formation takes ${ticks} ticks (${ticks / 60}s) to land, which is a stalemate")
+        assertTrueWithMsg(
+            ticks < 7200,
+            "the formation takes ${ticks} ticks (${ticks / 60}s) to land, which is a stalemate"
+        )
     }
-
 }

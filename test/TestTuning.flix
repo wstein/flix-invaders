@@ -1,5 +1,4 @@
 mod TestTuning {
-
     use Assert.assertEq
     use Assert.assertTrue
     use Assert.assertTrueWithMsg
@@ -66,8 +65,10 @@ mod TestTuning {
 
     @Test
     def testTheFileDoesNotMentionStragglers(): Unit \ Assert =
-        assertTrueWithMsg(not String.contains(substr = "stragglers", Tuning.encode(Demo.defaults())),
-            "the tuning file offers a key that would overturn a design decision")
+        assertTrueWithMsg(
+            not String.contains(substr = "stragglers", Tuning.encode(Demo.defaults())),
+            "the tuning file offers a key that would overturn a design decision"
+        )
 
     @Test
     def testAnUnknownFieldIsIgnoredRatherThanFatal(): Unit \ Assert = {
@@ -97,8 +98,14 @@ mod TestTuning {
     def testAbsurdValuesAreClampedRatherThanObeyed(): Unit \ Assert = {
         // A hand-edited file, or a search that wandered, should not be able to produce a bot
         // that never moves or divides by zero.
-        let wild = { dangerWidth = -100.0f32, urgency = 0.0f32, calm = 9.0f32,
-                     stragglers = 99, lapseOneIn = 0, fireWindow = 0.0f32 | Demo.defaults() };
+        let wild = {
+            dangerWidth = -100.0f32,
+            urgency = 0.0f32,
+            calm = 9.0f32,
+            stragglers = 99,
+            lapseOneIn = 0,
+            fireWindow = 0.0f32 | Demo.defaults()
+        };
         let fixed = Tuning.sane(wild);
         assertTrueWithMsg(fixed#dangerWidth > 0.0f32, "a negative threat width survived");
         assertTrueWithMsg(fixed#urgency > 0.0f32, "a zero urgency survived, which divides by zero");
@@ -106,13 +113,20 @@ mod TestTuning {
         assertTrueWithMsg(fixed#lapseOneIn >= 1, "a one-in-zero chance survived");
         // A window below the exact overlap is a bot that may not fire at all; above 20 it is
         // one firing across the whole field at nothing.
-        assertTrueWithMsg(fixed#fireWindow >= 1.0f32, "a firing window narrower than a hit survived");
-        assertTrueWithMsg(Tuning.sane({ fireWindow = 500.0f32 | Demo.defaults() })#fireWindow <= 20.0f32,
-            "a firing window wider than the field survived");
+        assertTrueWithMsg(
+            fixed#fireWindow >= 1.0f32,
+            "a firing window narrower than a hit survived"
+        );
+        assertTrueWithMsg(
+            Tuning.sane({ fireWindow = 500.0f32 | Demo.defaults() })#fireWindow <= 20.0f32,
+            "a firing window wider than the field survived"
+        );
         // At zero the bot stops caring how far down a target has come, which is the one thing
         // that ends games.
-        assertTrueWithMsg(Tuning.sane({ imminence = 0.0f32 | Demo.defaults() })#imminence > 0.0f32,
-            "a bot indifferent to invaders reaching the ground survived")
+        assertTrueWithMsg(
+            Tuning.sane({ imminence = 0.0f32 | Demo.defaults() })#imminence > 0.0f32,
+            "a bot indifferent to invaders reaching the ground survived"
+        )
     }
 
     @Test
@@ -124,9 +138,18 @@ mod TestTuning {
 
     @Test
     def testMeritPrefersTheHigherMeanLevel(): Unit \ Assert = {
-        let low = { seed = 1i64, level = 4, score = 0, lives = 3, deaths = 0,
-                    kills = 0, drops = 0, ticks = 1000, invaded = true,
-                    endgame = { pixels = 0.0f32, ticks = 0, kills = 0 } };
+        let low = {
+            seed = 1i64,
+            level = 4,
+            score = 0,
+            lives = 3,
+            deaths = 0,
+            kills = 0,
+            drops = 0,
+            ticks = 1000,
+            invaded = true,
+            endgame = { pixels = 0.0f32, ticks = 0, kills = 0 }
+        };
         let high = { level = 5 | low };
         assertTrue(Bench.merit(high :: Nil) > Bench.merit(low :: Nil))
     }
@@ -135,14 +158,24 @@ mod TestTuning {
     def testMeritPrefersTheSteadierBotAtEqualMeans(): Unit \ Assert = {
         // A mean of 4.5 made of 4 and 5 is worth more than one made of 3 and 6: a demo that
         // collapses one game in six reads as broken rather than fallible.
-        let base = { seed = 1i64, level = 4, score = 0, lives = 3, deaths = 0,
-                     kills = 0, drops = 0, ticks = 1000, invaded = true,
-                     endgame = { pixels = 0.0f32, ticks = 0, kills = 0 } };
+        let base = {
+            seed = 1i64,
+            level = 4,
+            score = 0,
+            lives = 3,
+            deaths = 0,
+            kills = 0,
+            drops = 0,
+            ticks = 1000,
+            invaded = true,
+            endgame = { pixels = 0.0f32, ticks = 0, kills = 0 }
+        };
         let steady = base :: { level = 5 | base } :: Nil;
         let swingy = { level = 3 | base } :: { level = 6 | base } :: Nil;
         assertEq(expected = Bench.meanLevelTenths(steady), Bench.meanLevelTenths(swingy));
-        assertTrueWithMsg(Bench.merit(steady) > Bench.merit(swingy),
-            "the search would have taken the tuning that collapses on one seed")
+        assertTrueWithMsg(
+            Bench.merit(steady) > Bench.merit(swingy),
+            "the search would have taken the tuning that collapses on one seed"
+        )
     }
-
 }

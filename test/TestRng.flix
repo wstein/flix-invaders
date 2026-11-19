@@ -1,12 +1,12 @@
 mod TestRng {
-
     use Assert.assertEq
     use Assert.assertTrue
     use Assert.assertNeq
 
     /// Draws `n` values, returning them oldest-first.
     def take(n: Int32, r: Rng): List[Int64] =
-        if (n <= 0) Nil
+        if (n <= 0)
+            Nil
         else {
             let (value, next) = Rng.nextInt64(r);
             value :: take(n - 1, next)
@@ -32,7 +32,8 @@ mod TestRng {
     @Test
     def testNextNonNegativeIsNeverNegative(): Unit \ Assert = {
         def loop(n, r) =
-            if (n <= 0) ()
+            if (n <= 0)
+                ()
             else {
                 let (value, next) = Rng.nextNonNegative(r);
                 Assert.assertTrueWithMsg(value >= 0i64, "got a negative value: ${value}");
@@ -44,7 +45,8 @@ mod TestRng {
     @Test
     def testNextInt32BelowStaysInRange(): Unit \ Assert = {
         def loop(n, r) =
-            if (n <= 0) ()
+            if (n <= 0)
+                ()
             else {
                 let (value, next) = Rng.nextInt32Below(6, r);
                 Assert.assertTrueWithMsg(value >= 0 and value < 6, "out of range: ${value}");
@@ -57,7 +59,8 @@ mod TestRng {
     def testNextInt32BelowCoversItsRange(): Unit \ Assert = {
         // Guards against a generator that is deterministic but constant.
         def collect(n, r, acc) =
-            if (n <= 0) acc
+            if (n <= 0)
+                acc
             else {
                 let (value, next) = Rng.nextInt32Below(6, r);
                 collect(n - 1, next, Set.insert(value, acc))
@@ -84,7 +87,8 @@ mod TestRng {
         // 2000 draws at 1-in-4; a correct generator lands well inside these bounds, and a
         // broken one (always true, always false, stuck) falls outside.
         def count(n, r, hits) =
-            if (n <= 0) hits
+            if (n <= 0)
+                hits
             else {
                 let (hit, next) = Rng.chance(4, r);
                 count(n - 1, next, if (hit) hits + 1 else hits)
@@ -101,5 +105,4 @@ mod TestRng {
         let (b, _) = Rng.nextInt64(r);
         assertEq(expected = a, b)
     }
-
 }

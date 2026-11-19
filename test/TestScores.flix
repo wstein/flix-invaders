@@ -1,5 +1,4 @@
 mod TestScores {
-
     use Assert.assertEq
     use Assert.assertTrue
     use Assert.assertFalse
@@ -10,14 +9,11 @@ mod TestScores {
     /// and that lives in `main` where no test can reach it.
     ///
 
-    def entry(name: String, score: Int32): Entry =
-        { name = name, score = score, level = 1 }
+    def entry(name: String, score: Int32): Entry = { name = name, score = score, level = 1 }
 
-    def names(es: List[Entry]): List[String] =
-        List.map(e -> e#name, es)
+    def names(es: List[Entry]): List[String] = List.map(e -> e#name, es)
 
-    def points(es: List[Entry]): List[Int32] =
-        List.map(e -> e#score, es)
+    def points(es: List[Entry]): List[Int32] = List.map(e -> e#score, es)
 
     /// Records have no `Eq`, so entries are compared by a rendering of their fields.
     def shown(e: Entry): String = "${e#name}/${e#score}/${e#level}"
@@ -52,12 +48,13 @@ mod TestScores {
 
     @Test
     def testWhitespaceIsTolerated(): Unit \ Assert =
-        assertEq(expected = Some(shown(entry("ZZ", 10))),
-                 Option.map(shown, Scores.parseLine(" ZZ | 10 | 1 ")))
+        assertEq(
+            expected = Some(shown(entry("ZZ", 10))),
+            Option.map(shown, Scores.parseLine(" ZZ | 10 | 1 "))
+        )
 
     @Test
-    def testAnEmptyFileIsAnEmptyTable(): Unit \ Assert =
-        assertTrue(List.isEmpty(Scores.parse(Nil)))
+    def testAnEmptyFileIsAnEmptyTable(): Unit \ Assert = assertTrue(List.isEmpty(Scores.parse(Nil)))
 
     // -- names --------------------------------------------------------------------------
 
@@ -132,5 +129,4 @@ mod TestScores {
         assertEq(expected = 0, Scores.best(Scores.empty()));
         assertEq(expected = 900, Scores.best(entry("A", 100) :: entry("B", 900) :: Nil))
     }
-
 }

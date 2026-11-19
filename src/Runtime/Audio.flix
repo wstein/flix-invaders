@@ -15,7 +15,6 @@
 /// silence.
 ///
 mod Audio {
-
     import java.lang.Exception
     import javax.sound.sampled.AudioFormat
     import javax.sound.sampled.AudioSystem
@@ -74,13 +73,17 @@ mod Audio {
         let f1 = spec#endHz;
         let count = Int32.max(1, (spec#millis * sampleRate()) / 1000);
         let seconds = Int32.toFloat32(spec#millis) / 1000.0f32;
-        Array.init(rc, i -> {
-            let t = Int32.toFloat32(i) / Int32.toFloat32(sampleRate());
-            let progress = Int32.toFloat32(i) / Int32.toFloat32(count);
-            let phase = f0 * t + (f1 - f0) * t * t / (2.0f32 * seconds);
-            let square = if (frac(phase) < 0.5f32) 1.0f32 else -1.0f32;
-            toSample(square * 110.0f32 * spec#volume * (1.0f32 - progress))
-        }, count)
+        Array.init(
+            rc,
+            i -> {
+                let t = Int32.toFloat32(i) / Int32.toFloat32(sampleRate());
+                let progress = Int32.toFloat32(i) / Int32.toFloat32(count);
+                let phase = f0 * t + (f1 - f0) * t * t / (2.0f32 * seconds);
+                let square = if (frac(phase) < 0.5f32) 1.0f32 else -1.0f32;
+                toSample(square * 110.0f32 * spec#volume * (1.0f32 - progress))
+            },
+            count
+        )
     }
 
     ///
@@ -89,8 +92,7 @@ mod Audio {
     /// The generator is seeded per sample, so the burst is identical every run -- there is
     /// no reason for an explosion to differ between sessions.
     ///
-    def burst(rc: Region[r], millis: Int32,
-              volume: Float32): Array[Int8, r] \ r = {
+    def burst(rc: Region[r], millis: Int32, volume: Float32): Array[Int8, r] \ r = {
         let sampleCount = (millis * sampleRate()) / 1000;
         let count = Int32.max(1, sampleCount);
         let genSample = i -> {
@@ -114,15 +116,12 @@ mod Audio {
     ///
     /// The waveform for one sound.
     ///
-    def samplesFor(rc: Region[r],
-                   cmd: SoundCmd): Array[Int8, r] \ r = match cmd {
+    def samplesFor(rc: Region[r], cmd: SoundCmd): Array[Int8, r] \ r = match cmd {
         case SoundCmd.Shoot =>
             let p = { startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32 };
             sweep(rc, p)
-        case SoundCmd.InvaderDies =>
-            burst(rc, 190, 0.7f32)
-        case SoundCmd.PlayerDies =>
-            burst(rc, 620, 1.0f32)
+        case SoundCmd.InvaderDies => burst(rc, 190, 0.7f32)
+        case SoundCmd.PlayerDies => burst(rc, 620, 1.0f32)
         case SoundCmd.MysteryAppears =>
             let p = { startHz = 620.0f32, endHz = 900.0f32, millis = 220, volume = 0.4f32 };
             sweep(rc, p)
@@ -166,12 +165,17 @@ mod Audio {
     pub def open(): Voices \ IO =
         try {
             let fmt = format();
-            List.flatMap(cmd ->
-                List.filterMap(_ -> match openVoice(fmt, cmd) {
-                    case Some(clip) => Some((cmd, clip))
-                    case None => None
-                }, List.range(0, voicesFor(cmd))),
-                SoundCmd.all())
+            List.flatMap(
+                cmd ->
+                    List.filterMap(
+                        _ -> match openVoice(fmt, cmd) {
+                            case Some(clip) => Some((cmd, clip))
+                            case None => None
+                        },
+                        List.range(0, voicesFor(cmd))
+                    ),
+                SoundCmd.all()
+            )
         } catch {
             case _: Exception => Nil
         }
@@ -202,12 +206,14 @@ mod Audio {
     /// Releases every line. Safe to call when audio never opened.
     pub def close(voices: Voices): Unit \ IO =
         try {
-            List.forEach(entry -> {
-                let (_, clip) = entry;
-                clip.close()
-            }, voices)
+            List.forEach(
+                entry -> {
+                    let (_, clip) = entry;
+                    clip.close()
+                },
+                voices
+            )
         } catch {
             case _: Exception => ()
         }
-
 }

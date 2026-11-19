@@ -26,7 +26,6 @@
 /// lines up on all of them.
 ///
 mod Surface {
-
     import java.awt.{Canvas => AwtCanvas}
     import java.awt.{Color => AwtColor}
     import java.awt.Component
@@ -135,19 +134,25 @@ mod Surface {
     /// A `fontPath` that is missing or unreadable costs you looks, not a crash -- the sheet
     /// keeps the platform's default font and says so.
     ///
-    pub def offscreen(rc: Region[r],
-                      width: {width = Int32},
-                      height: {height = Int32},
-                      fontPath: Option[String]): Sheet[r] \ IO + r = {
+    pub def offscreen(
+        rc: Region[r],
+        width: { width = Int32 },
+        height: { height = Int32 },
+        fontPath: Option[String]
+    ): Sheet[r] \ IO + r = {
         let w = width#width;
         let h = height#height;
 
         let image = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
         let graphics = image.createGraphics();
-        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                                  RenderingHints.VALUE_ANTIALIAS_ON);
-        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                                  RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        graphics.setRenderingHint(
+            RenderingHints.KEY_ANTIALIASING,
+            RenderingHints.VALUE_ANTIALIAS_ON
+        );
+        graphics.setRenderingHint(
+            RenderingHints.KEY_TEXT_ANTIALIASING,
+            RenderingHints.VALUE_TEXT_ANTIALIAS_ON
+        );
 
         let loaded = match fontPath {
             case None => None
@@ -164,16 +169,22 @@ mod Surface {
         let base = Option.getWithDefault(graphics.getFont().deriveFont(baseFontSize()), loaded);
         graphics.setFont(base);
 
-        { image = image, width = w, height = h, graphics = graphics,
-          base = base, sized = Ref.fresh(rc, (baseFontSize(), base)),
-          rectangle = new RectangleF(), ellipse = new EllipseF() }
+        {
+            image = image,
+            width = w,
+            height = h,
+            graphics = graphics,
+            base = base,
+            sized = Ref.fresh(rc, (baseFontSize(), base)),
+            rectangle = new RectangleF(),
+            ellipse = new EllipseF()
+        }
     }
 
     ///
     /// Releases the graphics a sheet was drawing through.
     ///
-    pub def release(sheet: Sheet[r]): Unit \ IO =
-        sheet#graphics.dispose()
+    pub def release(sheet: Sheet[r]): Unit \ IO = sheet#graphics.dispose()
 
     ///
     /// The sheet's size, in sketch pixels.
@@ -181,8 +192,7 @@ mod Surface {
     /// Held rather than asked of the buffer, so the frame loop can read it without reaching
     /// into the toolkit: a sheet cannot be resized, so it never changes.
     ///
-    pub def size(sheet: Sheet[r]): (Int32, Int32) =
-        (sheet#width, sheet#height)
+    pub def size(sheet: Sheet[r]): (Int32, Int32) = (sheet#width, sheet#height)
 
     ///
     /// The colour of one pixel, as it currently stands.
@@ -217,22 +227,25 @@ mod Surface {
     ///
     /// Sets the colour subsequent shapes and text are drawn in.
     ///
-    pub def fill(sheet: Sheet[r], c: Color): Unit \ IO =
-        sheet#graphics.setColor(awt(c))
+    pub def fill(sheet: Sheet[r], c: Color): Unit \ IO = sheet#graphics.setColor(awt(c))
 
     ///
     /// Sets a translucent fill, with `alpha` from 0 (invisible) to 255 (opaque).
     ///
     pub def fillAlpha(sheet: Sheet[r], c: Color, alpha: Int32): Unit \ IO =
-        sheet#graphics.setColor(new AwtColor(Color.redOf(c), Color.greenOf(c),
-                                             Color.blueOf(c),
-                                             Int32.max(0, Int32.min(255, alpha))))
+        sheet#graphics.setColor(
+            new AwtColor(
+                Color.redOf(c),
+                Color.greenOf(c),
+                Color.blueOf(c),
+                Int32.max(0, Int32.min(255, alpha))
+            )
+        )
 
     ///
     /// Draws a rectangle with its top-left corner at `(x, y)`.
     ///
-    pub def rect(sheet: Sheet[r], x: Float32, y: Float32, w: Float32, h: Float32)
-        : Unit \ IO = {
+    pub def rect(sheet: Sheet[r], x: Float32, y: Float32, w: Float32, h: Float32): Unit \ IO = {
         sheet#rectangle.setRect(x, y, w, h);
         sheet#graphics.fill(sheet#rectangle)
     }
@@ -240,8 +253,7 @@ mod Surface {
     ///
     /// Draws an ellipse centred on `(x, y)`.
     ///
-    pub def ellipse(sheet: Sheet[r], x: Float32, y: Float32, w: Float32, h: Float32)
-        : Unit \ IO = {
+    pub def ellipse(sheet: Sheet[r], x: Float32, y: Float32, w: Float32, h: Float32): Unit \ IO = {
         sheet#ellipse.setFrame(x - w / 2.0f32, y - h / 2.0f32, w, h);
         sheet#graphics.fill(sheet#ellipse)
     }
@@ -260,7 +272,8 @@ mod Surface {
     ///
     pub def textSize(sheet: Sheet[r], px: Float32): Unit \ IO + r = {
         let (was, font) = Ref.get(sheet#sized);
-        if (was == px) sheet#graphics.setFont(font)
+        if (was == px)
+            sheet#graphics.setFont(font)
         else {
             let derived = sheet#base.deriveFont(px);
             Ref.put((px, derived), sheet#sized);
@@ -294,11 +307,13 @@ mod Surface {
     /// draws at is an image pixel, and a window that could be dragged wider would have to
     /// answer what that means.
     ///
-    pub def open(rc: Region[r],
-                 title: String,
-                 width: {width = Int32},
-                 height: {height = Int32},
-                 fontPath: Option[String]): Window[r] \ IO + r = {
+    pub def open(
+        rc: Region[r],
+        title: String,
+        width: { width = Int32 },
+        height: { height = Int32 },
+        fontPath: Option[String]
+    ): Window[r] \ IO + r = {
         let sheet = offscreen(rc, width, height, fontPath);
         let closing = new AtomicBoolean(false);
         let keys = Ref.fresh(rc, (Set.empty(): Set[Int32]));
@@ -307,8 +322,14 @@ mod Surface {
 
         // Only once the window is showing: a buffer strategy needs a displayable component.
         canvas.createBufferStrategy(buffers());
-        { sheet = sheet, frame = frame, canvas = canvas,
-          strategy = canvas.getBufferStrategy(), keys = keys, closing = closing }
+        {
+            sheet = sheet,
+            frame = frame,
+            canvas = canvas,
+            strategy = canvas.getBufferStrategy(),
+            keys = keys,
+            closing = closing
+        }
     }
 
     /// Two buffers, because the loop always redraws the whole frame and so has no use for
@@ -333,9 +354,11 @@ mod Surface {
     /// JVM method on an anonymous class, and what it does to the caller's region is invisible
     /// from out here -- the same limit that keeps `loop` and `Sketch.start` concrete.
     ///
-    def openCanvas(sheet: Sheet[r],
-                   keys: Ref[Set[Int32], r],
-                   closing: AtomicBoolean): AwtCanvas \ IO = {
+    def openCanvas(
+        sheet: Sheet[r],
+        keys: Ref[Set[Int32], r],
+        closing: AtomicBoolean
+    ): AwtCanvas \ IO = {
         let (w, h) = size(sheet);
         let canvas = new AwtCanvas();
         canvas.setPreferredSize(new Dimension(w, h));
@@ -373,8 +396,7 @@ mod Surface {
         let frame = new JFrame(title);
         frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter {
-            def windowClosing(_a: WindowAdapter, _e: WindowEvent): Unit \ IO =
-                closing.set(true)
+            def windowClosing(_a: WindowAdapter, _e: WindowEvent): Unit \ IO = closing.set(true)
         });
         frame.setResizable(false);
         frame.setIgnoreRepaint(true);
@@ -390,8 +412,7 @@ mod Surface {
     ///
     /// The sheet this window is showing.
     ///
-    pub def sheet(win: Window[r]): Sheet[r] =
-        win#sheet
+    pub def sheet(win: Window[r]): Sheet[r] = win#sheet
 
     // -- the keyboard -----------------------------------------------------------------------
 
@@ -422,8 +443,7 @@ mod Surface {
     ///
     /// The keys held after a release of `code`.
     ///
-    pub def afterRelease(held: Set[Int32], code: Int32): Set[Int32] =
-        Set.remove(code, held)
+    pub def afterRelease(held: Set[Int32], code: Int32): Set[Int32] = Set.remove(code, held)
 
     ///
     /// The AWT key codes currently held down.
@@ -431,8 +451,7 @@ mod Surface {
     /// Codes rather than named keys: this layer knows about a keyboard and not about a
     /// game, and `Key.fromCode` one layer up is where a number becomes a name.
     ///
-    pub def keysHeld(win: Window[r]): Set[Int32] \ r =
-        Ref.get(win#keys)
+    pub def keysHeld(win: Window[r]): Set[Int32] \ r = Ref.get(win#keys)
 
     // -- the frame loop ---------------------------------------------------------------------
 
@@ -464,8 +483,7 @@ mod Surface {
     /// accumulating.
     ///
     pub def millisOf(ns: Int64): Int32 =
-        if (ns <= 0i64) 0
-        else Option.getWithDefault(0, Int64.tryToInt32(ns / 1000000i64))
+        if (ns <= 0i64) 0 else Option.getWithDefault(0, Int64.tryToInt32(ns / 1000000i64))
 
     ///
     /// How long the timer waits for the very first frame.
@@ -476,8 +494,7 @@ mod Surface {
     /// `reschedule`, which may legitimately ask for no wait at all -- by then there is a
     /// window, and a frame that is already late should not be delayed further.
     ///
-    pub def firstDelay(periodNs: Int64): Int32 =
-        Int32.max(1, millisOf(periodNs))
+    pub def firstDelay(periodNs: Int64): Int32 = Int32.max(1, millisOf(periodNs))
 
     ///
     /// Calls `frame` once every `periodNs` until the window closes.
@@ -500,8 +517,7 @@ mod Surface {
     /// region is invisible from out here. That is the same boundary limit that keeps
     /// `Sketch.start` from being effect-polymorphic.
     ///
-    pub def loop(win: Window[r], periodNs: Int64, frame: Unit -> Unit \ IO + r)
-        : Unit \ IO = {
+    pub def loop(win: Window[r], periodNs: Int64, frame: Unit -> Unit \ IO + r): Unit \ IO = {
         let due = new AtomicLong(System.nanoTime());
         // Built without a listener so that the listener can be given the timer: each frame
         // schedules the next one itself, against a deadline, rather than repeating on a
@@ -511,7 +527,8 @@ mod Surface {
         timer.setRepeats(false);
         timer.addActionListener(new ActionListener {
             def actionPerformed(_a: ActionListener, _e: ActionEvent): Unit \ IO + r =
-                if (win#closing.get()) ()
+                if (win#closing.get())
+                    ()
                 else {
                     frame();
                     let (target, waitMs) = reschedule(due.get(), System.nanoTime(), periodNs);
@@ -536,8 +553,12 @@ mod Surface {
     /// wrote before it was set.
     ///
     def park(win: Window[r]): Unit \ IO =
-        if (win#closing.get()) ()
-        else { Thread.sleep(pollMillis()); park(win) }
+        if (win#closing.get())
+            ()
+        else {
+            Thread.sleep(pollMillis());
+            park(win)
+        }
 
     /// How long the parked thread sleeps between looks at the close flag.
     def pollMillis(): Int64 = 20i64
@@ -548,8 +569,7 @@ mod Surface {
     /// This is how a bounded run ends: `FLIX_SKETCH_MAX_FRAMES` gives a sketch a frame
     /// budget so it terminates on a machine nobody is sitting in front of.
     ///
-    pub def requestClose(win: Window[r]): Unit \ IO =
-        win#closing.set(true)
+    pub def requestClose(win: Window[r]): Unit \ IO = win#closing.set(true)
 
     ///
     /// Shows everything drawn on the sheet since the last call.
@@ -585,5 +605,4 @@ mod Surface {
         release(win#sheet);
         win#frame.dispose()
     }
-
 }
