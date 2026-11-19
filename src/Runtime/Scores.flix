@@ -12,7 +12,6 @@ pub type alias Entry = { name = String, score = Int32, level = Int32 }
 /// `main` alone.
 ///
 mod Scores {
-
     /// How many places the table keeps.
     pub def places(): Int32 = 12
 
@@ -47,8 +46,7 @@ mod Scores {
     }
 
     /// Parses a list of lines from disk into a ranked high score table.
-    pub def parse(lines: List[String]): List[Entry] =
-        lines |> List.filterMap(parseLine) |> ranked
+    pub def parse(lines: List[String]): List[Entry] = lines |> List.filterMap(parseLine) |> ranked
 
     /// Renders a list of high score entries into serializable line strings.
     pub def render(entries: List[Entry]): List[String] = {
@@ -56,10 +54,7 @@ mod Scores {
         let renderEntry = e -> {
             "${e#name}${sep}${e#score}${sep}${e#level}"
         };
-        List.map(
-            renderEntry,
-            entries
-        )
+        List.map(renderEntry, entries)
     }
 
     ///
@@ -75,13 +70,15 @@ mod Scores {
     /// a game you did not play.
     ///
     pub def qualifies(score: Int32, entries: List[Entry]): Bool =
-        if (score <= 0) false
-        else if (List.length(entries) < places()) true
-        else List.exists(e -> score > e#score, entries)
+        if (score <= 0)
+            false
+        else if (List.length(entries) < places())
+            true
+        else
+            List.exists(e -> score > e#score, entries)
 
     /// Inserts a new high score entry into the table and returns the re-ranked list.
-    pub def insert(entry: Entry, entries: List[Entry]): List[Entry] =
-        ranked(entry :: entries)
+    pub def insert(entry: Entry, entries: List[Entry]): List[Entry] = ranked(entry :: entries)
 
     /// Returns the highest score value currently in the high score table, or 0 if empty.
     pub def best(entries: List[Entry]): Int32 =
@@ -104,8 +101,7 @@ mod Scores {
         List.foldLeft((acc, c) -> acc + "${c}", "", kept)
     }
 
-    def allowed(c: Char): Bool =
-        (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9')
+    def allowed(c: Char): Bool = (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9')
 
     /// Pads a name out to the full width so the table lines up.
     pub def padded(name: String): String = {
@@ -152,8 +148,8 @@ mod Scores {
             Sys.Env.getVar("XDG_CONFIG_HOME") |> Option.filter(dir -> not String.isEmpty(dir));
         let fallback =
             Sys.Env.getUserHomeDirectory() |> Option.map(home -> "${home}${separator}.config");
-        Option.withDefault(default = fallback, configured)
-            |> Option.map(base -> {
+        Option.withDefault(default = fallback, configured) |>
+            Option.map(base -> {
                 let dir = "${base}${separator}${folder()}";
                 { dir = dir, file = "${dir}${separator}${fileName()}" }
             })
@@ -180,11 +176,9 @@ mod Scores {
     /// `mkDirs` is content when the directory already exists, so there is no existence check
     /// here -- one would be redundant, and racy besides.
     ///
-    pub def save(at: Location, entries: List[Entry])
-        : Result[IoError, Unit] \ Fs.FileWrite = {
+    pub def save(at: Location, entries: List[Entry]): Result[IoError, Unit] \ Fs.FileWrite = {
         let lines = render(ranked(entries));
-        Fs.FileWrite.mkDirs(at#dir)
-            |> Result.flatMap(_ -> Fs.FileWrite.writeLines(lines = lines, at#file))
+        Fs.FileWrite.mkDirs(at#dir) |>
+            Result.flatMap(_ -> Fs.FileWrite.writeLines(lines = lines, at#file))
     }
-
 }

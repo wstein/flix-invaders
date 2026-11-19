@@ -1,5 +1,4 @@
 mod TestScreenGraph {
-
     use Assert.assertTrueWithMsg
 
     ///
@@ -22,13 +21,14 @@ mod TestScreenGraph {
     /// Enter, space, 1, 2, a letter, backspace, and nothing at all.
     def inputs(): List[Snapshot] =
         Input.empty() ::
-        Input.holding(Key.Enter :: Nil) ::
-        Input.holding(Key.Space :: Nil) ::
-        Input.holding(Key.Other(49) :: Nil) ::     // '1'
-        Input.holding(Key.Other(50) :: Nil) ::     // '2'
-        Input.holding(Key.Other(65) :: Nil) ::     // 'A'
-        Input.holding(Key.Backspace :: Nil) ::
-        Input.holding(Key.Left :: Key.Space :: Nil) :: Nil
+            Input.holding(Key.Enter :: Nil) ::
+            Input.holding(Key.Space :: Nil) ::
+            Input.holding(Key.Other(49) :: Nil) :: // '1'
+            Input.holding(Key.Other(50) :: Nil) :: // '2'
+            Input.holding(Key.Other(65) :: Nil) :: // 'A'
+            Input.holding(Key.Backspace :: Nil) ::
+            Input.holding(Key.Left :: Key.Space :: Nil) ::
+            Nil
 
     ///
     /// Every world finished, on a score worth recording.
@@ -55,14 +55,12 @@ mod TestScreenGraph {
         let base = Session.withScores(seed(), oldScore :: Nil);
         let playing = gameOver({ screen = Screen.Playing, players = 1 | base });
         let pEntry = { player = 0, entry = { name = "", score = 9999, level = 4 } };
-        let entering =
-            { screen = Screen.Entering,
-              pending = pEntry :: Nil,
-              typing = "AB" | base };
+        let entering = { screen = Screen.Entering, pending = pEntry :: Nil, typing = "AB" | base };
         (Screen.Attract, base) ::
-        (Screen.Playing, playing) ::
-        (Screen.Entering, entering) ::
-        (Screen.Table, { screen = Screen.Table | base }) :: Nil
+            (Screen.Playing, playing) ::
+            (Screen.Entering, entering) ::
+            (Screen.Table, { screen = Screen.Table | base }) ::
+            Nil
     }
 
     ///
@@ -73,10 +71,15 @@ mod TestScreenGraph {
     ///
     def discoveredEdges(): List[(Screen, Screen)] = {
         let sampleEdges = () ->
-            List.flatMap(match (source, s) ->
-                List.map(input ->
-                    let nextS = Session.step(s, input);
-                    (source, nextS#screen), inputs()), fixtures());
+            List.flatMap(
+                match (source, s) -> List.map(
+                    input ->
+                        let nextS = Session.step(s, input);
+                        (source, nextS#screen),
+                    inputs()
+                ),
+                fixtures()
+            );
         Sound.runWithNoOp(sampleEdges)
     }
 
@@ -103,11 +106,14 @@ mod TestScreenGraph {
     @Test
     def testEveryScreenIsReachableFromTheTitle(): Unit \ Assert = {
         let paths = reachable(discoveredEdges());
-        let stranded = screens()
-            |> List.filter(target -> target != Screen.Attract)
-            |> List.filter(target -> not leadsTo(paths, Screen.Attract, target));
-        assertTrueWithMsg(List.isEmpty(stranded),
-            "no sequence of keys reaches ${stranded} from the title screen")
+        let stranded =
+            screens() |>
+                List.filter(target -> target != Screen.Attract) |>
+                List.filter(target -> not leadsTo(paths, Screen.Attract, target));
+        assertTrueWithMsg(
+            List.isEmpty(stranded),
+            "no sequence of keys reaches ${stranded} from the title screen"
+        )
     }
 
     @Test
@@ -115,10 +121,8 @@ mod TestScreenGraph {
         // The property a coin-op cabinet actually needs: whatever it is showing, it finds its
         // way back to attracting. A screen with no path home is a machine nobody can start.
         let paths = reachable(discoveredEdges());
-        let traps = screens()
-            |> List.filter(source -> not leadsTo(paths, source, Screen.Attract));
-        assertTrueWithMsg(List.isEmpty(traps),
-            "${traps} never returns to the attract screen")
+        let traps = screens() |> List.filter(source -> not leadsTo(paths, source, Screen.Attract));
+        assertTrueWithMsg(List.isEmpty(traps), "${traps} never returns to the attract screen")
     }
 
     @Test
@@ -126,11 +130,20 @@ mod TestScreenGraph {
         // Reachability alone would be satisfied by a one-way street. Every screen should be
         // reachable from every other, which for this cabinet is a genuine cycle.
         let paths = reachable(discoveredEdges());
-        let missing = screens() |> List.flatMap(source ->
-            screens() |> List.filterMap(target ->
-                if (leadsTo(paths, source, target)) None else Some((source, target))));
-        assertTrueWithMsg(List.isEmpty(missing),
-            "these screen pairs are not connected: ${missing}")
+        let missing =
+            screens() |>
+                List.flatMap(
+                    source ->
+                        screens() |>
+                            List.filterMap(
+                                target ->
+                                    if (leadsTo(paths, source, target))
+                                        None
+                                    else
+                                        Some((source, target))
+                            )
+                );
+        assertTrueWithMsg(List.isEmpty(missing), "these screen pairs are not connected: ${missing}")
     }
 
     @Test
@@ -139,8 +152,9 @@ mod TestScreenGraph {
         // key, a changed start condition -- the reachability assertions above would pass
         // vacuously on an empty graph and prove nothing.
         let moves = discoveredEdges() |> List.filter(match (source, target) -> source != target);
-        assertTrueWithMsg(List.length(moves) >= 3,
-            "only ${List.length(moves)} real transitions were discovered; the fixtures have gone stale")
+        assertTrueWithMsg(
+            List.length(moves) >= 3,
+            "only ${List.length(moves)} real transitions were discovered; the fixtures have gone stale"
+        )
     }
-
 }

@@ -1,5 +1,4 @@
 mod TestInput {
-
     use Assert.assertEq
     use Assert.assertTrue
     use Assert.assertFalse
@@ -47,8 +46,8 @@ mod TestInput {
 
     @Test
     def testEdgesAreIndependentPerKey(): Unit \ Assert = {
-        let s = Input.diff(previous = Set#{Key.Left, Key.Space},
-                           current = Set#{Key.Space, Key.Right});
+        let s =
+            Input.diff(previous = Set#{Key.Left, Key.Space}, current = Set#{Key.Space, Key.Right});
         assertEq(expected = Set#{Key.Right}, s#pressed);
         assertEq(expected = Set#{Key.Left}, s#released);
         assertEq(expected = Set#{Key.Space, Key.Right}, s#held)
@@ -71,7 +70,6 @@ mod TestInput {
         assertEq(expected = a#held, b#held);
         assertEq(expected = snap#held, a#held)
     }
-
 
     // -- one frame, many ticks --------------------------------------------------------------
     //
@@ -120,8 +118,10 @@ mod TestInput {
         // Holding is a state rather than a transition, and it does last all frame.
         let press = Input.diff(previous = Set.empty(), current = Set#{Key.Left});
         let ticks = Input.acrossTicks(4, press);
-        assertTrueWithMsg(List.forAll(t -> Set.memberOf(Key.Left, t#held), ticks),
-            "the cannon would stop moving partway through a catch-up frame")
+        assertTrueWithMsg(
+            List.forAll(t -> Set.memberOf(Key.Left, t#held), ticks),
+            "the cannon would stop moving partway through a catch-up frame"
+        )
     }
 
     @Test
@@ -144,5 +144,4 @@ mod TestInput {
         assertEq(expected = s#held, quiet#held);
         assertTrue(Set.isEmpty(quiet#pressed) and Set.isEmpty(quiet#released))
     }
-
 }

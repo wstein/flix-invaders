@@ -127,7 +127,6 @@ pub type alias World = {
 /// the tests can refer to them rather than repeating magic numbers.
 ///
 mod Rules {
-
     /// Playfield boundary width in screen pixels.
     pub def fieldWidth(): Float32 = 640.0f32
 
@@ -202,8 +201,7 @@ mod Rules {
     pub def maxBombs(): Int32 = 3
 
     /// A freshly dropped bomb. One place knows that a new bomb starts at age zero.
-    pub def bombAt(pos: Vec2, kind: BombKind): Bomb =
-        { x = pos#x, y = pos#y, kind = kind, age = 0 }
+    pub def bombAt(pos: Vec2, kind: BombKind): Bomb = { x = pos#x, y = pos#y, kind = kind, age = 0 }
 
     ///
     /// One in this many bombs survives being shot.
@@ -289,9 +287,7 @@ mod Rules {
     /// octopuses. The ones worth most are hardest to reach.
     ///
     pub def kindForRow(row: Int32): InvaderKind =
-        if (row <= 0) InvaderKind.Squid
-        else if (row <= 2) InvaderKind.Crab
-        else InvaderKind.Octopus
+        if (row <= 0) InvaderKind.Squid else if (row <= 2) InvaderKind.Crab else InvaderKind.Octopus
 
     /// Point value awarded for destroying an invader of the given kind.
     pub def pointsFor(kind: InvaderKind): Int32 = match kind {
@@ -390,9 +386,7 @@ mod Rules {
     pub def bombKindFrom(rng: Rng): (BombKind, Rng) = {
         let (roll, next) = Rng.nextInt32Below(8, rng);
         let kind =
-            if (roll < 4) BombKind.Slow
-            else if (roll < 6) BombKind.Fast
-            else BombKind.Wiggly;
+            if (roll < 4) BombKind.Slow else if (roll < 6) BombKind.Fast else BombKind.Wiggly;
         (kind, next)
     }
 
@@ -545,8 +539,10 @@ mod Rules {
     /// itself.
     ///
     pub def mysterySize(): Vec2 =
-        { x = Int32.toFloat32(Sprite.width(Sprites.mystery())) * mysteryScaleX(),
-          y = Int32.toFloat32(Sprite.height(Sprites.mystery())) * mysteryScaleY() }
+        {
+            x = Int32.toFloat32(Sprite.width(Sprites.mystery())) * mysteryScaleX(),
+            y = Int32.toFloat32(Sprite.height(Sprites.mystery())) * mysteryScaleY()
+        }
 
     /// High enough to be clear of the formation's starting row.
     pub def mysteryY(): Float32 = 70.0f32
@@ -618,7 +614,6 @@ mod Rules {
     /// player scores depends on how they played rather than on where the stream happened to
     /// be -- which is a better property for a replayable game than the randomness it cost.
 
-
     pub def mysteryFirstBonusShot(): Int32 = 23
 
     /// Interval of shots after the first bonus shot that awards 300 points.
@@ -626,16 +621,14 @@ mod Rules {
 
     /// The lesser values, walked by shot count. Fixed order, so it can be learned.
     def mysteryTable(): Vector[Int32] =
-        Vector#{
-            50, 100, 50, 100, 150,
-            100, 100, 50, 150, 100,
-            50, 100, 150, 50, 100
-        }
+        Vector#{50, 100, 50, 100, 150, 100, 100, 50, 150, 100, 50, 100, 150, 50, 100}
 
     /// Computes the score value awarded for hitting the mystery ship on `shotsFired`.
     pub def mysteryScoreFor(shotsFired: Int32): Int32 =
-        if (shotsFired >= mysteryFirstBonusShot()
-            and Int32.remainder(shotsFired - mysteryFirstBonusShot(), mysteryBonusEvery()) == 0)
+        if (
+            shotsFired >= mysteryFirstBonusShot() and
+                Int32.remainder(shotsFired - mysteryFirstBonusShot(), mysteryBonusEvery()) == 0
+        )
             300
         else {
             let n = Vector.length(mysteryTable());
@@ -672,5 +665,4 @@ mod Rules {
 
     /// Total count of invaders in a full initial formation.
     pub def totalInvaders(): Int32 = columns() * rows()
-
 }

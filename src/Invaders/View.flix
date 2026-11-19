@@ -34,7 +34,6 @@ mod Cabinet {
 }
 
 mod View {
-
     ///
     /// How many ticks each animation frame is held for.
     ///
@@ -43,8 +42,7 @@ mod View {
     ///
     def frameHold(): Int32 = 22
 
-    def animationFrame(w: World): Int32 =
-        Int32.remainder(w#tick / frameHold(), 2)
+    def animationFrame(w: World): Int32 = Int32.remainder(w#tick / frameHold(), 2)
 
     ///
     /// The colour band a row belongs to.
@@ -54,9 +52,9 @@ mod View {
     /// bands that do not line up with the creature types.
     ///
     def rowColor(row: Int32): Color =
-        if (row <= 1) Palette.invaderGreen()
-        else if (row <= 3) Palette.invaderCyan()
-        else Palette.invaderMagenta()
+        if (row <= 1)
+            Palette.invaderGreen()
+        else if (row <= 3) Palette.invaderCyan() else Palette.invaderMagenta()
 
     def drawInvaders(w: World): Unit \ Canvas = {
         let frame = animationFrame(w);
@@ -65,31 +63,36 @@ mod View {
         let squid = Sprites.forKind(InvaderKind.Squid, frame);
         let crab = Sprites.forKind(InvaderKind.Crab, frame);
         let octopus = Sprites.forKind(InvaderKind.Octopus, frame);
-        Vector.forEach(inv ->
-            if (inv#alive) {
-                Canvas.fill(rowColor(inv#row));
-                let sprite = match inv#kind {
-                    case InvaderKind.Squid => squid
-                    case InvaderKind.Crab => crab
-                    case InvaderKind.Octopus => octopus
-                };
-                Sprite.draw(sprite, inv#pos, Rules.spriteScale())
-            } else (), w#invaders)
+        Vector.forEach(
+            inv ->
+                if (inv#alive) {
+                    Canvas.fill(rowColor(inv#row));
+                    let sprite = match inv#kind {
+                        case InvaderKind.Squid => squid
+                        case InvaderKind.Crab => crab
+                        case InvaderKind.Octopus => octopus
+                    };
+                    Sprite.draw(sprite, inv#pos, Rules.spriteScale())
+                } else (),
+            w#invaders
+        )
     }
 
     def drawShots(w: World): Unit \ Canvas = {
         let bullet = Sprites.bullet();
-        let drawBullet = b ->
-            Sprite.draw(bullet, b, Rules.spriteScale());
+        let drawBullet = b -> Sprite.draw(bullet, b, Rules.spriteScale());
         Canvas.fill(Palette.shot());
         List.forEach(drawBullet, w#bullets);
         // One fill for all three bombs: they are told apart by shape, not colour, so that a
         // player who cannot separate the palette's coral from its shot colour still can.
         Canvas.fill(Palette.coral());
-        List.forEach(b -> {
-            let pos = { x = b#x, y = b#y };
-            Sprite.draw(Sprites.bombFor(b#kind), pos, Rules.spriteScale())
-        }, w#bombs)
+        List.forEach(
+            b -> {
+                let pos = { x = b#x, y = b#y };
+                Sprite.draw(Sprites.bombFor(b#kind), pos, Rules.spriteScale())
+            },
+            w#bombs
+        )
     }
 
     ///
@@ -99,22 +102,30 @@ mod View {
     def drawBunkers(w: World): Unit \ Canvas = {
         Canvas.fill(Palette.coral());
         let cell = Rules.bunkerCell();
-        Vector.forEach(bunker ->
-            List.forEach(segment -> {
-                let (row, column, length) = segment;
-                Canvas.rect(bunker#origin#x + Int32.toFloat32(column) * cell,
+        Vector.forEach(
+            bunker ->
+                List.forEach(
+                    segment -> {
+                        let (row, column, length) = segment;
+                        Canvas.rect(
+                            bunker#origin#x + Int32.toFloat32(column) * cell,
                             bunker#origin#y + Int32.toFloat32(row) * cell,
                             Int32.toFloat32(length) * cell,
-                            cell)
-            }, Bunkers.runs(bunker)),
-            w#bunkers)
+                            cell
+                        )
+                    },
+                    Bunkers.runs(bunker)
+                ),
+            w#bunkers
+        )
     }
 
     ///
     /// The cannon, unless it is currently a pile of wreckage.
     ///
     def drawPlayer(w: World): Unit \ Canvas =
-        if (List.exists(b -> b#kind == BlastKind.PlayerBlast, w#blasts)) ()
+        if (List.exists(b -> b#kind == BlastKind.PlayerBlast, w#blasts))
+            ()
         else {
             Canvas.fill(Palette.cannonGreen());
             let pos = { x = w#playerX, y = Rules.playerY() };
@@ -167,14 +178,17 @@ mod View {
             let crown = Rules.playerY() - Rules.playerSize()#y / 2.0f32 - shieldLift();
             let block = (half * 2.0f32) / Int32.toFloat32(count);
             let middle = Int32.toFloat32(count - 1) / 2.0f32;
-            List.forEach(i -> {
-                let fromMiddle = (Int32.toFloat32(i) - middle) / middle;
-                let dip = shieldRise() * fromMiddle * fromMiddle;
-                let lit = Int32.remainder(i + w#tick / 3, count) < 2;
-                Canvas.fillAlpha(Palette.invaderCyan(), if (lit) 255 else 170);
-                let notchX = w#playerX - half + Int32.toFloat32(i) * block;
-            Canvas.rect(notchX, crown + dip, block, 4.0f32)
-            }, List.range(0, count));
+            List.forEach(
+                i -> {
+                    let fromMiddle = (Int32.toFloat32(i) - middle) / middle;
+                    let dip = shieldRise() * fromMiddle * fromMiddle;
+                    let lit = Int32.remainder(i + w#tick / 3, count) < 2;
+                    Canvas.fillAlpha(Palette.invaderCyan(), if (lit) 255 else 170);
+                    let notchX = w#playerX - half + Int32.toFloat32(i) * block;
+                    Canvas.rect(notchX, crown + dip, block, 4.0f32)
+                },
+                List.range(0, count)
+            );
             // Posts at each end, so the dome is anchored to the cannon rather than floating.
             Canvas.fillAlpha(Palette.invaderCyan(), 170);
             Canvas.rect(w#playerX - half, crown + shieldRise(), 3.0f32, 9.0f32);
@@ -183,22 +197,24 @@ mod View {
     }
 
     def drawBlasts(w: World): Unit \ Canvas =
-        List.forEach(b -> {
-            Canvas.fill(match b#kind {
-                case BlastKind.InvaderBlast => Palette.ink()
-                case BlastKind.PlayerBlast => Palette.coral()
-            });
-            let scale = match b#kind {
-                case BlastKind.InvaderBlast => Rules.spriteScale()
-                case BlastKind.PlayerBlast => Rules.cannonScale()
-            };
-            Sprite.draw(Sprites.forBlast(b#kind, b#ticksLeft), b#pos, scale)
-        }, w#blasts)
+        List.forEach(
+            b -> {
+                Canvas.fill(match b#kind {
+                    case BlastKind.InvaderBlast => Palette.ink()
+                    case BlastKind.PlayerBlast => Palette.coral()
+                });
+                let scale = match b#kind {
+                    case BlastKind.InvaderBlast => Rules.spriteScale()
+                    case BlastKind.PlayerBlast => Rules.cannonScale()
+                };
+                Sprite.draw(Sprites.forBlast(b#kind, b#ticksLeft), b#pos, scale)
+            },
+            w#blasts
+        )
 
     // -- the cabinet furniture --------------------------------------------------------
 
-    def zeros(n: Int32): String =
-        if (n <= 0) "" else "0" + zeros(n - 1)
+    def zeros(n: Int32): String = if (n <= 0) "" else "0" + zeros(n - 1)
 
     /// Left-pads a score with zeros, the way the cabinet displays it.
     pub def scoreText(value: Int32): String = {
@@ -219,8 +235,7 @@ mod View {
     /// and lets the HUD be laid out by character count rather than by numbers tuned against
     /// whatever font the platform happened to supply.
     ///
-    pub def textWidth(s: String, size: Float32): Float32 =
-        Int32.toFloat32(String.length(s)) * size
+    pub def textWidth(s: String, size: Float32): Float32 = Int32.toFloat32(String.length(s)) * size
 
     /// The x that centres `s` in the field.
     pub def centredX(s: String, size: Float32): Float32 =
@@ -237,10 +252,8 @@ mod View {
     /// game there is nobody to contrast with, so both stay bright.
     ///
     def drawHudLabels(c: Cabinet, margin: Float32): Unit \ Canvas = {
-        let active = n ->
-            c#players < 2 or c#player == n;
-        let lit = n ->
-            if (active(n)) Palette.ink() else Palette.dim();
+        let active = n -> c#players < 2 or c#player == n;
+        let lit = n -> if (active(n)) Palette.ink() else Palette.dim();
         Canvas.fill(lit(1));
         Canvas.text("SCORE<1>", margin, 26.0f32);
         Canvas.fill(Palette.invaderCyan());
@@ -310,7 +323,8 @@ mod View {
     }
 
     def drawSpareLives(cannon: Sprite, remaining: Int32, index: Int32): Unit \ Canvas =
-        if (index >= remaining) ()
+        if (index >= remaining)
+            ()
         else {
             let x = 52.0f32 + Int32.toFloat32(index) * 40.0f32;
             Sprite.draw(cannon, { x = x, y = Rules.fieldHeight() - 14.0f32 }, 2.0f32);
@@ -353,7 +367,8 @@ mod View {
             // Counting down turns dead air into a moment to get ready, and tells you the game
             // is waiting on purpose rather than thinking about something.
             let count = countdown(w#pause);
-            if (count <= 0) ()
+            if (count <= 0)
+                ()
             else {
                 let digit = "${count}";
                 Canvas.fill(Palette.sun());
@@ -396,5 +411,4 @@ mod View {
         drawCabinet(w, c);
         drawEndMessage(w, c)
     }
-
 }

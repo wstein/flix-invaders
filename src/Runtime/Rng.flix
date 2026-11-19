@@ -15,7 +15,6 @@ pub enum Rng with Eq, ToString {
 }
 
 mod Rng {
-
     def multiplier(): Int64 = 6364136223846793005i64
     def increment(): Int64 = 1442695040888963407i64
 
@@ -25,8 +24,7 @@ mod Rng {
     /// The state is advanced once so that adjacent seeds do not produce correlated first
     /// values, which is the usual failure mode of a bare LCG.
     ///
-    pub def fromSeed(seed: Int64): Rng =
-        advance(Rng.Rng(seed))
+    pub def fromSeed(seed: Int64): Rng = advance(Rng.Rng(seed))
 
     /// Advances the state by one step. Int64 arithmetic wraps, which is what an LCG wants.
     def advance(r: Rng): Rng = match r {
@@ -61,7 +59,8 @@ mod Rng {
     /// A `bound` of zero or less yields `0`, so callers never have to guard.
     ///
     pub def nextInt32Below(bound: Int32, r: Rng): (Int32, Rng) =
-        if (bound <= 0) (0, advance(r))
+        if (bound <= 0)
+            (0, advance(r))
         else {
             let (value, next) = nextNonNegative(r);
             let scaled = Int64.remainder(value, Int32.toInt64(bound));
@@ -81,5 +80,4 @@ mod Rng {
         let (value, next) = nextInt32Below(oneIn, r);
         (value == 0, next)
     }
-
 }

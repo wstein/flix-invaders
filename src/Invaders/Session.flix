@@ -51,7 +51,6 @@ pub type alias Session = {
 /// screens, player count, whose turn it is.
 ///
 mod Session {
-
     /// The seed the attract game runs from, offset so it never mirrors a real game.
     def demoSeed(seed: Int64): Int64 = seed + 977i64
 
@@ -73,20 +72,22 @@ mod Session {
     /// came from.
     ///
     pub def withTuning(seed: Int64, scores: List[Entry], tuning: Tuning): Session =
-        { screen = Screen.Attract,
-          players = 1,
-          current = 0,
-          worlds = Vector#{Game.initial(seed)},
-          scores = scores,
-          pending = Nil,
-          typing = "",
-          demo = Game.initial(demoSeed(seed)),
-          demoHand = Demo.fresh(demoSeed(seed)),
-          tuning = tuning,
-          nerds = false,
-          handover = 0,
-          over = 0,
-          seed = seed }
+        {
+            screen = Screen.Attract,
+            players = 1,
+            current = 0,
+            worlds = Vector#{Game.initial(seed)},
+            scores = scores,
+            pending = Nil,
+            typing = "",
+            demo = Game.initial(demoSeed(seed)),
+            demoHand = Demo.fresh(demoSeed(seed)),
+            tuning = tuning,
+            nerds = false,
+            handover = 0,
+            over = 0,
+            seed = seed
+        }
 
     /// Whether this player still has a game to play.
     pub def stillIn(w: World): Bool = w#phase != Phase.Lost
@@ -117,9 +118,7 @@ mod Session {
     pub def cabinet(s: Session): Cabinet = {
         let count = Vector.length(s#worlds);
         let nextIdx = Int32.remainder(s#current + 1, count);
-        let other =
-            if (s#players < 2) 0
-            else Vector.get(nextIdx, s#worlds)#score;
+        let other = if (s#players < 2) 0 else Vector.get(nextIdx, s#worlds)#score;
         { player = s#current + 1, players = s#players, otherScore = other, ownGameOver = false }
     }
 
@@ -146,17 +145,19 @@ mod Session {
     /// Starts a fresh game for `players` players.
     def begin(players: Int32, s: Session): Session = {
         let best = Scores.best(s#scores);
-        let freshWorlds = Vector.range(0, players)
-            |> Vector.map(i -> {
+        let freshWorlds = Vector.range(0, players) |>
+            Vector.map(i -> {
                 let fresh = Game.initial(s#seed + Int32.toInt64(i));
                 { hiScore = best | fresh }
             });
-        { screen = Screen.Playing,
-          players = players,
-          current = 0,
-          pending = Nil,
-          typing = "",
-          worlds = freshWorlds | s }
+        {
+            screen = Screen.Playing,
+            players = players,
+            current = 0,
+            pending = Nil,
+            typing = "",
+            worlds = freshWorlds | s
+        }
     }
 
     ///
@@ -189,10 +190,7 @@ mod Session {
         let pOne = Set.exists(k -> Key.digit(k) == Some(1), pressed);
         let pTwo = Set.exists(k -> Key.digit(k) == Some(2), pressed);
         let pEnter = Set.memberOf(Key.Enter, pressed) or Set.memberOf(Key.Space, pressed);
-        if (pOne) Some(1)
-        else if (pTwo) Some(2)
-        else if (pEnter) Some(1)
-        else None
+        if (pOne) Some(1) else if (pTwo) Some(2) else if (pEnter) Some(1) else None
     }
 
     ///
@@ -208,14 +206,15 @@ mod Session {
     /// either ask for their initials or go straight to the table.
     ///
     def finish(s: Session): Session = {
-        let earned = Vector.toList(s#worlds)
-            |> List.mapWithIndex((i, w) -> (i, w))
-            |> List.filter(match (_, w) -> Scores.qualifies(w#score, s#scores))
-            |> List.map(match (i, w) ->
-                let entry = { name = "", score = w#score, level = w#level };
-                { player = i, entry = entry });
-        if (List.isEmpty(earned)) { screen = Screen.Table, pending = Nil | s }
-        else { screen = Screen.Entering, pending = earned, typing = "" | s }
+        let earned = Vector.toList(s#worlds) |>
+            List.mapWithIndex((i, w) -> (i, w)) |>
+            List.filter(match (_, w) -> Scores.qualifies(w#score, s#scores)) |>
+            List.map(match (i, w) -> let entry = { name = "", score = w#score, level = w#level };
+            { player = i, entry = entry });
+        if (List.isEmpty(earned))
+            { screen = Screen.Table, pending = Nil | s }
+        else
+            { screen = Screen.Entering, pending = earned, typing = "" | s }
     }
 
     ///
@@ -233,8 +232,7 @@ mod Session {
         let stepped = Game.step(active(s), input);
         let worlds = Vector.update(s#current, stepped, s#worlds);
         let advanced = { worlds = worlds | s };
-        if (stepped#phase != Phase.Lost) advanced
-        else { over = Rules.gameOverTicks() | advanced }
+        if (stepped#phase != Phase.Lost) advanced else { over = Rules.gameOverTicks() | advanced }
     }
 
     def playing(input: Snapshot, s: Session): Session \ Sound = {
@@ -244,10 +242,9 @@ mod Session {
         if (s#over > 0) {
             let counted = { over = s#over - 1 | s };
             checked_ecast(if (counted#over > 0) counted else afterGameOver(counted))
-        }
-        else if (s#handover > 0) checked_ecast({ handover = s#handover - 1 | s })
-        else if (allDone(s)) finish(s)
-        else advanceWorld(input, s)
+        } else if (s#handover > 0)
+            checked_ecast({ handover = s#handover - 1 | s })
+        else if (allDone(s)) finish(s) else advanceWorld(input, s)
     }
 
     ///
@@ -268,41 +265,39 @@ mod Session {
     /// so the table never gains a blank row.
     ///
     def entering(input: Snapshot, s: Session): Session = {
-        let typed = Set.foldLeft((acc, k) -> match Key.nameCharacter(k) {
-            case Some(c) if String.length(acc) < Scores.nameLength() => acc + "${c}"
-            case _ => acc
-        }, s#typing, input#pressed);
+        let typed = Set.foldLeft(
+            (acc, k) -> match Key.nameCharacter(k) {
+                case Some(c) if String.length(acc) < Scores.nameLength() => acc + "${c}"
+                case _ => acc
+            },
+            s#typing,
+            input#pressed
+        );
         let hasBack = Set.memberOf(Key.Backspace, input#pressed);
         let afterDelete =
-            if (hasBack and String.length(typed) > 0)
-                String.dropRight(1, typed)
-            else
-                typed;
+            if (hasBack and String.length(typed) > 0) String.dropRight(1, typed) else typed;
         let hasEnter = Set.memberOf(Key.Enter, input#pressed);
         let hasName = String.length(afterDelete) > 0;
         if (not (hasEnter and hasName))
             { typing = afterDelete | s }
-        else match s#pending {
-            case Nil =>
-                { screen = Screen.Table, typing = "" | s }
-            case claim :: rest => {
-                let recorded = Scores.insert({ name = afterDelete | claim#entry }, s#scores);
-                if (List.isEmpty(rest))
-                    { screen = Screen.Table, scores = recorded, pending = Nil, typing = "" | s }
-                else
-                    { scores = recorded, pending = rest, typing = "" | s }
+        else
+            match s#pending {
+                case Nil => { screen = Screen.Table, typing = "" | s }
+                case claim :: rest => {
+                    let recorded = Scores.insert({ name = afterDelete | claim#entry }, s#scores);
+                    if (List.isEmpty(rest))
+                        { screen = Screen.Table, scores = recorded, pending = Nil, typing = "" | s }
+                    else
+                        { scores = recorded, pending = rest, typing = "" | s }
+                }
             }
-        }
     }
 
     /// The table waits for a key, then goes back to attracting.
     def table(input: Snapshot, s: Session): Session = {
         let pressed = input#pressed;
         let pressedKey = Set.memberOf(Key.Enter, pressed) or Set.memberOf(Key.Space, pressed);
-        if (pressedKey)
-            { screen = Screen.Attract | s }
-        else
-            s
+        if (pressedKey) { screen = Screen.Attract | s } else s
     }
 
     ///
@@ -329,5 +324,4 @@ mod Session {
         case Screen.Entering => entering(input, s)
         case Screen.Table => table(input, s)
     }
-
 }

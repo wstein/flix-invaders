@@ -30,15 +30,21 @@ pub type alias Config = {
 /// functions, and never learns that a window exists.
 ///
 mod Sketch {
-
     import java.lang.System
 
     ///
     /// A 640x480 sketch at 60 Hz with a fixed seed and no frame limit.
     ///
     pub def defaultConfig(): Config =
-        { title = "Flix sketch", width = 640, height = 480, seed = 42i64, hz = 60,
-          maxFrames = None, fontPath = None }
+        {
+            title = "Flix sketch",
+            width = 640,
+            height = 480,
+            seed = 42i64,
+            hz = 60,
+            maxFrames = None,
+            fontPath = None
+        }
 
     ///
     /// Reads a frame limit from the `FLIX_SKETCH_MAX_FRAMES` environment variable.
@@ -48,11 +54,13 @@ mod Sketch {
     ///
     pub def maxFramesFromEnv(): Option[Int32] \ IO = {
         let raw = System.getenv("FLIX_SKETCH_MAX_FRAMES");
-        if (Object.isNull(raw)) None
-        else match Int32.parse(10, raw) {
-            case Result.Ok(n) if n > 0 => Some(n)
-            case _ => None
-        }
+        if (Object.isNull(raw))
+            None
+        else
+            match Int32.parse(10, raw) {
+                case Result.Ok(n) if n > 0 => Some(n)
+                case _ => None
+            }
     }
 
     ///
@@ -111,12 +119,10 @@ mod Sketch {
     /// frame-timing arithmetic. None of those are worth a crash in a game, so the rate is
     /// brought into a range a display can plausibly be asked for.
     ///
-    pub def clampHz(hz: Int32): Int32 =
-        Int32.max(minimumHz(), Int32.min(maximumHz(), hz))
+    pub def clampHz(hz: Int32): Int32 = Int32.max(minimumHz(), Int32.min(maximumHz(), hz))
 
     /// How long one logical tick covers, in nanoseconds.
-    pub def stepNsFor(hz: Int32): Int64 =
-        1000000000i64 / Int32.toInt64(clampHz(hz))
+    pub def stepNsFor(hz: Int32): Int64 = 1000000000i64 / Int32.toInt64(clampHz(hz))
 
     /// Never advance more than this many logical steps in one frame.
     ///
@@ -176,12 +182,17 @@ mod Sketch {
     /// reports ~16ms at 60Hz whatever the sketch actually costs.
     ///
     def drawFrame(loop: Loop[s, rc]): Unit \ IO + rc = {
-        let elapsed         = accumulate(loop);
+        let elapsed = accumulate(loop);
         let (due, snapshot) = readKeyboard(loop);
-        let simNs           = simulate(loop, due, snapshot);
-        let drawNs          = paint(loop);
-        observe(loop, { frameNs = elapsed, simNs = simNs, drawNs = drawNs,
-                        steps = due, clamped = elapsed > loop#budgetNs });
+        let simNs = simulate(loop, due, snapshot);
+        let drawNs = paint(loop);
+        observe(loop, {
+            frameNs = elapsed,
+            simNs = simNs,
+            drawNs = drawNs,
+            steps = due,
+            clamped = elapsed > loop#budgetNs
+        });
         countFrame(loop)
     }
 
@@ -240,15 +251,13 @@ mod Sketch {
     /// subtracting one accumulator reading from another -- which is also why the caller can
     /// report `due` as the number of steps taken.
     ///
-    def simulate(loop: Loop[s, rc], due: Int32,
-                 snapshot: Snapshot): Int64 \ IO + rc = {
+    def simulate(loop: Loop[s, rc], due: Int32, snapshot: Snapshot): Int64 \ IO + rc = {
         let refs = loop#refs;
         let stepsNs = loop#stepNs * Int32.toInt64(due);
         Ref.put(Ref.get(refs#accNs) - stepsNs, refs#accNs);
         let started = System.nanoTime();
         let currentSnapshot = Input.acrossTicks(due, snapshot);
-        runWithClips(loop#voices, () ->
-            advance(loop#step, refs#world, currentSnapshot));
+        runWithClips(loop#voices, () -> advance(loop#step, refs#world, currentSnapshot));
         System.nanoTime() - started
     }
 
@@ -289,8 +298,7 @@ mod Sketch {
         let frames = Ref.get(loop#refs#frames) + 1;
         Ref.put(frames, loop#refs#frames);
         match loop#cfg#maxFrames {
-            case Some(limit) =>
-                if (frames >= limit) Surface.requestClose(loop#surface) else ()
+            case Some(limit) => if (frames >= limit) Surface.requestClose(loop#surface) else ()
             case None => ()
         }
     }
@@ -302,11 +310,12 @@ mod Sketch {
     /// before any frame runs, so the callback has one stable value rather than reconstructing
     /// window, audio, or timing state per frame.
     ///
-    def openLoop(rc: Region[r],
-                 cfg: Config,
-                 init: Int64 -> s,
-                 step: (s, Snapshot) -> s \ Sound,
-                 view: (s, Stats) -> Unit \ Canvas
+    def openLoop(
+        rc: Region[r],
+        cfg: Config,
+        init: Int64 -> s,
+        step: (s, Snapshot) -> s \ Sound,
+        view: (s, Stats) -> Unit \ Canvas
     ): Loop[s, r] \ IO + r = {
         let hz = clampHz(cfg#hz);
         let stepNs = stepNsFor(hz);
@@ -321,13 +330,21 @@ mod Sketch {
             stats = Ref.fresh(rc, Stats.empty())
         };
 
-        let surface = Surface.open(rc, cfg#title, width = cfg#width, height = cfg#height,
-                                   cfg#fontPath);
+        let surface =
+            Surface.open(rc, cfg#title, width = cfg#width, height = cfg#height, cfg#fontPath);
         Surface.textSize(Surface.sheet(surface), defaultTextSize());
         let voices = Audio.open();
 
-        { cfg = cfg, stepNs = stepNs, budgetNs = budgetNs, surface = surface,
-          voices = voices, refs = refs, step = step, view = view }
+        {
+            cfg = cfg,
+            stepNs = stepNs,
+            budgetNs = budgetNs,
+            surface = surface,
+            voices = voices,
+            refs = refs,
+            step = step,
+            view = view
+        }
     }
 
     ///
@@ -362,20 +379,21 @@ mod Sketch {
     /// They describe the *previous* frame -- this one is not finished being drawn -- which is
     /// what any such display shows.
     ///
-    pub def start(cfg: Config,
-                  init: (Int64 -> s),
-                  step: ((s, Snapshot) -> s \ Sound),
-                  view: ((s, Stats) -> Unit \ Canvas)
+    pub def start(
+        cfg: Config,
+        init: (Int64 -> s),
+        step: ((s, Snapshot) -> s \ Sound),
+        view: ((s, Stats) -> Unit \ Canvas)
     ): s \ IO =
         region rc {
-        let loop = openLoop(rc, cfg, init, step, view);
+            let loop = openLoop(rc, cfg, init, step, view);
 
-        // The display is asked for the same rate as the simulation. They are not the same
-        // thing -- the accumulator exists precisely because a frame is not a tick -- but
-        // there is no reason to draw more often than the world changes.
-        Surface.loop(loop#surface, loop#stepNs, () -> drawFrame(loop));
-        closeLoop(loop)
-    }
+            // The display is asked for the same rate as the simulation. They are not the same
+            // thing -- the accumulator exists precisely because a frame is not a tick -- but
+            // there is no reason to draw more often than the world changes.
+            Surface.loop(loop#surface, loop#stepNs, () -> drawFrame(loop));
+            closeLoop(loop)
+        }
 
     ///
     /// The text size a sketch starts at, before any `Canvas.textSize` call.
@@ -389,12 +407,14 @@ mod Sketch {
     /// device -- which is why it lives here rather than in `Sound`. `Clip.start()` returns
     /// immediately, so a frame is never held up waiting for audio.
     ///
-    def runWithClips(voices: Audio.Voices, f: Unit -> a \ ef)
-        : a \ (ef - Sound) + IO =
+    def runWithClips(voices: Audio.Voices, f: Unit -> a \ ef): a \ (ef - Sound) + IO =
         run {
             f()
         } with handler Sound {
-            def play(cmd, k) = { Audio.play(voices, cmd); k() }
+            def play(cmd, k) = {
+                Audio.play(voices, cmd);
+                k()
+            }
         }
 
     ///
@@ -404,19 +424,39 @@ mod Sketch {
     /// a window -- which is why it lives here rather than in `Canvas`. Every case is one
     /// call, because `Surface` was given the same vocabulary the effect is written in.
     ///
-    def runWithSurface(win: Surface.Window[rc], f: Unit -> a \ ef)
-        : a \ (ef - Canvas) + IO + rc =
+    def runWithSurface(win: Surface.Window[rc], f: Unit -> a \ ef): a \ (ef - Canvas) + IO + rc =
         let sheet = Surface.sheet(win);
         run {
             f()
         } with handler Canvas {
-            def clear(c, k) = { Surface.background(sheet, c); k() }
-            def fill(c, k) = { Surface.fill(sheet, c); k() }
-            def fillAlpha(c, a, k) = { Surface.fillAlpha(sheet, c, a); k() }
-            def rect(x, y, w, h, k) = { Surface.rect(sheet, x, y, w, h); k() }
-            def ellipse(x, y, w, h, k) = { Surface.ellipse(sheet, x, y, w, h); k() }
-            def text(str, x, y, k) = { Surface.text(sheet, str, x, y); k() }
-            def textSize(px, k) = { Surface.textSize(sheet, px); k() }
+            def clear(c, k) = {
+                Surface.background(sheet, c);
+                k()
+            }
+            def fill(c, k) = {
+                Surface.fill(sheet, c);
+                k()
+            }
+            def fillAlpha(c, a, k) = {
+                Surface.fillAlpha(sheet, c, a);
+                k()
+            }
+            def rect(x, y, w, h, k) = {
+                Surface.rect(sheet, x, y, w, h);
+                k()
+            }
+            def ellipse(x, y, w, h, k) = {
+                Surface.ellipse(sheet, x, y, w, h);
+                k()
+            }
+            def text(str, x, y, k) = {
+                Surface.text(sheet, str, x, y);
+                k()
+            }
+            def textSize(px, k) = {
+                Surface.textSize(sheet, px);
+                k()
+            }
             def dimensions(k) = k(Surface.size(sheet))
         }
 
@@ -429,9 +469,10 @@ mod Sketch {
     /// The clock is `simulate`'s business, not this function's: it knows the list's length
     /// before the walk starts, so nothing is learned by paying for the ticks one at a time.
     ///
-    def advance(step: ((s, Snapshot) -> s \ Sound),
-                world: Ref[s, r],
-                inputs: List[Snapshot]): Unit \ Sound + r =
+    def advance(
+        step: ((s, Snapshot) -> s \ Sound),
+        world: Ref[s, r],
+        inputs: List[Snapshot]
+    ): Unit \ Sound + r =
         inputs |> List.forEach(snapshot -> Ref.transform(s -> step(s, snapshot), world))
-
 }

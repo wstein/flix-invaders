@@ -10,7 +10,6 @@
 /// bunker.
 ///
 mod Bunkers {
-
     ///
     /// The undamaged shape: an arch, so the cannon can shelter underneath and still shoot
     /// out through the top.
@@ -32,24 +31,31 @@ mod Bunkers {
     def freshCells(): Vector[Bool] = {
         let totalCells = Rules.bunkerColumns() * Rules.bunkerRows();
         let shapes = shape();
-        Vector.range(0, totalCells) |> Vector.map(index -> {
-            let column = Int32.remainder(index, Rules.bunkerColumns());
-            let row = index / Rules.bunkerColumns();
-            match Vector.nth(row, shapes) {
-                case Some(line) =>
-                    if (column < String.length(line)) String.charAt(column, line) == '#' else false
-                case None => false
-            }
-        })
+        Vector.range(0, totalCells) |>
+            Vector.map(index -> {
+                let column = Int32.remainder(index, Rules.bunkerColumns());
+                let row = index / Rules.bunkerColumns();
+                match Vector.nth(row, shapes) {
+                    case Some(line) =>
+                        if (column < String.length(line))
+                            String.charAt(column, line) == '#'
+                        else
+                            false
+                    case None => false
+                }
+            })
     }
 
     ///
     /// Four undamaged bunkers, evenly spaced.
     ///
     pub def initial(): Vector[Bunker] =
-        Vector.range(0, Rules.bunkerCount()) |> Vector.map(index ->
-            { origin = { x = Rules.bunkerLeft(index), y = Rules.bunkerTop() },
-              cells = freshCells() })
+        Vector.range(0, Rules.bunkerCount()) |>
+            Vector.map(index ->
+                {
+                    origin = { x = Rules.bunkerLeft(index), y = Rules.bunkerTop() },
+                    cells = freshCells()
+                })
 
     /// The centre of one block, in screen coordinates.
     pub def cellCentre(bunker: Bunker, index: Int32): Vec2 = {
@@ -71,14 +77,17 @@ mod Bunkers {
         let bCell = Rules.bunkerCell();
         let width = Int32.toFloat32(Rules.bunkerColumns()) * bCell;
         let height = Int32.toFloat32(Rules.bunkerRows()) * bCell;
-        let pos = { x = bunker#origin#x + width / 2.0f32,
-                    y = bunker#origin#y + height / 2.0f32 };
+        let pos = { x = bunker#origin#x + width / 2.0f32, y = bunker#origin#y + height / 2.0f32 };
         let size = { x = width, y = height };
         (pos, size)
     }
 
-    def closeRun(row: Int32, col: Int32, start: Option[Int32],
-                 acc: List[(Int32, Int32, Int32)]): List[(Int32, Int32, Int32)] =
+    def closeRun(
+        row: Int32,
+        col: Int32,
+        start: Option[Int32],
+        acc: List[(Int32, Int32, Int32)]
+    ): List[(Int32, Int32, Int32)] =
         match start {
             case None => acc
             case Some(startCol) => (row, startCol, col - startCol) :: acc
@@ -95,20 +104,24 @@ mod Bunkers {
         let bCols = Rules.bunkerColumns();
         let bRows = Rules.bunkerRows();
         let scanRow = (acc, row) -> {
-            let scanned = Vector.foldLeft((scan, col) ->
-                let idx = row * bCols + col;
-                if (Vector.get(idx, bunker#cells))
-                    match scan#runStart {
-                        case None => { runStart = Some(col) | scan }
-                        case Some(_) => scan
-                    }
-                else
-                    match scan#runStart {
-                        case None => scan
-                        case Some(startCol) =>
-                            let runItem = (row, startCol, col - startCol);
-                            { runs = runItem :: scan#runs, runStart = None }
-                    }, { runs = Nil, runStart = None }, Vector.range(0, bCols));
+            let scanned = Vector.foldLeft(
+                (scan, col) ->
+                    let idx = row * bCols + col;
+                    if (Vector.get(idx, bunker#cells))
+                        match scan#runStart {
+                            case None => { runStart = Some(col) | scan }
+                            case Some(_) => scan
+                        }
+                    else
+                        match scan#runStart {
+                            case None => scan
+                            case Some(startCol) =>
+                                let runItem = (row, startCol, col - startCol);
+                                { runs = runItem :: scan#runs, runStart = None }
+                        },
+                { runs = Nil, runStart = None },
+                Vector.range(0, bCols)
+            );
             let closedRuns = closeRun(row, bCols, scanned#runStart, scanned#runs);
             List.append(closedRuns, acc)
         };
@@ -151,20 +164,23 @@ mod Bunkers {
     def meets(bunker: Bunker, x: Float32, width: Float32): Bool = {
         let reach = (width + Rules.bunkerCell()) / 2.0f32;
         let inReach = column -> {
-            let centre =
-                bunker#origin#x + (Int32.toFloat32(column) + 0.5f32) * Rules.bunkerCell();
+            let centre = bunker#origin#x + (Int32.toFloat32(column) + 0.5f32) * Rules.bunkerCell();
             Float32.abs(centre - x) < reach
         };
-        Vector.exists(column -> inReach(column) and standingInColumn(bunker, column),
-                      Vector.range(0, Rules.bunkerColumns()))
+        Vector.exists(
+            column -> inReach(column) and standingInColumn(bunker, column),
+            Vector.range(0, Rules.bunkerColumns())
+        )
     }
 
     /// Whether any block is left in one column of a bunker.
     def standingInColumn(bunker: Bunker, column: Int32): Bool =
-        Vector.exists(row ->
-            Vector.nth(row * Rules.bunkerColumns() + column, bunker#cells)
-                |> Option.getWithDefault(false),
-            Vector.range(0, Rules.bunkerRows()))
+        Vector.exists(
+            row ->
+                Vector.nth(row * Rules.bunkerColumns() + column, bunker#cells) |>
+                    Option.getWithDefault(false),
+            Vector.range(0, Rules.bunkerRows())
+        )
 
     ///
     /// Whether any standing block sits directly above the single point `x`.
@@ -173,21 +189,25 @@ mod Bunkers {
     /// `obstructs`, which asks it of a whole bullet.
     ///
     pub def blocks(bunkers: Vector[Bunker], x: Float32): Bool =
-        Vector.exists(bunker -> {
-            let offset = (x - bunker#origin#x) / Rules.bunkerCell();
-            match Float32.tryToInt32(Float32.floor(offset)) {
-                case None => false
-                case Some(column) =>
-                    if (column < 0 or column >= Rules.bunkerColumns()) false
-                    else standingInColumn(bunker, column)
-            }
-        }, bunkers)
+        Vector.exists(
+            bunker -> {
+                let offset = (x - bunker#origin#x) / Rules.bunkerCell();
+                match Float32.tryToInt32(Float32.floor(offset)) {
+                    case None => false
+                    case Some(column) =>
+                        if (column < 0 or column >= Rules.bunkerColumns())
+                            false
+                        else
+                            standingInColumn(bunker, column)
+                }
+            },
+            bunkers
+        )
 
     ///
     /// The number of intact, surviving blocks in a single bunker.
     ///
-    pub def remaining(bunker: Bunker): Int32 =
-        Vector.count(alive -> alive, bunker#cells)
+    pub def remaining(bunker: Bunker): Int32 = Vector.count(alive -> alive, bunker#cells)
 
     ///
     /// The total number of intact, surviving blocks across all bunkers in the vector.
@@ -209,7 +229,8 @@ mod Bunkers {
         // this turns a scan of 96 blocks into one comparison.
         let (centre, footprint) = bounds(bunker);
         let nearer = (best, index) ->
-            if (not struckAt(bunker, index, pos, size)) best
+            if (not struckAt(bunker, index, pos, size))
+                best
             else {
                 let distance = distanceSquared(cellCentre(bunker, index), pos);
                 match best {
@@ -219,21 +240,25 @@ mod Bunkers {
                     case _ => Some((index, distance))
                 }
             };
-        if (not Collide.overlaps(aPos = pos, aSize = size, bPos = centre, bSize = footprint)) None
+        if (not Collide.overlaps(aPos = pos, aSize = size, bPos = centre, bSize = footprint))
+            None
         else
             Vector.foldLeft(nearer, None, cellIndices(bunker)) |> Option.map(fst)
     }
 
     /// The indices of a bunker's blocks. Every search here is over these rather than over the
     /// cells themselves, because placing a block needs its index.
-    def cellIndices(bunker: Bunker): Vector[Int32] =
-        Vector.range(0, Vector.length(bunker#cells))
+    def cellIndices(bunker: Bunker): Vector[Int32] = Vector.range(0, Vector.length(bunker#cells))
 
     /// Whether the block at `index` is still standing and overlaps the given box.
     def struckAt(bunker: Bunker, index: Int32, pos: Vec2, size: Vec2): Bool =
-        Vector.get(index, bunker#cells)
-            and Collide.overlaps(aPos = pos, aSize = size,
-                                 bPos = cellCentre(bunker, index), bSize = cellSize())
+        Vector.get(index, bunker#cells) and
+            Collide.overlaps(
+                aPos = pos,
+                aSize = size,
+                bPos = cellCentre(bunker, index),
+                bSize = cellSize()
+            )
 
     def distanceSquared(a: Vec2, b: Vec2): Float32 = {
         let dx = a#x - b#x;
@@ -256,22 +281,26 @@ mod Bunkers {
     def touches(bunker: Bunker, pos: Vec2, size: Vec2): Bool = {
         // Same footprint rejection `contact` opens with, and for the same reason.
         let (centre, footprint) = bounds(bunker);
-        Collide.overlaps(aPos = pos, aSize = size, bPos = centre, bSize = footprint)
-            and Vector.exists(index -> struckAt(bunker, index, pos, size), cellIndices(bunker))
+        Collide.overlaps(aPos = pos, aSize = size, bPos = centre, bSize = footprint) and
+            Vector.exists(index -> struckAt(bunker, index, pos, size), cellIndices(bunker))
     }
 
     ///
     /// Removes every block within `radius` of `at`.
     ///
     pub def damage(bunker: Bunker, at: Vec2, radius: Float32): Bunker = {
-        let cells = Vector.mapWithIndex((index, alive) ->
-            if (not alive) false
-            else {
-                let centre = cellCentre(bunker, index);
-                let dx = centre#x - at#x;
-                let dy = centre#y - at#y;
-                (dx * dx + dy * dy) > radius * radius
-            }, bunker#cells);
+        let cells = Vector.mapWithIndex(
+            (index, alive) ->
+                if (not alive)
+                    false
+                else {
+                    let centre = cellCentre(bunker, index);
+                    let dx = centre#x - at#x;
+                    let dy = centre#y - at#y;
+                    (dx * dx + dy * dy) > radius * radius
+                },
+            bunker#cells
+        );
         { cells = cells | bunker }
     }
 
@@ -284,8 +313,10 @@ mod Bunkers {
     ///
     /// `findMap` stops at the first bunker the shot meets, which is what keeps one shot from
     /// damaging two shelters standing in a line.
-    pub def absorb(bunkers: Vector[Bunker], pos: Vec2, size: Vec2, crater: Float32)
-        : (Vector[Bunker], Bool) = {
+    pub def absorb(bunkers: Vector[Bunker], pos: Vec2, size: Vec2, crater: Float32): (
+        Vector[Bunker],
+        Bool
+    ) = {
         let struck = which -> {
             let b = Vector.get(which, bunkers);
             contact(b, pos, size) |> Option.map(cell -> (which, cell))
@@ -311,15 +342,21 @@ mod Bunkers {
     /// batch version would make the common case -- bullets, all identical -- read worse to
     /// buy nothing.
     ///
-    pub def absorbBombs(bunkers: Vector[Bunker], bombs: List[Bomb])
-        : (Vector[Bunker], List[Bomb]) = {
-        let pass = List.foldLeft((acc, bomb) -> {
-            let pos = { x = bomb#x, y = bomb#y };
-            let crater = Rules.bombCraterFor(bomb#kind);
-            let (damaged, wasHit) = absorb(acc#bunkers, pos, Rules.bombSize(), crater);
-            let nextKept = if (wasHit) acc#kept else bomb :: acc#kept;
-            { bunkers = damaged, kept = nextKept }
-        }, { bunkers = bunkers, kept = (Nil: List[Bomb]) }, bombs);
+    pub def absorbBombs(bunkers: Vector[Bunker], bombs: List[Bomb]): (
+        Vector[Bunker],
+        List[Bomb]
+    ) = {
+        let pass = List.foldLeft(
+            (acc, bomb) -> {
+                let pos = { x = bomb#x, y = bomb#y };
+                let crater = Rules.bombCraterFor(bomb#kind);
+                let (damaged, wasHit) = absorb(acc#bunkers, pos, Rules.bombSize(), crater);
+                let nextKept = if (wasHit) acc#kept else bomb :: acc#kept;
+                { bunkers = damaged, kept = nextKept }
+            },
+            { bunkers = bunkers, kept = (Nil: List[Bomb]) },
+            bombs
+        );
         (pass#bunkers, List.reverse(pass#kept))
     }
 
@@ -330,15 +367,20 @@ mod Bunkers {
     /// One shot damages at most one bunker: `absorb` stops at the first it makes contact with,
     /// so a bullet cannot bore through two shelters standing in a line.
     ///
-    pub def absorbAll(bunkers: Vector[Bunker], shots: List[Vec2],
-                      size: Vec2, crater: Float32)
-        : (Vector[Bunker], List[Vec2]) = {
+    pub def absorbAll(bunkers: Vector[Bunker], shots: List[Vec2], size: Vec2, crater: Float32): (
+        Vector[Bunker],
+        List[Vec2]
+    ) = {
         let initAcc = { bunkers = bunkers, kept = (Nil: List[Vec2]) };
-        let pass = List.foldLeft((acc, shot) -> {
-            let (damaged, wasHit) = absorb(acc#bunkers, shot, size, crater);
-            let nextKept = if (wasHit) acc#kept else shot :: acc#kept;
-            { bunkers = damaged, kept = nextKept }
-        }, initAcc, shots);
+        let pass = List.foldLeft(
+            (acc, shot) -> {
+                let (damaged, wasHit) = absorb(acc#bunkers, shot, size, crater);
+                let nextKept = if (wasHit) acc#kept else shot :: acc#kept;
+                { bunkers = damaged, kept = nextKept }
+            },
+            initAcc,
+            shots
+        );
         (pass#bunkers, List.reverse(pass#kept))
     }
 
@@ -349,22 +391,29 @@ mod Bunkers {
     /// comparison rather than a scan of every block against every invader.
     ///
     pub def erode(bunkers: Vector[Bunker], invaders: Vector[Invader]): Vector[Bunker] = {
-        let lowest = Vector.foldLeft((low, inv) ->
-            if (inv#alive)
-                Float32.max(low, inv#pos#y)
-            else
-                low,
-            0.0f32, invaders);
+        let lowest =
+            Vector.foldLeft(
+                (low, inv) -> if (inv#alive) Float32.max(low, inv#pos#y) else low,
+                0.0f32,
+                invaders
+            );
         if (lowest + Rules.invaderSize()#y / 2.0f32 < Rules.bunkerTop())
             bunkers
         else
-            Vector.map(bunker ->
-                Vector.foldLeft((acc, inv) ->
-                    if (not inv#alive) acc
-                    else if (not touches(acc, inv#pos, Rules.invaderSize())) acc
-                    else damage(acc, inv#pos, Rules.invaderSize()#x / 2.0f32),
-                    bunker, invaders),
-                bunkers)
+            Vector.map(
+                bunker ->
+                    Vector.foldLeft(
+                        (acc, inv) ->
+                            if (not inv#alive)
+                                acc
+                            else if (not touches(acc, inv#pos, Rules.invaderSize()))
+                                acc
+                            else
+                                damage(acc, inv#pos, Rules.invaderSize()#x / 2.0f32),
+                        bunker,
+                        invaders
+                    ),
+                bunkers
+            )
     }
-
 }

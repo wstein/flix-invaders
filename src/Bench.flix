@@ -40,7 +40,6 @@ pub type alias Endgame = { pixels = Float32, ticks = Int32, kills = Int32 }
 /// tuning and its fixed seeds, the benchmark is an ordinary fold with reproducible results.
 ///
 mod Bench {
-
     use Util.GetOpt.{ArgDescr, ArgOrder, OptionDescr, getOpt1, usageInfo}
 
     ///
@@ -51,8 +50,17 @@ mod Bench {
     /// temptation, having got a pleasing number, is to stop.
     ///
     pub def seeds(): List[Int64] =
-        2026i64 :: 7i64 :: 99i64 :: 1234i64 :: 555i64 ::
-        31i64 :: 17i64 :: 404i64 :: 88i64 :: 5i64 :: Nil
+        2026i64 ::
+            7i64 ::
+            99i64 ::
+            1234i64 ::
+            555i64 ::
+            31i64 ::
+            17i64 ::
+            404i64 ::
+            88i64 ::
+            5i64 ::
+            Nil
 
     ///
     /// Sixty seeds, for deciding rather than for iterating.
@@ -102,18 +110,23 @@ mod Bench {
         w#phase == Phase.Playing and w#pause == 0 and alive(w) <= 8
 
     def observeEndgame(before: World, after: World, endgame: Endgame): Endgame =
-        if (not activelyInEndgame(before)) endgame
+        if (not activelyInEndgame(before))
+            endgame
         else
-            { pixels = endgame#pixels + Float32.abs(after#playerX - before#playerX),
-              ticks = endgame#ticks + 1,
-              // A cleared formation is restored to 55, which would read as negative kills.
-              kills = endgame#kills + Int32.max(0, alive(before) - alive(after)) }
+            {
+                pixels = endgame#pixels + Float32.abs(after#playerX - before#playerX),
+                ticks = endgame#ticks + 1,
+                // A cleared formation is restored to 55, which would read as negative kills.
+                kills = endgame#kills + Int32.max(0, alive(before) - alive(after))
+            }
 
-    type alias BenchAccumulator = { deaths = Int32,
-                                    kills = Int32,
-                                    drops = Int32,
-                                    ticks = Int32,
-                                    endgame = Endgame }
+    type alias BenchAccumulator = {
+        deaths = Int32,
+        kills = Int32,
+        drops = Int32,
+        ticks = Int32,
+        endgame = Endgame
+    }
 
     ///
     /// One run in progress: the ticks left in its budget, the world, the bot's hand, and the
@@ -167,22 +180,27 @@ mod Bench {
                 let reached = invasionReached(st#world);
                 let w = st#world;
                 let a = st#acc;
-                { seed = seed, level = w#level, score = w#score,
-                  lives = w#lives, deaths = a#deaths, kills = a#kills,
-                  drops = a#drops, ticks = a#ticks,
-                  invaded = reached, endgame = endg }
-            } else
-                loop(stepBench(tuning, st))
+                {
+                    seed = seed,
+                    level = w#level,
+                    score = w#score,
+                    lives = w#lives,
+                    deaths = a#deaths,
+                    kills = a#kills,
+                    drops = a#drops,
+                    ticks = a#ticks,
+                    invaded = reached,
+                    endgame = endg
+                }
+            } else loop(stepBench(tuning, st))
         };
-        let initAcc = { deaths = 0,
-                        kills = 0,
-                        drops = 0,
-                        ticks = 0,
-                        endgame = emptyEndgame() };
-        loop({ left = budget(),
-               world = Game.initial(seed),
-               hand = Demo.fresh(seed),
-               acc = initAcc })
+        let initAcc = { deaths = 0, kills = 0, drops = 0, ticks = 0, endgame = emptyEndgame() };
+        loop({
+            left = budget(),
+            world = Game.initial(seed),
+            hand = Demo.fresh(seed),
+            acc = initAcc
+        })
     })
 
     /// Whether the formation reached the cannon's line, as opposed to the lives running out.
@@ -248,18 +266,18 @@ mod Bench {
     /// overflow a little smaller would have printed a plausible number instead.
     ///
     pub def rateTenths(count: Int32, ticks: Int32): Int32 =
-        if (ticks <= 0) 0
+        if (ticks <= 0)
+            0
         else {
             let wide = Int32.toInt64(count) * 100000i64 / Int32.toInt64(ticks);
             match Int64.tryToInt32(wide) {
                 case Some(rate) => rate
-                case None       => Int32.maxValue()
+                case None => Int32.maxValue()
             }
         }
 
     /// A tenths value as `X.Y`.
-    pub def showTenths(tenths: Int32): String =
-        "${tenths / 10}.${Int32.remainder(tenths, 10)}"
+    pub def showTenths(tenths: Int32): String = "${tenths / 10}.${Int32.remainder(tenths, 10)}"
 
     /// Returns total player deaths across all benchmark runs.
     pub def deaths(runs: List[Outcome]): Int32 =
@@ -275,10 +293,16 @@ mod Bench {
 
     /// Aggregates endgame statistics across all benchmark runs.
     pub def endgame(runs: List[Outcome]): Endgame =
-        List.foldLeft((total, r) ->
-            { pixels = total#pixels + r#endgame#pixels,
-              ticks = total#ticks + r#endgame#ticks,
-              kills = total#kills + r#endgame#kills }, emptyEndgame(), runs)
+        List.foldLeft(
+            (total, r) ->
+                {
+                    pixels = total#pixels + r#endgame#pixels,
+                    ticks = total#ticks + r#endgame#ticks,
+                    kills = total#kills + r#endgame#kills
+                },
+            emptyEndgame(),
+            runs
+        )
 
     ///
     /// How far the cannon walked, and how long it took, per invader killed in the endgame.
@@ -292,21 +316,20 @@ mod Bench {
     /// denominator -- an infinity here would sort as the best run ever measured.
     ///
     pub def pixelsPerKill(endgame: Endgame): Float32 =
-        if (endgame#kills <= 0) 0.0f32
-        else endgame#pixels / Int32.toFloat32(endgame#kills)
+        if (endgame#kills <= 0) 0.0f32 else endgame#pixels / Int32.toFloat32(endgame#kills)
 
     /// The other half of the pair above.
     pub def ticksPerKill(endgame: Endgame): Float32 =
-        if (endgame#kills <= 0) 0.0f32
-        else Int32.toFloat32(endgame#ticks) / Int32.toFloat32(endgame#kills)
+        if (endgame#kills <= 0)
+            0.0f32
+        else
+            Int32.toFloat32(endgame#ticks) / Int32.toFloat32(endgame#kills)
 
     /// How many games ended with the formation landing rather than the lives running out.
-    pub def invasions(runs: List[Outcome]): Int32 =
-        List.count(r -> r#invaded, runs)
+    pub def invasions(runs: List[Outcome]): Int32 = List.count(r -> r#invaded, runs)
 
     /// How many games hit the budget instead of finishing, which invalidates the run.
-    pub def unfinished(runs: List[Outcome]): Int32 =
-        List.count(r -> r#ticks >= budget(), runs)
+    pub def unfinished(runs: List[Outcome]): Int32 = List.count(r -> r#ticks >= budget(), runs)
 
     // -- judging one tuning ------------------------------------------------------------------
 
@@ -321,9 +344,7 @@ mod Bench {
     ///
     pub def merit(runs: List[Outcome]): Int32 = {
         let ticks = totalTicks(runs);
-        meanLevelTenths(runs) * 1000
-            + worstLevel(runs) * 100
-            - rateTenths(deaths(runs), ticks)
+        meanLevelTenths(runs) * 1000 + worstLevel(runs) * 100 - rateTenths(deaths(runs), ticks)
     }
 
     ///
@@ -336,15 +357,18 @@ mod Bench {
     ///
     pub def score(tuning: Tuning): Int32 = merit(all(tuning))
 
-    def tryKnob(current: (Tuning, Int32),
-                adjust: List[Tuning -> Tuning]): (Tuning, Int32) = {
+    def tryKnob(current: (Tuning, Int32), adjust: List[Tuning -> Tuning]): (Tuning, Int32) = {
         let (curT, curS) = current;
         let candidates = List.map(f -> Tuning.sane(f(curT)), adjust);
-        List.foldLeft((inner, candidate) -> {
-            let (held, heldScore) = inner;
-            let trial = score(candidate);
-            if (trial > heldScore) (candidate, trial) else (held, heldScore)
-        }, (curT, curS), candidates)
+        List.foldLeft(
+            (inner, candidate) -> {
+                let (held, heldScore) = inner;
+                let trial = score(candidate);
+                if (trial > heldScore) (candidate, trial) else (held, heldScore)
+            },
+            (curT, curS),
+            candidates
+        )
     }
 
     ///
@@ -360,13 +384,18 @@ mod Bench {
     ///
     pub def recalc(rounds: Int32, start: Tuning): (Tuning, Int32) \ IO = {
         def sweep(remaining, best, bestScore) =
-            if (remaining <= 0) (best, bestScore)
+            if (remaining <= 0)
+                (best, bestScore)
             else {
                 let (improved, improvedScore) = List.foldLeft(tryKnob, (best, bestScore), knobs());
-                println("  round ${rounds - remaining + 1}: merit ${improvedScore}"
-                      + (if (improvedScore > bestScore) "" else "  (no improvement)"));
-                if (improvedScore <= bestScore) (best, bestScore)
-                else sweep(remaining - 1, improved, improvedScore)
+                println(
+                    "  round ${rounds - remaining + 1}: merit ${improvedScore}" +
+                        (if (improvedScore > bestScore) "" else "  (no improvement)")
+                );
+                if (improvedScore <= bestScore)
+                    (best, bestScore)
+                else
+                    sweep(remaining - 1, improved, improvedScore)
             };
         sweep(rounds, start, score(start))
     }
@@ -386,39 +415,64 @@ mod Bench {
     /// is considered.
     ///
     def knobs(): List[List[Tuning -> Tuning]] =
-        List.map(by -> ((t: Tuning) ->
-            let dw = scaled(t#dangerWidth, by);
-            { dangerWidth = dw | t }), spread()) ::
-        List.map(by -> ((t: Tuning) ->
-            let sp = scaled(t#selfPreservation, by);
-            { selfPreservation = sp | t }), spread()) ::
-        List.map(by -> ((t: Tuning) ->
-            let u = scaled(t#urgency, by);
-            { urgency = u | t }), spread()) ::
-        List.map(by -> ((t: Tuning) ->
-            let bc = scaled(t#blockedCost, by);
-            { blockedCost = bc | t }), spread()) ::
-        List.map(by -> ((t: Tuning) ->
-            let sr = scaled(t#shelterRelief, by);
-            { shelterRelief = sr | t }), spread()) ::
-        List.map(by -> ((t: Tuning) ->
-            let c = scaled(t#calm, by);
-            { calm = c | t }), spread()) ::
-        List.map(by -> ((t: Tuning) ->
-            let ff = scaled(t#finishFlank, by);
-            { finishFlank = ff | t }), spread()) ::
-        List.map(by -> ((t: Tuning) ->
-            let sa = scaled(t#startAt, by);
-            { startAt = sa | t }), spread()) ::
-        List.map(by -> ((t: Tuning) ->
-            let ra = scaled(t#reverseAt, by);
-            { reverseAt = ra | t }), spread()) ::
-        List.map(n -> ((t: Tuning) ->
-            { aimJitter = t#aimJitter + n | t }), bumps()) ::
-        List.map(n -> ((t: Tuning) ->
-            { judgeFor = t#judgeFor + n * 4 | t }), bumps()) ::
-        List.map(n -> ((t: Tuning) ->
-            { lapseFor = t#lapseFor + n | t }), bumps()) :: Nil
+        List.map(
+            by -> ((t: Tuning) ->
+                let dw = scaled(t#dangerWidth, by);
+                { dangerWidth = dw | t }),
+            spread()
+        ) ::
+            List.map(
+                by -> ((t: Tuning) ->
+                    let sp = scaled(t#selfPreservation, by);
+                    { selfPreservation = sp | t }),
+                spread()
+            ) ::
+            List.map(
+                by -> ((t: Tuning) ->
+                    let u = scaled(t#urgency, by);
+                    { urgency = u | t }),
+                spread()
+            ) ::
+            List.map(
+                by -> ((t: Tuning) ->
+                    let bc = scaled(t#blockedCost, by);
+                    { blockedCost = bc | t }),
+                spread()
+            ) ::
+            List.map(
+                by -> ((t: Tuning) ->
+                    let sr = scaled(t#shelterRelief, by);
+                    { shelterRelief = sr | t }),
+                spread()
+            ) ::
+            List.map(
+                by -> ((t: Tuning) ->
+                    let c = scaled(t#calm, by);
+                    { calm = c | t }),
+                spread()
+            ) ::
+            List.map(
+                by -> ((t: Tuning) ->
+                    let ff = scaled(t#finishFlank, by);
+                    { finishFlank = ff | t }),
+                spread()
+            ) ::
+            List.map(
+                by -> ((t: Tuning) ->
+                    let sa = scaled(t#startAt, by);
+                    { startAt = sa | t }),
+                spread()
+            ) ::
+            List.map(
+                by -> ((t: Tuning) ->
+                    let ra = scaled(t#reverseAt, by);
+                    { reverseAt = ra | t }),
+                spread()
+            ) ::
+            List.map(n -> ((t: Tuning) -> { aimJitter = t#aimJitter + n | t }), bumps()) ::
+            List.map(n -> ((t: Tuning) -> { judgeFor = t#judgeFor + n * 4 | t }), bumps()) ::
+            List.map(n -> ((t: Tuning) -> { lapseFor = t#lapseFor + n | t }), bumps()) ::
+            Nil
 
     // -- reporting --------------------------------------------------------------------------
 
@@ -428,7 +482,7 @@ mod Bench {
             text
         else {
             let addSpace = (acc, _) -> acc + " ";
-        let spaces = List.foldLeft(addSpace, "", List.range(0, missing));
+            let spaces = List.foldLeft(addSpace, "", List.range(0, missing));
             spaces + text
         }
     }
@@ -454,8 +508,9 @@ mod Bench {
         println(header);
         List.forEach(r -> println(row(r)), runs);
         println("");
-        let meanMsg = "  mean level      ${showTenths(meanLevelTenths(runs))}"
-              + "   (worst ${worstLevel(runs)}, best ${bestLevel(runs)})";
+        let meanMsg =
+            "  mean level      ${showTenths(meanLevelTenths(runs))}" +
+                "   (worst ${worstLevel(runs)}, best ${bestLevel(runs)})";
         println(meanMsg);
         let dRate = showTenths(rateTenths(deaths(runs), ticks));
         println("  deaths          ${deaths(runs)} = ${dRate} per 10000 ticks");
@@ -464,21 +519,23 @@ mod Bench {
         let rRate = showTenths(rateTenths(drops(runs), ticks));
         println("  row drops       ${drops(runs)} = ${rRate} per 10000 ticks");
         let endg = endgame(runs);
-        let egMsg = "  <=8 invaders    ${pixelsPerKill(endg)} px/kill, "
-            + "${ticksPerKill(endg)} ticks/kill"
-              + " (${endg#pixels} px, ${endg#ticks} ticks, ${endg#kills} kills)";
+        let egMsg =
+            "  <=8 invaders    ${pixelsPerKill(endg)} px/kill, " +
+                "${ticksPerKill(endg)} ticks/kill" +
+                " (${endg#pixels} px, ${endg#ticks} ticks, ${endg#kills} kills)";
         println(egMsg);
-        let endedMsg = "  ended by        ${invasions(runs)} invaded, "
-              + "${List.length(runs) - invasions(runs)} out of lives";
+        let endedMsg =
+            "  ended by        ${invasions(runs)} invaded, " +
+                "${List.length(runs) - invasions(runs)} out of lives";
         println(endedMsg);
 
         let cut = unfinished(runs);
         if (cut > 0) {
-            let warnMsg = "  WARNING         ${cut} game(s) hit the budget and were cut short; "
-                  + "raise budget() before trusting these numbers";
+            let warnMsg =
+                "  WARNING         ${cut} game(s) hit the budget and were cut short; " +
+                    "raise budget() before trusting these numbers";
             println(warnMsg)
-        } else
-            ()
+        } else ()
     }
 
     // -- the command line --------------------------------------------------------------------
@@ -503,54 +560,69 @@ mod Bench {
     /// and neither swallows a following flag.
     ///
     def switches(): List[OptionDescr[Flag]] = {
-        let helpOpt = { optionIds = 'h' :: Nil,
-                        optionNames = "help" :: Nil,
-                        argDescriptor = ArgDescr.NoArg(Flag.Help),
-                        explanation = "print this message" };
+        let helpOpt = {
+            optionIds = 'h' :: Nil,
+            optionNames = "help" :: Nil,
+            argDescriptor = ArgDescr.NoArg(Flag.Help),
+            explanation = "print this message"
+        };
         let parseRounds = givenOpt -> {
-            let n = givenOpt
-                |> Option.flatMap(Int32.fromString)
-                |> Option.getWithDefault(defaultRounds());
+            let n =
+                givenOpt |>
+                    Option.flatMap(Int32.fromString) |>
+                    Option.getWithDefault(defaultRounds());
             Some(Flag.Recalc(n))
         };
-        let recalcOpt = { optionIds = 'r' :: Nil,
-                          optionNames = "recalc" :: Nil,
-                          argDescriptor = ArgDescr.OptArg(parseRounds, "ROUNDS"),
-                          explanation = "search for a better tuning "
-                              + "(default ${defaultRounds()} rounds) and save it if it wins" };
-        let configOpt = { optionIds = 'c' :: Nil,
-                          optionNames = "config" :: Nil,
-                          argDescriptor =
-                              ArgDescr.ReqArg(given -> Some(Flag.Config(given)), "PATH"),
-                          explanation = "use PATH instead of the file beside the high scores" };
-        let defaultsOpt = { optionIds = 'd' :: Nil,
-                            optionNames = "defaults" :: Nil,
-                            argDescriptor = ArgDescr.NoArg(Flag.Defaults),
-                            explanation = "ignore any config and use the tuning compiled in" };
-        let wideOpt = { optionIds = 'w' :: Nil,
-                        optionNames = "wide" :: Nil,
-                        argDescriptor = ArgDescr.NoArg(Flag.Wide),
-                        explanation = "play ${List.length(wideSeeds())} seeds "
-                            + "instead of ${List.length(seeds())}; "
-                            + "slower, and the only sample that can settle a close call" };
+        let recalcOpt = {
+            optionIds = 'r' :: Nil,
+            optionNames = "recalc" :: Nil,
+            argDescriptor = ArgDescr.OptArg(parseRounds, "ROUNDS"),
+            explanation = "search for a better tuning " +
+                "(default ${defaultRounds()} rounds) and save it if it wins"
+        };
+        let configOpt = {
+            optionIds = 'c' :: Nil,
+            optionNames = "config" :: Nil,
+            argDescriptor = ArgDescr.ReqArg(given -> Some(Flag.Config(given)), "PATH"),
+            explanation = "use PATH instead of the file beside the high scores"
+        };
+        let defaultsOpt = {
+            optionIds = 'd' :: Nil,
+            optionNames = "defaults" :: Nil,
+            argDescriptor = ArgDescr.NoArg(Flag.Defaults),
+            explanation = "ignore any config and use the tuning compiled in"
+        };
+        let wideOpt = {
+            optionIds = 'w' :: Nil,
+            optionNames = "wide" :: Nil,
+            argDescriptor = ArgDescr.NoArg(Flag.Wide),
+            explanation = "play ${List.length(wideSeeds())} seeds " +
+                "instead of ${List.length(seeds())}; " +
+                "slower, and the only sample that can settle a close call"
+        };
         helpOpt :: recalcOpt :: configOpt :: defaultsOpt :: wideOpt :: Nil
     }
 
-    def usage(): String =
-        usageInfo("usage: bin/bench [options]", switches())
+    def usage(): String = usageInfo("usage: bin/bench [options]", switches())
 
     /// The rounds asked for, if `--recalc` was given at all.
     def roundsIn(flags: List[Flag]): Option[Int32] =
-        List.findMap(flag -> match flag {
-            case Flag.Recalc(n) => Some(n)
-            case _ => None
-        }, flags)
+        List.findMap(
+            flag -> match flag {
+                case Flag.Recalc(n) => Some(n)
+                case _ => None
+            },
+            flags
+        )
 
     def configIn(flags: List[Flag]): Option[String] =
-        List.findMap(flag -> match flag {
-            case Flag.Config(path) => Some(path)
-            case _ => None
-        }, flags)
+        List.findMap(
+            flag -> match flag {
+                case Flag.Config(path) => Some(path)
+                case _ => None
+            },
+            flags
+        )
 
     /// The directory a path lives in, for creating it before a write.
     def parentOf(file: String): String \ Sys.Env = {
@@ -561,8 +633,11 @@ mod Bench {
         }
     }
 
-    def runSearch(configFile: Option[String], stored: Tuning, rounds: Int32)
-        : Unit \ { Fs.FileWrite, Sys.Env, IO } = {
+    def runSearch(configFile: Option[String], stored: Tuning, rounds: Int32): Unit \ {
+        Fs.FileWrite,
+        Sys.Env,
+        IO
+    } = {
         let before = score(stored);
         let seedsCount = List.length(seeds());
         println("Searching from merit ${before} over at most ${rounds} round(s).");
@@ -577,8 +652,12 @@ mod Bench {
             writeTuning(configFile, found)
     }
 
-    def runBenchOptions(flags: List[Flag], configFile: Option[String])
-        : Unit \ { Fs.FileRead, Fs.FileWrite, Sys.Env, IO } = {
+    def runBenchOptions(flags: List[Flag], configFile: Option[String]): Unit \ {
+        Fs.FileRead,
+        Fs.FileWrite,
+        Sys.Env,
+        IO
+    } = {
         let stored = startingTuning(flags, configFile);
         println(provenance(flags, configFile));
         match roundsIn(flags) {
@@ -587,8 +666,7 @@ mod Bench {
                 println("Bot benchmark -- ${List.length(playing)} seeds, budget ${budget()} ticks");
                 println("");
                 report(allOn(playing, stored))
-            case Some(rounds) =>
-                runSearch(configFile, stored, rounds)
+            case Some(rounds) => runSearch(configFile, stored, rounds)
         }
     }
 
@@ -624,11 +702,14 @@ mod Bench {
     /// under test. That happened, and the numbers it produced ranked a change backwards.
     ///
     def provenance(flags: List[Flag], configFile: Option[String]): String =
-        if (List.memberOf(Flag.Defaults, flags)) "Tuning: the compiled-in defaults (--defaults)."
-        else match configFile {
-            case None => "Tuning: the compiled-in defaults; no config file was found."
-            case Some(file) => "Tuning: ${file} if it exists, otherwise the compiled-in defaults."
-        }
+        if (List.memberOf(Flag.Defaults, flags))
+            "Tuning: the compiled-in defaults (--defaults)."
+        else
+            match configFile {
+                case None => "Tuning: the compiled-in defaults; no config file was found."
+                case Some(file) =>
+                    "Tuning: ${file} if it exists, otherwise the compiled-in defaults."
+            }
 
     ///
     /// The tuning to start from: the config, unless `--defaults` says otherwise.
@@ -637,8 +718,10 @@ mod Bench {
     /// tuning file is malformed would be a strange way to treat a tool whose whole job is to
     /// tell you whether a set of numbers is any good.
     ///
-    def startingTuning(flags: List[Flag], configFile: Option[String])
-        : Tuning \ { Fs.FileRead, IO } =
+    def startingTuning(flags: List[Flag], configFile: Option[String]): Tuning \ {
+        Fs.FileRead,
+        IO
+    } =
         if (List.memberOf(Flag.Defaults, flags))
             Demo.defaults()
         else
@@ -652,15 +735,12 @@ mod Bench {
                 }
             }
 
-    def writeTuning(configFile: Option[String], t: Tuning)
-        : Unit \ { Fs.FileWrite, Sys.Env, IO } =
+    def writeTuning(configFile: Option[String], t: Tuning): Unit \ { Fs.FileWrite, Sys.Env, IO } =
         match configFile {
-            case None =>
-                println("nowhere to write a config; the tuning above was not saved")
+            case None => println("nowhere to write a config; the tuning above was not saved")
             case Some(file) => match Tuning.save(file, parentOf(file), t) {
                 case Ok(_) => println("Wrote ${file}.")
                 case Err(why) => println("could not write ${file}: ${why}")
             }
         }
-
 }

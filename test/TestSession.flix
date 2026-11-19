@@ -1,5 +1,4 @@
 mod TestSession {
-
     use Assert.assertEq
     use Assert.assertTrue
     use Assert.assertNeq
@@ -9,8 +8,7 @@ mod TestSession {
     def start(): Session = Session.initial(2026i64)
 
     /// One cabinet tick, discarding sound.
-    def tick(s: Session, input: Snapshot): Session =
-        Sound.runWithNoOp(() -> Session.step(s, input))
+    def tick(s: Session, input: Snapshot): Session = Sound.runWithNoOp(() -> Session.step(s, input))
 
     def ticks(n: Int32, s: Session, input: Snapshot): Session =
         if (n <= 0) s else ticks(n - 1, tick(s, input), input)
@@ -46,8 +44,10 @@ mod TestSession {
     @Test
     def testTheTitleScreenNamesTheBuild(): Unit \ Assert = {
         // So a screenshot of a bug says which build produced it.
-        assertTrueWithMsg(List.memberOf(Meta.label(), texts(start())),
-            "the attract screen does not show a version: ${texts(start())}")
+        assertTrueWithMsg(
+            List.memberOf(Meta.label(), texts(start())),
+            "the attract screen does not show a version: ${texts(start())}"
+        )
     }
 
     @Test
@@ -160,17 +160,22 @@ mod TestSession {
         // The title is an overlay, not a replacement -- the point is to show the game.
         let attract = start();
         let playing = tick(attract, digit(1));
-        assertTrueWithMsg(rectCount(attract) > rectCount(playing) / 2,
-            "the attract screen is not drawing a game behind the title")
+        assertTrueWithMsg(
+            rectCount(attract) > rectCount(playing) / 2,
+            "the attract screen is not drawing a game behind the title"
+        )
     }
 
     @Test
     def testTheAttractScreenSaysHowToStart(): Unit \ Assert = {
         let cmds = Canvas.commands((640, 480), () -> Screens.render(start(), Stats.empty()));
-        let says = needle -> List.exists(cmd -> match cmd {
-            case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
-            case _ => false
-        }, cmds);
+        let says = needle -> List.exists(
+            cmd -> match cmd {
+                case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
+                case _ => false
+            },
+            cmds
+        );
         assertTrue(says("1 OR 2"));
         // The digit chooses how many players, which is not obvious from the key alone.
         assertTrue(says("PLAYERS"));
@@ -184,10 +189,13 @@ mod TestSession {
         // contained the word, so its absence during play had stopped being evidence.
         let playing = tick(start(), digit(1));
         let cmds = Canvas.commands((640, 480), () -> Screens.render(playing, Stats.empty()));
-        let shows = needle -> List.exists(cmd -> match cmd {
-            case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
-            case _ => false
-        }, cmds);
+        let shows = needle -> List.exists(
+            cmd -> match cmd {
+                case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
+                case _ => false
+            },
+            cmds
+        );
         assertTrueWithMsg(shows("SCORE"), "the fixture is not drawing a game at all");
         assertFalseWithMsg(shows("FLIX INVADERS"), "the title is still up while playing");
         assertFalseWithMsg(shows("PLAYERS"), "the start prompt is still up while playing")
@@ -232,11 +240,16 @@ mod TestSession {
     def testTheTurnPassesWhenTheLastLifeGoes(): Unit \ Assert = {
         // ...and only then.
         let s = twoPlayer();
-        let onLastLife = { worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) },
-                                                  s#worlds) | s };
+        let onLastLife = {
+            worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) }, s#worlds) | s
+        };
         // Past the death pause *and* the GAME OVER beat, which now comes between the two.
-        let after = ticks(Rules.deathPauseTicks() + Rules.gameOverTicks() + 3,
-                          aboutToDie(onLastLife), Input.empty());
+        let after =
+            ticks(
+                Rules.deathPauseTicks() + Rules.gameOverTicks() + 3,
+                aboutToDie(onLastLife),
+                Input.empty()
+            );
         assertEq(expected = 1, after#current)
     }
 
@@ -247,8 +260,10 @@ mod TestSession {
         let s = twoPlayer();
         let untouched = Vector.get(1, s#worlds)#tick;
         def loop(n, sess) =
-            if (n <= 0 or sess#current != 0) sess
-            else loop(n - 1, tick(sess, Input.holding(Key.Space :: Nil)));
+            if (n <= 0 or sess#current != 0)
+                sess
+            else
+                loop(n - 1, tick(sess, Input.holding(Key.Space :: Nil)));
         let handedOver = loop(20000, s);
         assertEq(expected = 1, handedOver#current);
         assertEq(expected = Phase.Lost, Vector.get(0, handedOver#worlds)#phase);
@@ -278,7 +293,13 @@ mod TestSession {
     def testAFinishedPlayerIsSkipped(): Unit \ Assert = {
         // Player two is out; the turn must come back to player one rather than stalling.
         let s = twoPlayer();
-        let out = { worlds = Vector.update(1, { phase = Phase.Lost | Vector.get(1, s#worlds) }, s#worlds) | s };
+        let out = {
+            worlds = Vector.update(
+                1,
+                { phase = Phase.Lost | Vector.get(1, s#worlds) },
+                s#worlds
+            ) | s
+        };
         assertEq(expected = Some(0), Session.nextPlayer(0, out))
     }
 
@@ -312,7 +333,9 @@ mod TestSession {
     @Test
     def testTheHudCarriesTheOtherPlayersScore(): Unit \ Assert = {
         let s = twoPlayer();
-        let scored = { worlds = Vector.update(1, { score = 750 | Vector.get(1, s#worlds) }, s#worlds) | s };
+        let scored = {
+            worlds = Vector.update(1, { score = 750 | Vector.get(1, s#worlds) }, s#worlds) | s
+        };
         assertEq(expected = 750, Session.cabinet(scored)#otherScore);
         assertEq(expected = 1, Session.cabinet(scored)#player)
     }
@@ -328,12 +351,19 @@ mod TestSession {
     def testBothScoresAreShownInTwoPlayer(): Unit \ Assert = {
         // The second slot used to be a hard-coded zero; it must now track a real player.
         let s = twoPlayer();
-        let scored = { worlds = Vector.update(1, { score = 1234 | Vector.get(1, s#worlds) }, s#worlds) | s };
+        let scored = {
+            worlds = Vector.update(1, { score = 1234 | Vector.get(1, s#worlds) }, s#worlds) | s
+        };
         let cmds = Canvas.commands((640, 480), () -> Screens.render(scored, Stats.empty()));
-        assertTrue(List.exists(cmd -> match cmd {
-            case DrawCmd.Text(t, _, _) => String.contains(substr = "1234", t)
-            case _ => false
-        }, cmds))
+        assertTrue(
+            List.exists(
+                cmd -> match cmd {
+                    case DrawCmd.Text(t, _, _) => String.contains(substr = "1234", t)
+                    case _ => false
+                },
+                cmds
+            )
+        )
     }
 
     ///
@@ -349,30 +379,41 @@ mod TestSession {
     ///
     @Test
     def testAFullScoreTableFitsAboveThePrompt(): Unit \ Assert = {
-        let full = List.range(0, Scores.places())
-            |> List.map(i -> { name = "AAA", score = 1000 - i, level = 1 });
+        let full =
+            List.range(0, Scores.places()) |>
+                List.map(i -> { name = "AAA", score = 1000 - i, level = 1 });
         let s = { screen = Screen.Table | Session.withScores(2026i64, full) };
-        let baselines = Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty()))
-            |> List.filterMap(cmd -> match cmd {
-                case DrawCmd.Text(t, _, y) => if (String.startsWith(prefix = "AAA", t)) Some(y) else None
+        let baselines = Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty())) |>
+            List.filterMap(cmd -> match cmd {
+                case DrawCmd.Text(t, _, y) =>
+                    if (String.startsWith(prefix = "AAA", t)) Some(y) else None
                 case _ => None
             });
-        assertTrueWithMsg(List.length(baselines) == Scores.places(),
-            "the table drew ${List.length(baselines)} of ${Scores.places()} rows");
+        assertTrueWithMsg(
+            List.length(baselines) == Scores.places(),
+            "the table drew ${List.length(baselines)} of ${Scores.places()} rows"
+        );
         let lowest = List.foldLeft(Float32.max, 0.0f32, baselines);
         let prompt = Rules.fieldHeight() - 40.0f32;
-        assertTrueWithMsg(lowest < prompt,
-            "the last of ${Scores.places()} rows has its baseline at ${lowest}, "
-            + "which is below the PRESS ENTER prompt at ${prompt}")
+        assertTrueWithMsg(
+            lowest < prompt,
+            "the last of ${Scores.places()} rows has its baseline at ${lowest}, " +
+                "which is below the PRESS ENTER prompt at ${prompt}"
+        )
     }
 
     @Test
     def testTheHudNamesWhoseTurnItIs(): Unit \ Assert = {
         let cmds = Canvas.commands((640, 480), () -> Screens.render(twoPlayer(), Stats.empty()));
-        assertTrue(List.exists(cmd -> match cmd {
-            case DrawCmd.Text(t, _, _) => String.contains(substr = "P1", t)
-            case _ => false
-        }, cmds))
+        assertTrue(
+            List.exists(
+                cmd -> match cmd {
+                    case DrawCmd.Text(t, _, _) => String.contains(substr = "P1", t)
+                    case _ => false
+                },
+                cmds
+            )
+        )
     }
 
     // -- initials and the table ----------------------------------------------------------
@@ -441,8 +482,16 @@ mod TestSession {
     def testBothPlayersAreAskedInTurn(): Unit \ Assert = {
         // Two qualifying scores means two names, one after the other.
         let s = twoPlayer();
-        let both = Vector.update(0, { phase = Phase.Lost, score = 900 | Vector.get(0, s#worlds) },
-                   Vector.update(1, { phase = Phase.Lost, score = 800 | Vector.get(1, s#worlds) }, s#worlds));
+        let both =
+            Vector.update(
+                0,
+                { phase = Phase.Lost, score = 900 | Vector.get(0, s#worlds) },
+                Vector.update(
+                    1,
+                    { phase = Phase.Lost, score = 800 | Vector.get(1, s#worlds) },
+                    s#worlds
+                )
+            );
         let asking = tick({ worlds = both | s }, Input.empty());
         assertEq(expected = 2, List.length(asking#pending));
         let first = tick(tick(asking, letters("A")), Input.holding(Key.Enter :: Nil));
@@ -456,7 +505,8 @@ mod TestSession {
     @Test
     def testAKnownHighScoreShowsDuringPlay(): Unit \ Assert = {
         // The HI-SCORE slot should show the table's best, not zero, from the first tick.
-        let withTable = Session.withScores(2026i64, { name = "ZZZ", score = 5000, level = 3 } :: Nil);
+        let withTable =
+            Session.withScores(2026i64, { name = "ZZZ", score = 5000, level = 3 } :: Nil);
         assertEq(expected = 5000, Session.active(tick(withTable, digit(1)))#hiScore)
     }
 
@@ -467,14 +517,26 @@ mod TestSession {
         // endings and took the between-waves banner with it, every test still passed and the
         // game showed a silent three-second pause between levels.
         let s = twoPlayer();
-        let cleared = { worlds = Vector.update(s#current,
-                            { phase = Phase.Cleared, pause = Rules.levelPauseTicks(), level = 2
-                            | Session.active(s) }, s#worlds) | s };
+        let cleared = {
+            worlds = Vector.update(
+                s#current,
+                {
+                    phase = Phase.Cleared,
+                    pause = Rules.levelPauseTicks(),
+                    level = 2 | Session.active(s)
+                },
+                s#worlds
+            ) | s
+        };
         let shown = texts(cleared);
-        assertTrueWithMsg(List.memberOf("LEVEL 3", shown),
-            "the cabinet does not show which level is starting: ${shown}");
-        assertTrueWithMsg(List.memberOf("${Rules.countdownSteps()}", shown),
-            "the cabinet does not count the player in: ${shown}")
+        assertTrueWithMsg(
+            List.memberOf("LEVEL 3", shown),
+            "the cabinet does not show which level is starting: ${shown}"
+        );
+        assertTrueWithMsg(
+            List.memberOf("${Rules.countdownSteps()}", shown),
+            "the cabinet does not count the player in: ${shown}"
+        )
     }
 
     @Test
@@ -482,11 +544,18 @@ mod TestSession {
         // The other half. A lost world inside the cabinet must not draw `View`'s ending, or
         // the screen carries two GAME OVERs and an offer to press a key the cabinet handles.
         let s = twoPlayer();
-        let lost = { worlds = Vector.update(s#current, { phase = Phase.Lost | Session.active(s) },
-                                            s#worlds) | s };
+        let lost = {
+            worlds = Vector.update(
+                s#current,
+                { phase = Phase.Lost | Session.active(s) },
+                s#worlds
+            ) | s
+        };
         let shown = texts(lost);
-        assertTrueWithMsg(not List.exists(t -> String.contains(substr = "PLAY AGAIN", t), shown),
-            "the cabinet is offering View's restart hint: ${shown}")
+        assertTrueWithMsg(
+            not List.exists(t -> String.contains(substr = "PLAY AGAIN", t), shown),
+            "the cabinet is offering View's restart hint: ${shown}"
+        )
     }
 
     @Test
@@ -494,12 +563,15 @@ mod TestSession {
         // Without a beat here, a player's game ended on one frame and whatever came next
         // started on the following one, so nobody ever saw how their own game finished.
         let s = twoPlayer();
-        let onLastLife = { worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) },
-                                                  s#worlds) | s };
+        let onLastLife = {
+            worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) }, s#worlds) | s
+        };
         let ended = ticks(Rules.deathPauseTicks() + 2, aboutToDie(onLastLife), Input.empty());
         assertTrueWithMsg(ended#over > 0, "the game ended without a GAME OVER screen");
-        assertTrueWithMsg(List.memberOf("GAME OVER", texts(ended)),
-            "the game-over screen does not say so: ${texts(ended)}");
+        assertTrueWithMsg(
+            List.memberOf("GAME OVER", texts(ended)),
+            "the game-over screen does not say so: ${texts(ended)}"
+        );
 
         // It belongs to the player who just lost, not the one about to start.
         assertEq(expected = 0, ended#current);
@@ -524,8 +596,10 @@ mod TestSession {
         let waiting = { over = Rules.gameOverTicks(), screen = Screen.Playing | twoPlayer() };
         let shown = texts(waiting);
         assertEq(expected = 1, List.count(t -> t == "GAME OVER", shown));
-        assertTrueWithMsg(not List.exists(t -> String.contains(substr = "PLAY AGAIN", t), shown),
-            "the cabinet is telling the player to press enter to play again: ${shown}")
+        assertTrueWithMsg(
+            not List.exists(t -> String.contains(substr = "PLAY AGAIN", t), shown),
+            "the cabinet is telling the player to press enter to play again: ${shown}"
+        )
     }
 
     @Test
@@ -533,13 +607,20 @@ mod TestSession {
         // Handing straight over meant player two's first life began while they were still
         // reading player one's score.
         let s = twoPlayer();
-        let onLastLife = { worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) },
-                                                  s#worlds) | s };
-        let handedOver = ticks(Rules.deathPauseTicks() + Rules.gameOverTicks() + 3,
-                               aboutToDie(onLastLife), Input.empty());
+        let onLastLife = {
+            worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) }, s#worlds) | s
+        };
+        let handedOver =
+            ticks(
+                Rules.deathPauseTicks() + Rules.gameOverTicks() + 3,
+                aboutToDie(onLastLife),
+                Input.empty()
+            );
         assertEq(expected = 1, handedOver#current);
-        assertTrueWithMsg(handedOver#handover > 0,
-            "player two's game started the instant player one's ended")
+        assertTrueWithMsg(
+            handedOver#handover > 0,
+            "player two's game started the instant player one's ended"
+        )
     }
 
     @Test
@@ -554,12 +635,20 @@ mod TestSession {
 
     @Test
     def testTheCountdownRunsThenPlayBegins(): Unit \ Assert = {
-        let waiting = { handover = Rules.handoverTicks(), current = 1,
-                        screen = Screen.Playing | twoPlayer() };
+        let waiting = {
+            handover = Rules.handoverTicks(),
+            current = 1,
+            screen = Screen.Playing | twoPlayer()
+        };
         let shown = texts(waiting);
-        assertTrueWithMsg(List.memberOf("PLAYER 2", shown), "the incoming player is not named: ${shown}");
-        assertTrueWithMsg(List.memberOf("${Rules.countdownSteps()}", shown),
-            "no countdown on the hand-over screen: ${shown}");
+        assertTrueWithMsg(
+            List.memberOf("PLAYER 2", shown),
+            "the incoming player is not named: ${shown}"
+        );
+        assertTrueWithMsg(
+            List.memberOf("${Rules.countdownSteps()}", shown),
+            "no countdown on the hand-over screen: ${shown}"
+        );
         // ...and once it runs out the game is live again.
         let live = ticks(Rules.handoverTicks() + 2, waiting, Input.empty());
         assertEq(expected = 0, live#handover);
@@ -570,10 +659,13 @@ mod TestSession {
     def testTheGetReadyTextSitsOnADimmedPanel(): Unit \ Assert = {
         // Plain text over a formation is hard to read at a glance; the title screen solved
         // that with a translucent panel sized to the words, and this uses the same one.
-        let waiting = { handover = Rules.handoverTicks(), current = 1,
-                        screen = Screen.Playing | twoPlayer() };
-        let dimmed = Canvas.commands((640, 480), () -> Screens.render(waiting, Stats.empty()))
-            |> List.exists(cmd -> match cmd {
+        let waiting = {
+            handover = Rules.handoverTicks(),
+            current = 1,
+            screen = Screen.Playing | twoPlayer()
+        };
+        let dimmed = Canvas.commands((640, 480), () -> Screens.render(waiting, Stats.empty())) |>
+            List.exists(cmd -> match cmd {
                 case DrawCmd.FillAlpha(_, _) => true
                 case _ => false
             });
@@ -581,8 +673,8 @@ mod TestSession {
 
         // ...and it is not there once play begins.
         let live = { handover = 0 | waiting };
-        let plain = Canvas.commands((640, 480), () -> Screens.render(live, Stats.empty()))
-            |> List.exists(cmd -> match cmd {
+        let plain = Canvas.commands((640, 480), () -> Screens.render(live, Stats.empty())) |>
+            List.exists(cmd -> match cmd {
                 case DrawCmd.FillAlpha(_, _) => true
                 case _ => false
             });
@@ -593,20 +685,31 @@ mod TestSession {
     def testANameMayContainDigits(): Unit \ Assert = {
         // `Scores.clean` has always accepted A-Z and 0-9 on the way in from a file, so a
         // hand-edited table could hold a name the game would not let you type.
-        let asking = { screen = Screen.Entering,
-                       pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil
-                     | tick(start(), digit(1)) };
-        let typed = ticks(1, asking, Input.holding(Key.Other(87) :: Nil))   // W
-            |> (s1 -> ticks(1, s1, Input.holding(Key.Other(51) :: Nil)))    // 3
-            |> (s2 -> ticks(1, s2, Input.holding(Key.Other(83) :: Nil)));   // S
+        let asking = {
+            screen = Screen.Entering,
+            pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil | tick(
+                start(),
+                digit(1)
+            )
+        };
+        let typed = ticks(1, asking, Input.holding(Key.Other(87) :: Nil)) // W
+            |>
+            (s1 -> ticks(1, s1, Input.holding(Key.Other(51) :: Nil))) // 3
+            |>
+            (s2 -> ticks(1, s2, Input.holding(Key.Other(83) :: Nil))); // S
         assertEq(expected = "W3S", typed#typing)
     }
 
     @Test
     def testADigitNameIsRecordedAsTyped(): Unit \ Assert = {
-        let asking = { screen = Screen.Entering, typing = "R2D",
-                       pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil
-                     | tick(start(), digit(1)) };
+        let asking = {
+            screen = Screen.Entering,
+            typing = "R2D",
+            pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil | tick(
+                start(),
+                digit(1)
+            )
+        };
         let done = ticks(1, asking, Input.holding(Key.Enter :: Nil));
         assertEq(expected = Some("R2D"), Option.map(e -> e#name, List.head(done#scores)))
     }
@@ -616,28 +719,37 @@ mod TestSession {
         // Two qualifying players get two prompts back to back. Without a name on them they
         // are indistinguishable, and the second reads as the first having gone wrong.
         let base = twoPlayer();
-        let asking = { screen = Screen.Entering,
-                       pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } ::
-                                 { player = 1, entry = { name = "", score = 3130, level = 3 } } :: Nil
-                     | base };
-        assertTrueWithMsg(List.memberOf("PLAYER 1", texts(asking)),
-            "the first prompt does not say whose it is: ${texts(asking)}");
+        let asking = {
+            screen = Screen.Entering,
+            pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } ::
+                { player = 1, entry = { name = "", score = 3130, level = 3 } } ::
+                Nil | base
+        };
+        assertTrueWithMsg(
+            List.memberOf("PLAYER 1", texts(asking)),
+            "the first prompt does not say whose it is: ${texts(asking)}"
+        );
 
         // Committing the first moves on to the second, which must name the other player.
         let second = ticks(1, { typing = "ABC" | asking }, Input.holding(Key.Enter :: Nil));
-        assertTrueWithMsg(List.memberOf("PLAYER 2", texts(second)),
-            "the second prompt still names player one: ${texts(second)}")
+        assertTrueWithMsg(
+            List.memberOf("PLAYER 2", texts(second)),
+            "the second prompt still names player one: ${texts(second)}"
+        )
     }
 
     @Test
     def testASinglePlayerIsNotToldWhoTheyAre(): Unit \ Assert = {
         // With one candidate there is nothing to disambiguate, and naming them is noise.
         let solo = tick(start(), digit(1));
-        let asking = { screen = Screen.Entering,
-                       pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil
-                     | solo };
-        assertFalseWithMsg(List.memberOf("PLAYER 1", texts(asking)),
-            "a one-player game is being told which player it is")
+        let asking = {
+            screen = Screen.Entering,
+            pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil | solo
+        };
+        assertFalseWithMsg(
+            List.memberOf("PLAYER 1", texts(asking)),
+            "a one-player game is being told which player it is"
+        )
     }
 
     @Test
@@ -645,9 +757,11 @@ mod TestSession {
         // The player number is display only -- what gets written must still be the score the
         // prompt was showing.
         let base = twoPlayer();
-        let asking = { screen = Screen.Entering, typing = "WLS",
-                       pending = { player = 1, entry = { name = "", score = 3130, level = 3 } } :: Nil
-                     | base };
+        let asking = {
+            screen = Screen.Entering,
+            typing = "WLS",
+            pending = { player = 1, entry = { name = "", score = 3130, level = 3 } } :: Nil | base
+        };
         let done = ticks(1, asking, Input.holding(Key.Enter :: Nil));
         assertEq(expected = Some(3130), Option.map(e -> e#score, List.head(done#scores)));
         assertEq(expected = Some("WLS"), Option.map(e -> e#name, List.head(done#scores)))
@@ -660,44 +774,63 @@ mod TestSession {
         // player's and the HUD was the *demo's*, because the initials screen was drawing the
         // attract game behind it.
         let base = twoPlayer();
-        let played = { worlds = Vector.update(0, { score = 7310, hiScore = 7310 | Vector.get(0, base#worlds) },
-                                              base#worlds),
-                       demo = { score = 90, hiScore = 90 | base#demo },
-                       screen = Screen.Entering,
-                       pending = { player = 0, entry = { name = "", score = 7310, level = 5 } } :: Nil | base };
+        let played = {
+            worlds = Vector.update(
+                0,
+                { score = 7310, hiScore = 7310 | Vector.get(0, base#worlds) },
+                base#worlds
+            ),
+            demo = { score = 90, hiScore = 90 | base#demo },
+            screen = Screen.Entering,
+            pending = { player = 0, entry = { name = "", score = 7310, level = 5 } } :: Nil | base
+        };
         let shown = texts(played);
-        assertTrueWithMsg(List.memberOf(View.scoreText(7310), shown),
-            "the player's score is not on the screen that is asking for their initials: ${shown}");
-        assertTrueWithMsg(not List.memberOf(View.scoreText(90), shown),
-            "the demo's score is being shown to the player instead: ${shown}")
+        assertTrueWithMsg(
+            List.memberOf(View.scoreText(7310), shown),
+            "the player's score is not on the screen that is asking for their initials: ${shown}"
+        );
+        assertTrueWithMsg(
+            not List.memberOf(View.scoreText(90), shown),
+            "the demo's score is being shown to the player instead: ${shown}"
+        )
     }
 
     @Test
     def testTheInitialsPromptStillShowsBothPlayers(): Unit \ Assert = {
         // A two-player game has to keep both scores up while the second is typing.
         let base = twoPlayer();
-        let both = { worlds = Vector.update(0, { score = 4400 | Vector.get(0, base#worlds) },
-                             Vector.update(1, { score = 2200 | Vector.get(1, base#worlds) }, base#worlds)),
-                     current = 1,
-                     screen = Screen.Entering,
-                     pending = { player = 1, entry = { name = "", score = 2200, level = 3 } } :: Nil | base };
+        let both = {
+            worlds = Vector.update(
+                0,
+                { score = 4400 | Vector.get(0, base#worlds) },
+                Vector.update(1, { score = 2200 | Vector.get(1, base#worlds) }, base#worlds)
+            ),
+            current = 1,
+            screen = Screen.Entering,
+            pending = { player = 1, entry = { name = "", score = 2200, level = 3 } } :: Nil | base
+        };
         let shown = texts(both);
         assertTrue(List.memberOf(View.scoreText(2200), shown));
-        assertTrueWithMsg(List.memberOf(View.scoreText(4400), shown),
-            "player one's score vanished while player two typed: ${shown}")
+        assertTrueWithMsg(
+            List.memberOf(View.scoreText(4400), shown),
+            "player one's score vanished while player two typed: ${shown}"
+        )
     }
 
     @Test
     def testTheTableScreenListsTheNames(): Unit \ Assert = {
-        let withTable = Session.withScores(2026i64, { name = "ABC", score = 4321, level = 2 } :: Nil);
+        let withTable =
+            Session.withScores(2026i64, { name = "ABC", score = 4321, level = 2 } :: Nil);
         let showing = { screen = Screen.Table | withTable };
         let cmds = Canvas.commands((640, 480), () -> Screens.render(showing, Stats.empty()));
-        let says = needle -> List.exists(cmd -> match cmd {
-            case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
-            case _ => false
-        }, cmds);
+        let says = needle -> List.exists(
+            cmd -> match cmd {
+                case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
+                case _ => false
+            },
+            cmds
+        );
         assertTrue(says("ABC"));
         assertTrue(says("4321"))
     }
-
 }

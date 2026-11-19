@@ -1,5 +1,4 @@
 mod TestReplay {
-
     use Assert.assertEq
     use Assert.assertNeq
 
@@ -23,7 +22,8 @@ mod TestReplay {
     def script(n: Int32, rng: Rng): List[Snapshot] = {
         let table = keyChoices();
         def loop(remaining, generator, acc) =
-            if (remaining <= 0) List.reverse(acc)
+            if (remaining <= 0)
+                List.reverse(acc)
             else {
                 let (choice, next) = Rng.nextInt32Below(Vector.length(table), generator);
                 loop(remaining - 1, next, Input.holding(Vector.get(choice, table)) :: acc)
@@ -61,8 +61,10 @@ mod TestReplay {
     @Test
     def testTheSameSeedAndScriptReplayIdentically(): Unit \ Assert = {
         let inputs = demoScript(600);
-        assertEq(expected = Game.digest(play(Game.initial(42i64), inputs)),
-                 Game.digest(play(Game.initial(42i64), inputs)))
+        assertEq(
+            expected = Game.digest(play(Game.initial(42i64), inputs)),
+            Game.digest(play(Game.initial(42i64), inputs))
+        )
     }
 
     @Test
@@ -70,16 +72,20 @@ mod TestReplay {
         // Without this, a `step` that ignored its generator entirely would pass the test
         // above trivially.
         let inputs = demoScript(600);
-        assertNeq(unexpected = Game.digest(play(Game.initial(42i64), inputs)),
-                  Game.digest(play(Game.initial(43i64), inputs)))
+        assertNeq(
+            unexpected = Game.digest(play(Game.initial(42i64), inputs)),
+            Game.digest(play(Game.initial(43i64), inputs))
+        )
     }
 
     @Test
     def testDifferentInputProducesADifferentWorld(): Unit \ Assert = {
         let idle = List.repeat(400, Input.empty());
         let busy = demoScript(400);
-        assertNeq(unexpected = Game.digest(play(Game.initial(7i64), idle)),
-                  Game.digest(play(Game.initial(7i64), busy)))
+        assertNeq(
+            unexpected = Game.digest(play(Game.initial(7i64), idle)),
+            Game.digest(play(Game.initial(7i64), busy))
+        )
     }
 
     @Test
@@ -88,8 +94,10 @@ mod TestReplay {
         // secretly depended on anything outside itself would diverge here.
         let inputs = demoScript(600);
         let (first, second) = (List.take(300, inputs), List.drop(300, inputs));
-        assertEq(expected = Game.digest(play(Game.initial(11i64), inputs)),
-                 Game.digest(play(play(Game.initial(11i64), first), second)))
+        assertEq(
+            expected = Game.digest(play(Game.initial(11i64), inputs)),
+            Game.digest(play(play(Game.initial(11i64), first), second))
+        )
     }
 
     @Test
@@ -103,7 +111,10 @@ mod TestReplay {
 
     @Test
     def testAnEmptyScriptChangesNothing(): Unit \ Assert =
-        assertEq(expected = Game.digest(Game.initial(3i64)), Game.digest(play(Game.initial(3i64), Nil)))
+        assertEq(
+            expected = Game.digest(Game.initial(3i64)),
+            Game.digest(play(Game.initial(3i64), Nil))
+        )
 
     @Test
     def testReplayIsStableAcrossAFullGame(): Unit \ Assert = {
@@ -121,8 +132,10 @@ mod TestReplay {
         let inputs = demoScript(500);
         let a = play(Game.initial(8i64), inputs);
         let b = play(Game.initial(8i64), inputs);
-        assertEq(expected = Canvas.commands((640, 480), () -> View.render(a)),
-                 Canvas.commands((640, 480), () -> View.render(b)))
+        assertEq(
+            expected = Canvas.commands((640, 480), () -> View.render(a)),
+            Canvas.commands((640, 480), () -> View.render(b))
+        )
     }
 
     @Test
@@ -131,8 +144,10 @@ mod TestReplay {
         // are an effect, determinism of what is *heard* needs asserting directly -- and this
         // is the stronger check, because it compares the whole ordered sequence.
         let inputs = demoScript(600);
-        assertEq(expected = playedBy(Game.initial(42i64), inputs),
-                 playedBy(Game.initial(42i64), inputs))
+        assertEq(
+            expected = playedBy(Game.initial(42i64), inputs),
+            playedBy(Game.initial(42i64), inputs)
+        )
     }
 
     @Test
@@ -143,13 +158,14 @@ mod TestReplay {
         // which are silent, and saucer timing -- and no saucer appears inside the first few
         // hundred ticks. A 600-step comparison finds two identical soundtracks.
         let inputs = demoScript(3000);
-        assertNeq(unexpected = playedBy(Game.initial(42i64), inputs),
-                  playedBy(Game.initial(43i64), inputs))
+        assertNeq(
+            unexpected = playedBy(Game.initial(42i64), inputs),
+            playedBy(Game.initial(43i64), inputs)
+        )
     }
 
     @Test
     def testTheSoundtrackIsNotEmpty(): Unit \ Assert =
         // Guards the two tests above from passing vacuously on two empty lists.
         Assert.assertTrue(List.length(playedBy(Game.initial(42i64), demoScript(600))) > 10)
-
 }

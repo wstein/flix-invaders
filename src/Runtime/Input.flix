@@ -18,7 +18,6 @@ pub enum Key with Eq, Order, ToString {
 }
 
 mod Key {
-
     /// The letters, in the order their key codes run.
     def alphabet(): String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -69,18 +68,17 @@ mod Key {
     /// have to change when the window did.
     ///
     pub def fromCode(code: Int32): Key = match code {
-        case 8   => Key.Backspace
-        case 10  => Key.Enter
-        case 27  => Key.Escape
-        case 32  => Key.Space
-        case 37  => Key.Left
-        case 38  => Key.Up
-        case 39  => Key.Right
-        case 40  => Key.Down
+        case 8 => Key.Backspace
+        case 10 => Key.Enter
+        case 27 => Key.Escape
+        case 32 => Key.Space
+        case 37 => Key.Left
+        case 38 => Key.Up
+        case 39 => Key.Right
+        case 40 => Key.Down
         case 114 => Key.F3
-        case _   => Key.Other(code)
+        case _ => Key.Other(code)
     }
-
 }
 
 ///
@@ -112,7 +110,6 @@ pub eff Input {
 }
 
 mod Input {
-
     ///
     /// A snapshot with nothing held.
     ///
@@ -127,15 +124,14 @@ mod Input {
     ///
     /// The two sets are named because transposing them inverts every edge, turning presses
     /// into releases.
-    pub def diff(
-        previous: {previous = Set[Key]},
-        current: {current = Set[Key]}
-    ): Snapshot = {
+    pub def diff(previous: { previous = Set[Key] }, current: { current = Set[Key] }): Snapshot = {
         let before = previous#previous;
         let now = current#current;
-        { held = now,
-          pressed = Set.difference(now, before),
-          released = Set.difference(before, now) }
+        {
+            held = now,
+            pressed = Set.difference(now, before),
+            released = Set.difference(before, now)
+        }
     }
 
     ///
@@ -155,18 +151,20 @@ mod Input {
     /// How many logical ticks are due, given what has accumulated and what may be spent.
     ///
     pub def ticksDue(accumulated: Int64, perTick: Int64, budget: Int32): Int32 =
-        if (perTick <= 0i64 or accumulated < perTick) 0
+        if (perTick <= 0i64 or accumulated < perTick)
+            0
         else {
             let due = accumulated / perTick;
-            if (due > Int32.toInt64(budget)) budget
-            else Option.getWithDefault(0, Int64.tryToInt32(due))
+            if (due > Int32.toInt64(budget))
+                budget
+            else
+                Option.getWithDefault(0, Int64.tryToInt32(due))
         }
 
     ///
     /// The same snapshot with its edges removed: still held, but pressed and released nothing.
     ///
-    pub def steady(s: Snapshot): Snapshot =
-        { pressed = Set.empty(), released = Set.empty() | s }
+    pub def steady(s: Snapshot): Snapshot = { pressed = Set.empty(), released = Set.empty() | s }
 
     ///
     /// One frame's reading of the keyboard, spread over the `n` ticks it has to drive.
@@ -181,8 +179,7 @@ mod Input {
     /// The rest of the ticks keep the keys held, because holding is a state and does last.
     ///
     pub def acrossTicks(n: Int32, s: Snapshot): List[Snapshot] =
-        if (n <= 0) Nil
-        else s :: List.repeat(n - 1, steady(s))
+        if (n <= 0) Nil else s :: List.repeat(n - 1, steady(s))
 
     /// The type of an `Input` interpretation that supplies one snapshot to a computation.
     type alias InputHandler[a: Type, b: Type, ef: Eff] = a -> b \ ef - Input
@@ -194,19 +191,15 @@ mod Input {
     /// held" would let a test that forgot to supply input pass while asserting on a world
     /// nobody played.
     ///
-    pub def handleWith(s: Snapshot, f: a -> b \ ef)
-        : InputHandler[a, b, ef] = input ->
+    pub def handleWith(s: Snapshot, f: a -> b \ ef): InputHandler[a, b, ef] = input ->
         run {
             f(input)
         } with handler Input {
-            def poll(k) =
-                k(s)
+            def poll(k) = k(s)
         }
 
     ///
     /// Runs `f`, answering every `Input.poll` with the same snapshot.
     ///
-    pub def runWith(s: Snapshot, f: Unit -> a \ ef): a \ ef - Input =
-        handleWith(s, f)()
-
+    pub def runWith(s: Snapshot, f: Unit -> a \ ef): a \ ef - Input = handleWith(s, f)()
 }

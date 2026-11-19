@@ -71,7 +71,6 @@ pub type alias Hand = {
 /// the replay tests depend on.
 ///
 mod Demo {
-
     ///
     /// The tuning the game ships with.
     ///
@@ -102,8 +101,16 @@ mod Demo {
 
     /// The offsets from its current position that the bot considers standing at.
     def options(): List[Float32] =
-        -96.0f32 :: -64.0f32 :: -36.0f32 :: -16.0f32 :: 0.0f32 ::
-        16.0f32 :: 36.0f32 :: 64.0f32 :: 96.0f32 :: Nil
+        -96.0f32 ::
+            -64.0f32 ::
+            -36.0f32 ::
+            -16.0f32 ::
+            0.0f32 ::
+            16.0f32 ::
+            36.0f32 ::
+            64.0f32 ::
+            96.0f32 ::
+            Nil
 
     ///
     /// What to shoot at.
@@ -124,16 +131,26 @@ mod Demo {
     /// only reachable target there. The depth matters separately, below.
     ///
     def columns(w: World): List[Column] =
-        Vector.foldLeft((acc, inv) ->
-            if (not inv#alive) acc
-            else Map.insertWith(arriving -> found -> {
-                    let (newY, newN) = arriving;
-                    let (oldY, oldN) = found;
-                    (Float32.max(newY, oldY), newN + oldN)
-                }, inv#pos#x, (inv#pos#y, 1), acc),
-            (Map.empty(): Map[Float32, (Float32, Int32)]), w#invaders)
-            |> Map.toList
-            |> List.map(match (x, found) -> {
+        Vector.foldLeft(
+            (acc, inv) ->
+                if (not inv#alive)
+                    acc
+                else
+                    Map.insertWith(
+                        arriving -> found -> {
+                            let (newY, newN) = arriving;
+                            let (oldY, oldN) = found;
+                            (Float32.max(newY, oldY), newN + oldN)
+                        },
+                        inv#pos#x,
+                        (inv#pos#y, 1),
+                        acc
+                    ),
+            (Map.empty(): Map[Float32, (Float32, Int32)]),
+            w#invaders
+        ) |>
+            Map.toList |>
+            List.map(match (x, found) -> {
                 let (y, depth) = found;
                 { x = x, y = y, depth = depth }
             })
@@ -159,18 +176,18 @@ mod Demo {
     /// makes this pay is stopping. Below the cutoff the bonus goes away and the bot returns to
     /// shooting whatever is lowest.
     ///
-    type alias FlankContext = { left = Float32,
-                                right = Float32,
-                                spread = Float32,
-                                looming = Float32 }
+    type alias FlankContext = {
+        left = Float32,
+        right = Float32,
+        spread = Float32,
+        looming = Float32
+    }
 
     def bestColumn(t: Tuning, w: World): Option[Vec2] = {
         let candidates = columns(w);
         let updateEdges = (acc, c) -> match acc {
             case None => Some((c#x, c#x))
-            case Some((left, right)) =>
-                Some((Float32.min(left, c#x),
-                      Float32.max(right, c#x)))
+            case Some((left, right)) => Some((Float32.min(left, c#x), Float32.max(right, c#x)))
         };
         let edges = List.foldLeft(updateEdges, None, candidates);
         match edges {
@@ -185,11 +202,10 @@ mod Demo {
                         case None => Some(({ x = c#x, y = c#y }, score))
                         case Some((_, top)) =>
                             let here = { x = c#x, y = c#y };
-                    if (score > top) Some((here, score)) else best
+                            if (score > top) Some((here, score)) else best
                     }
                 };
-                List.foldLeft(selectBest, None, candidates)
-                    |> Option.map(fst)
+                List.foldLeft(selectBest, None, candidates) |> Option.map(fst)
         }
     }
 
@@ -199,8 +215,7 @@ mod Demo {
     /// Measured between the *centres* of the outer columns, which is what `liveBounds` reports,
     /// so the two are comparable.
     ///
-    def fullWidth(): Float32 =
-        Int32.toFloat32(Rules.columns() - 1) * Rules.columnSpacing()
+    def fullWidth(): Float32 = Int32.toFloat32(Rules.columns() - 1) * Rules.columnSpacing()
 
     def columnWorth(t: Tuning, target: Column, ctx: FlankContext): Float32 = {
         // Near 0 at the top of the formation, near 1 on the invasion line.
@@ -217,8 +232,7 @@ mod Demo {
     /// How far down the formation has come: 0 at the top, 1 on the invasion line.
     ///
     def pressure(candidates: List[Column]): Float32 = {
-        let maxPos = (low, c) ->
-            Float32.max(low, c#y);
+        let maxPos = (low, c) -> Float32.max(low, c#y);
         let deepest = List.foldLeft(maxPos, 0.0f32, candidates);
         Float32.max(0.0f32, deepest) / Rules.invasionLine()
     }
@@ -232,11 +246,10 @@ mod Demo {
     /// both the thing about to land on it and the thing dropping the bombs.
     ///
     def composure(t: Tuning, looming: Float32): Float32 =
-        if (looming < t#calm) 1.0f32
-        else Float32.max(0.0f32, (1.0f32 - looming) / (1.0f32 - t#calm))
-
-
-
+        if (looming < t#calm)
+            1.0f32
+        else
+            Float32.max(0.0f32, (1.0f32 - looming) / (1.0f32 - t#calm))
 
     ///
     /// How dangerous it is to stand at `x`.
@@ -250,24 +263,30 @@ mod Demo {
         // A standing bunker overhead stops the bomb before it arrives, which is what bunkers
         // are for. Shelter is not total -- blocks are being eaten all game, and the bot should
         // not treat a two-block stub as a roof -- but it is worth most of a dodge.
-        if (Bunkers.blocks(w#bunkers, x)) t#shelterRelief * rawDanger(t, x, w)
-        else rawDanger(t, x, w)
-
-
+        if (Bunkers.blocks(w#bunkers, x))
+            t#shelterRelief * rawDanger(t, x, w)
+        else
+            rawDanger(t, x, w)
 
     def rawDanger(t: Tuning, x: Float32, w: World): Float32 =
-        List.foldLeft((total, b) ->
-            if (b#y > Rules.playerY() or harmless(b, w)) total
-            else {
-                let across = Float32.abs(b#x - x);
-                if (across > t#dangerWidth) total
+        List.foldLeft(
+            (total, b) ->
+                if (b#y > Rules.playerY() or harmless(b, w))
+                    total
                 else {
-                    // Near 0 up at the formation, near 1 just above the cannon: a bomb about
-                    // to land matters far more than one just dropped.
-                    let closeness = Float32.max(0.0f32, b#y) / Rules.playerY();
-                    total + (1.0f32 - across / t#dangerWidth) * (0.3f32 + closeness)
-                }
-            }, 0.0f32, w#bombs)
+                    let across = Float32.abs(b#x - x);
+                    if (across > t#dangerWidth)
+                        total
+                    else {
+                        // Near 0 up at the formation, near 1 just above the cannon: a bomb about
+                        // to land matters far more than one just dropped.
+                        let closeness = Float32.max(0.0f32, b#y) / Rules.playerY();
+                        total + (1.0f32 - across / t#dangerWidth) * (0.3f32 + closeness)
+                    }
+                },
+            0.0f32,
+            w#bombs
+        )
 
     ///
     /// Whether the shield will still be up when this bomb arrives.
@@ -289,12 +308,7 @@ mod Demo {
     def onField(x: Float32): Float32 = {
         let half = Rules.playerSize()#x / 2.0f32;
         let rightEdge = Rules.fieldWidth() - half;
-        if (x < half)
-            half
-        else if (x > rightEdge)
-            rightEdge
-        else
-            x
+        if (x < half) half else if (x > rightEdge) rightEdge else x
     }
 
     ///
@@ -315,10 +329,7 @@ mod Demo {
             else {
                 let flight = (Rules.playerY() - inv#pos#y) / Rules.bulletSpeed();
                 let projectedX = inv#pos#x + drift * flight;
-                if (flight <= 0.0f32)
-                    false
-                else
-                    Float32.abs(projectedX - w#playerX) < overlap
+                if (flight <= 0.0f32) false else Float32.abs(projectedX - w#playerX) < overlap
             };
         Vector.exists(hitsInv, w#invaders)
     }
@@ -327,11 +338,14 @@ mod Demo {
         // Never through its own shelter. The rules allow it -- carving a slit is legal, and in
         // the arcade original it is a tactic -- but a bot doing it by accident is spending
         // shots to demolish its own cover.
-        if (Bunkers.obstructs(w#bunkers, w#playerX, Rules.bulletSize()#x)) false
+        if (Bunkers.obstructs(w#bunkers, w#playerX, Rules.bulletSize()#x))
+            false
         // The saucer crosses above the formation on its own path, so being lined up on it is
         // its own reason to fire; the formation is judged separately and always.
-        else if (Option.isEmpty(w#mystery)) willConnect(t, w)
-        else Float32.abs(dx) < 6.0f32 or willConnect(t, w)
+        else if (Option.isEmpty(w#mystery))
+            willConnect(t, w)
+        else
+            Float32.abs(dx) < 6.0f32 or willConnect(t, w)
 
     ///
     /// The best place to stand: safe first, in position second.
@@ -341,8 +355,11 @@ mod Demo {
             let x = onField(w#playerX + offset);
             let d = danger(t, x, w) * t#selfPreservation;
             let u = Float32.abs(aimX - x) / t#urgency;
-            let bCost = if (Bunkers.obstructs(w#bunkers, x, Rules.bulletSize()#x))
-                t#blockedCost else 0.0f32;
+            let bCost =
+                if (Bunkers.obstructs(w#bunkers, x, Rules.bulletSize()#x))
+                    t#blockedCost
+                else
+                    0.0f32;
             (x, d + u + bCost)
         };
         let scored = List.map(scoreCandidate, options());
@@ -350,13 +367,10 @@ mod Demo {
             let (x, score) = candidate;
             match best {
                 case None => Some((x, score))
-                case Some((_, bestScore)) =>
-                    if (score < bestScore) Some((x, score)) else best
+                case Some((_, bestScore)) => if (score < bestScore) Some((x, score)) else best
             }
         };
-        List.foldLeft(pickBest, None, scored)
-            |> Option.map(fst)
-            |> Option.getWithDefault(w#playerX)
+        List.foldLeft(pickBest, None, scored) |> Option.map(fst) |> Option.getWithDefault(w#playerX)
     }
 
     ///
@@ -367,8 +381,7 @@ mod Demo {
     /// time. Aiming at where a target *is* rather than where it will *be* misses nearly
     /// every shot.
     ///
-    def intent(t: Tuning, error: Float32,
-               w: World): Option[{ goal = Float32, fire = Bool }] = {
+    def intent(t: Tuning, error: Float32, w: World): Option[{ goal = Float32, fire = Bool }] = {
         match chooseTarget(t, w) {
             case None => None
             case Some(p) =>
@@ -390,10 +403,7 @@ mod Demo {
 
     /// The keys for a committed direction and a decision to shoot.
     def keysFor(moving: Int32, fire: Bool): Snapshot = {
-        let move =
-            if (moving < 0) Key.Left :: Nil
-            else if (moving > 0) Key.Right :: Nil
-            else Nil;
+        let move = if (moving < 0) Key.Left :: Nil else if (moving > 0) Key.Right :: Nil else Nil;
         Input.holding(List.append(move, if (fire) Key.Space :: Nil else Nil))
     }
 
@@ -424,8 +434,7 @@ mod Demo {
         (Input.empty(), { rng = next, lapse = lTime, moving = 0 | hand })
     }
 
-    def playTick(t: Tuning, w: World,
-                 hand: Hand, rng: Rng): (Snapshot, Hand) = {
+    def playTick(t: Tuning, w: World, hand: Hand, rng: Rng): (Snapshot, Hand) = {
         let (error, settled, next) = judge(t, hand, rng);
         match intent(t, error, w) {
             case None =>
@@ -453,8 +462,7 @@ mod Demo {
             (Input.empty(), { lapse = hand#lapse - 1, moving = 0 | hand })
         else {
             let (lapsing, afterChance) = Rng.chance(t#lapseOneIn, hand#rng);
-            if (lapsing) startLapse(t, hand, afterChance)
-            else playTick(t, w, hand, afterChance)
+            if (lapsing) startLapse(t, hand, afterChance) else playTick(t, w, hand, afterChance)
         }
 
     ///
@@ -463,7 +471,8 @@ mod Demo {
     /// Holding it is the whole point. Re-drawing every tick is what made the cannon shake.
     ///
     def judge(t: Tuning, hand: Hand, rng: Rng): (Float32, Int32, Rng) =
-        if (hand#settled > 0) (hand#error, hand#settled - 1, rng)
+        if (hand#settled > 0)
+            (hand#error, hand#settled - 1, rng)
         else {
             let (drawn, afterError) = Rng.nextInt32Below(2 * t#aimJitter + 1, rng);
             let (extra, afterHold) = Rng.nextInt32Below(t#judgeSpread, afterError);
@@ -483,5 +492,4 @@ mod Demo {
         let reversing = wanted != 0 and moving != 0 and wanted != moving;
         if (reversing and Float32.abs(goal) < t#reverseAt) moving else wanted
     }
-
 }

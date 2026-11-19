@@ -14,7 +14,6 @@
 /// and would match a comment just as happily as a call.
 ///
 mod TestSurface {
-
     use Assert.assertEq
     use Assert.assertTrue
 
@@ -58,10 +57,13 @@ mod TestSurface {
             let s = sheet(rc, 5, 4);
             Surface.background(s, Color.Rgb(10, 20, 30));
             let corners = (0, 0) :: (4, 0) :: (0, 3) :: (4, 3) :: Nil;
-            List.forEach(xy -> {
-                let (x, y) = xy;
-                assertEq(expected = Color.Rgb(10, 20, 30), Surface.pixelAt(s, x, y))
-            }, corners);
+            List.forEach(
+                xy -> {
+                    let (x, y) = xy;
+                    assertEq(expected = Color.Rgb(10, 20, 30), Surface.pixelAt(s, x, y))
+                },
+                corners
+            );
             Surface.release(s)
         }
 
@@ -198,13 +200,18 @@ mod TestSurface {
             Surface.textSize(s, 16.0f32);
             Surface.fill(s, Color.white());
             Surface.text(s, "H", 4.0f32, 20.0f32);
-            let litIn = (top, bottom) ->
-                List.exists(y -> List.exists(x ->
-                    Color.redOf(Surface.pixelAt(s, x, y)) > 0, List.range(0, 40)),
-                    List.range(top, bottom));
+            let litIn =
+                (top, bottom) ->
+                    List.exists(
+                        y ->
+                            List.exists(
+                                x -> Color.redOf(Surface.pixelAt(s, x, y)) > 0,
+                                List.range(0, 40)
+                            ),
+                        List.range(top, bottom)
+                    );
             assertTrue(litIn(4, 20));
             assertTrue(not litIn(21, 24));
             Surface.release(s)
         }
-
 }

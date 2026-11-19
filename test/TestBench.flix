@@ -1,5 +1,4 @@
 mod TestBench {
-
     use Assert.assertEq
     use Assert.assertTrue
     use Assert.assertFalse
@@ -17,9 +16,18 @@ mod TestBench {
     ///
 
     def game(level: Int32, deaths: Int32, ticks: Int32): Outcome =
-        { seed = 1i64, level = level, score = 0, lives = 3, deaths = deaths,
-          kills = 0, drops = 0, ticks = ticks, invaded = true,
-          endgame = { pixels = 0.0f32, ticks = 0, kills = 0 } }
+        {
+            seed = 1i64,
+            level = level,
+            score = 0,
+            lives = 3,
+            deaths = deaths,
+            kills = 0,
+            drops = 0,
+            ticks = ticks,
+            invaded = true,
+            endgame = { pixels = 0.0f32, ticks = 0, kills = 0 }
+        }
 
     // -- rates, not totals ------------------------------------------------------------------
 
@@ -31,9 +39,10 @@ mod TestBench {
         let brief = game(5, 6, 4000) :: Nil;
         assertEq(expected = Bench.deaths(steady), Bench.deaths(brief));
         assertTrueWithMsg(
-            Bench.rateTenths(Bench.deaths(brief), Bench.totalTicks(brief))
-                > Bench.rateTenths(Bench.deaths(steady), Bench.totalTicks(steady)),
-            "the shorter game did not register as the worse one")
+            Bench.rateTenths(Bench.deaths(brief), Bench.totalTicks(brief)) >
+                Bench.rateTenths(Bench.deaths(steady), Bench.totalTicks(steady)),
+            "the shorter game did not register as the worse one"
+        )
     }
 
     @Test
@@ -43,8 +52,10 @@ mod TestBench {
         // before the scale was widened.
         let bad = Bench.rateTenths(24, 78000);
         let good = Bench.rateTenths(4, 78000);
-        assertTrueWithMsg(bad > good and good > 0,
-            "24 deaths and 4 deaths over the same play reported as ${bad} and ${good}")
+        assertTrueWithMsg(
+            bad > good and good > 0,
+            "24 deaths and 4 deaths over the same play reported as ${bad} and ${good}"
+        )
     }
 
     @Test
@@ -60,8 +71,10 @@ mod TestBench {
         let rate = Bench.rateTenths(24871, 54000);
         assertTrueWithMsg(rate > 0, "24871 kills over 54000 ticks reported as ${rate}");
         // Twice the kills over the same play is twice the rate, which wrapping cannot manage.
-        assertTrueWithMsg(Bench.rateTenths(49742, 54000) > rate,
-            "doubling the kills did not double the rate; the arithmetic still wraps")
+        assertTrueWithMsg(
+            Bench.rateTenths(49742, 54000) > rate,
+            "doubling the kills did not double the rate; the arithmetic still wraps"
+        )
     }
 
     // -- the summary ------------------------------------------------------------------------
@@ -124,8 +137,10 @@ mod TestBench {
     @Test
     def testTheSeedListIsBigEnoughToMeanSomething(): Unit \ Assert =
         // Bomb luck moves a single seed by two whole levels. Three seeds measure noise.
-        assertTrueWithMsg(List.length(Bench.seeds()) >= 8,
-            "only ${List.length(Bench.seeds())} seeds; that is not enough to tell a change from luck")
+        assertTrueWithMsg(
+            List.length(Bench.seeds()) >= 8,
+            "only ${List.length(Bench.seeds())} seeds; that is not enough to tell a change from luck"
+        )
 
     @Test
     def testTheSeedsAreDistinct(): Unit \ Assert = {
@@ -140,8 +155,10 @@ mod TestBench {
         // narrowing rule scores 4.6 against a 4.9 baseline on the ten and 4.95 against 4.52 on
         // these, so this sample is not a nicety -- it is the difference between adopting a
         // change and rejecting the same change.
-        assertTrueWithMsg(List.length(Bench.wideSeeds()) >= 50,
-            "only ${List.length(Bench.wideSeeds())} wide seeds; that cannot settle a close call")
+        assertTrueWithMsg(
+            List.length(Bench.wideSeeds()) >= 50,
+            "only ${List.length(Bench.wideSeeds())} wide seeds; that cannot settle a close call"
+        )
 
     @Test
     def testTheWideSeedsAreDistinct(): Unit \ Assert = {
@@ -168,9 +185,11 @@ mod TestBench {
         // compare on totals" trap wearing a different hat.
         let game = Bench.one(Demo.defaults(), 2026i64);
         let cleared = game#level - 1;
-        assertTrueWithMsg(game#kills >= cleared * Rules.totalInvaders(),
-            "reached level ${game#level} on ${game#kills} kills, which is fewer than the "
-            + "${cleared * Rules.totalInvaders()} needed to clear ${cleared} formations")
+        assertTrueWithMsg(
+            game#kills >= cleared * Rules.totalInvaders(),
+            "reached level ${game#level} on ${game#kills} kills, which is fewer than the " +
+                "${cleared * Rules.totalInvaders()} needed to clear ${cleared} formations"
+        )
     }
 
     @Test
@@ -200,8 +219,9 @@ mod TestBench {
     def testAMeasuredGameActuallyEnded(): Unit \ Assert = {
         // If this ever fails the budget is too small, and every rate in the report is wrong.
         let outcome = Bench.one(Demo.defaults(), 2026i64);
-        assertTrueWithMsg(outcome#ticks < Bench.budget(),
-            "seed 2026 was still running after ${outcome#ticks} ticks; raise Bench.budget()")
+        assertTrueWithMsg(
+            outcome#ticks < Bench.budget(),
+            "seed 2026 was still running after ${outcome#ticks} ticks; raise Bench.budget()"
+        )
     }
-
 }

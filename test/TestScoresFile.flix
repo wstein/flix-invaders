@@ -1,5 +1,4 @@
 mod TestScoresFile {
-
     use Assert.assertEq
     use Assert.assertTrue
     use Assert.assertTrueWithMsg
@@ -20,15 +19,15 @@ mod TestScoresFile {
 
     type alias FsEffects = Fs.FileRead + Fs.FileWrite + Fs.FileSystem + Time.Clock
 
-    def onMemoryFS(f: Unit -> a \ ef)
-        : a \ (ef - FsEffects) =
-        frozenClock(() ->
-            Fs.FileSystem.withInMemoryFS(() ->
-                Fs.FileWrite.runWithFileSystem(() ->
-                    Fs.FileRead.runWithFileSystem(f))))
+    def onMemoryFS(f: Unit -> a \ ef): a \ (ef - FsEffects) =
+        frozenClock(
+            () ->
+                Fs.FileSystem.withInMemoryFS(
+                    () -> Fs.FileWrite.runWithFileSystem(() -> Fs.FileRead.runWithFileSystem(f))
+                )
+        )
 
-    def frozenClock(f: Unit -> a \ ef)
-        : a \ (ef - Time.Clock) =
+    def frozenClock(f: Unit -> a \ ef): a \ (ef - Time.Clock) =
         run {
             f()
         } with handler Time.Clock {
@@ -39,8 +38,7 @@ mod TestScoresFile {
     def somewhere(): Scores.Location =
         { dir = "/nowhere/flix-invaders", file = "/nowhere/flix-invaders/scores.txt" }
 
-    def entry(name: String, score: Int32): Entry =
-        { name = name, score = score, level = 3 }
+    def entry(name: String, score: Int32): Entry = { name = name, score = score, level = 3 }
 
     def shown(e: Entry): String = "${e#name}/${e#score}/${e#level}"
     def shownAll(es: List[Entry]): List[String] = List.map(shown, es)
@@ -49,7 +47,10 @@ mod TestScoresFile {
     def loaded(at: Scores.Location): List[Entry] \ Fs.FileRead + Assert =
         match Scores.load(at) {
             case Ok(entries) => entries
-            case Err(why) => { Assert.fail("load failed: ${why}"); Nil }
+            case Err(why) => {
+                Assert.fail("load failed: ${why}");
+                Nil
+            }
         }
 
     def saved(at: Scores.Location, entries: List[Entry]): Unit \ Fs.FileWrite + Assert =
@@ -110,9 +111,9 @@ mod TestScoresFile {
     def testAHandEditedFileLosesOnlyTheBadLines(): Unit \ Assert = onMemoryFS(() -> {
         // Corrupting the file should cost you those entries, not the game.
         let at = somewhere();
-        Fs.FileWrite.writeLines(lines = "AAA|100|1" :: "nonsense" :: "CCC|50|2" :: Nil, at#file)
-            |> Result.mapErr(why -> Assert.fail("could not plant a corrupt file: ${why}"))
-            |> Result.getWithDefault(());
+        Fs.FileWrite.writeLines(lines = "AAA|100|1" :: "nonsense" :: "CCC|50|2" :: Nil, at#file) |>
+            Result.mapErr(why -> Assert.fail("could not plant a corrupt file: ${why}")) |>
+            Result.getWithDefault(());
         assertEq(expected = "AAA" :: "CCC" :: Nil, List.map(e -> e#name, loaded(at)))
     })
 
@@ -124,8 +125,7 @@ mod TestScoresFile {
     /// is happy to read a directory, and provoking a permissions error on a real one would
     /// need a real one.
     ///
-    def readingFails(kind: IoError.ErrorKind,
-                     f: Unit -> a \ ef): a \ (ef - Fs.FileRead) = {
+    def readingFails(kind: IoError.ErrorKind, f: Unit -> a \ ef): a \ (ef - Fs.FileRead) = {
         // Spelled out per operation rather than shared: the three results differ in their
         // success type, so one binding cannot stand for all of them.
         def failure() = IoError.IoError(kind, "injected by a test");
@@ -156,5 +156,4 @@ mod TestScoresFile {
                 case Err(_) => assertTrue(true)
                 case Ok(_) => Assert.fail("an unreadable file was reported as an empty table")
             })
-
 }

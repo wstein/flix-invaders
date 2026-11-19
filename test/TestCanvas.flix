@@ -1,5 +1,4 @@
 mod TestCanvas {
-
     use Assert.assertEq
     use Assert.assertTrue
 
@@ -18,8 +17,9 @@ mod TestCanvas {
         });
         let expected =
             DrawCmd.Clear(Color.Rgb(0, 0, 0)) ::
-            DrawCmd.Fill(Color.Rgb(255, 255, 255)) ::
-            DrawCmd.Rect(1.0f32, 2.0f32, 3.0f32, 4.0f32) :: Nil;
+                DrawCmd.Fill(Color.Rgb(255, 255, 255)) ::
+                DrawCmd.Rect(1.0f32, 2.0f32, 3.0f32, 4.0f32) ::
+                Nil;
         assertEq(expected = expected, cmds)
     }
 
@@ -48,15 +48,19 @@ mod TestCanvas {
     def testPaintRoundTrips(): Unit \ Assert = {
         let cmds =
             DrawCmd.Clear(Color.grey(30)) ::
-            DrawCmd.TextSize(12.0f32) ::
-            DrawCmd.Text("hi", 5.0f32, 6.0f32) ::
-            DrawCmd.Ellipse(1.0f32, 2.0f32, 3.0f32, 4.0f32) :: Nil;
+                DrawCmd.TextSize(12.0f32) ::
+                DrawCmd.Text("hi", 5.0f32, 6.0f32) ::
+                DrawCmd.Ellipse(1.0f32, 2.0f32, 3.0f32, 4.0f32) ::
+                Nil;
         assertEq(expected = cmds, Canvas.commands((640, 480), () -> Canvas.paint(cmds)))
     }
 
     @Test
     def testRenderingIsDeterministic(): Unit \ Assert = {
-        let scene = () -> { Canvas.clear(Color.grey(10)); Canvas.rect(1.0f32, 1.0f32, 2.0f32, 2.0f32) };
+        let scene = () -> {
+            Canvas.clear(Color.grey(10));
+            Canvas.rect(1.0f32, 1.0f32, 2.0f32, 2.0f32)
+        };
         assertEq(expected = Canvas.commands((64, 64), scene), Canvas.commands((64, 64), scene))
     }
 
@@ -105,8 +109,11 @@ mod TestCanvas {
     def testHandleWithCollectorTakesAnArgument(): Unit \ Assert = {
         // The `handle` form transforms a function rather than running a thunk, so the same
         // interpretation can be applied to many inputs.
-        let render = Canvas.handleWithCollector((640, 480), n ->
-            Canvas.rect(0.0f32, 0.0f32, Int32.toFloat32(n), Int32.toFloat32(n)));
+        let render =
+            Canvas.handleWithCollector(
+                (640, 480),
+                n -> Canvas.rect(0.0f32, 0.0f32, Int32.toFloat32(n), Int32.toFloat32(n))
+            );
         let (_, one) = render(1);
         let (_, two) = render(2);
         assertEq(expected = 1, List.length(one));
@@ -119,8 +126,12 @@ mod TestCanvas {
             Canvas.fillAlpha(Color.black(), 170);
             Canvas.rect(0.0f32, 0.0f32, 10.0f32, 10.0f32)
         });
-        assertEq(expected = DrawCmd.FillAlpha(Color.Rgb(0, 0, 0), 170) ::
-                            DrawCmd.Rect(0.0f32, 0.0f32, 10.0f32, 10.0f32) :: Nil, cmds)
+        assertEq(
+            expected = DrawCmd.FillAlpha(Color.Rgb(0, 0, 0), 170) ::
+                DrawCmd.Rect(0.0f32, 0.0f32, 10.0f32, 10.0f32) ::
+                Nil,
+            cmds
+        )
     }
 
     @Test
@@ -133,8 +144,10 @@ mod TestCanvas {
 
     @Test
     def testPaintRoundTripsTranslucentFills(): Unit \ Assert = {
-        let cmds = DrawCmd.FillAlpha(Color.grey(30), 200) :: DrawCmd.Rect(1.0f32, 2.0f32, 3.0f32, 4.0f32) :: Nil;
+        let cmds =
+            DrawCmd.FillAlpha(Color.grey(30), 200) ::
+                DrawCmd.Rect(1.0f32, 2.0f32, 3.0f32, 4.0f32) ::
+                Nil;
         assertEq(expected = cmds, Canvas.commands((640, 480), () -> Canvas.paint(cmds)))
     }
-
 }
