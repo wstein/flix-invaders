@@ -4,7 +4,7 @@ Describe the change and why it belongs in this project.
 
 ## Validation
 
-- [ ] `./flixw format`
+- [ ] `npm run format:check` (`./flixw task fmt` rewrites)
 - [ ] `./flixw check`
 - [ ] `./flixw test`
 - [ ] `bin/bench` before and after (required for demo-bot or rules tuning)

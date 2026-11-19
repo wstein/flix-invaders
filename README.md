@@ -65,10 +65,18 @@ run:
 ./flixw metrics report --format md
 ```
 
-Formatting is not required locally or in CI. Flix 0.79.0's formatter can comment out
-record fields while reporting success ([upstream issue](https://github.com/flix/flix/issues/13676)).
-If you run `./flixw format`, inspect its diff and rerun the checks above before keeping
-the changes. Formatting enforcement can be reconsidered after a fixed release is validated.
+Formatting is done by Prettier with the Flix plugin
+([`prettier-plugin-flix`](https://github.com/wstein/prettier-plugin-flix), `printWidth` 100) and
+checked by the separate Format workflow. It needs Node.js 22:
+
+```sh
+npm ci
+npm run format:check   # or ./flixw task fmt-check
+./flixw task fmt       # rewrite src/ and test/ in place
+```
+
+The tasks come from [`.flixw/tasks.toml`](.flixw/tasks.toml). They are not called `format`:
+`./flixw format` is the Flix compiler's own formatter, which this project does not use.
 
 Metrics 0.6.0 lists Flix up to 0.77.0 and does not support the pinned 0.80.0 compiler:
 `./flixw metrics` prints `the pinned compiler has no supported engine API` and exits 2 without
