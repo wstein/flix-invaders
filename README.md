@@ -70,6 +70,12 @@ record fields while reporting success ([upstream issue](https://github.com/flix/
 If you run `./flixw format`, inspect its diff and rerun the checks above before keeping
 the changes. Formatting enforcement can be reconsidered after a fixed release is validated.
 
+Metrics 0.6.0 lists Flix up to 0.77.0 and does not support the pinned 0.80.0 compiler:
+`./flixw metrics` prints `the pinned compiler has no supported engine API` and exits 2 without
+a report (see the [plugin's supported compilers](https://github.com/wstein/flixw-metrics#supported-compilers)).
+Until a plugin release lists 0.80.0, say in the commit or pull request that no report could be
+produced; an empty run is not a clean result.
+
 The metrics report is a review aid, not a score to optimise. Fix real findings or explain why a
 contextual one is intentional. Keep commits focused and use Conventional Commit subjects such
 as `fix(input): preserve an edge until a simulated tick`.
