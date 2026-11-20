@@ -33,49 +33,49 @@ mod Tuning {
     /// order a `Map` would impose.
     ///
     def aimGroup(t: Tuning): List[String] =
-        "  \"aimJitter\":        ${t#aimJitter}," ::
-            "  \"judgeFor\":         ${t#judgeFor}," ::
-            "  \"judgeSpread\":      ${t#judgeSpread}," ::
-            Nil
+        "  \"aimJitter\":        ${t#aimJitter},"
+            :: "  \"judgeFor\":         ${t#judgeFor},"
+            :: "  \"judgeSpread\":      ${t#judgeSpread},"
+            :: Nil
 
     def lapseGroup(t: Tuning): List[String] =
-        "  \"lapseOneIn\":       ${t#lapseOneIn}," ::
-            "  \"lapseFor\":         ${t#lapseFor}," ::
-            "  \"lapseSpread\":      ${t#lapseSpread}," ::
-            Nil
+        "  \"lapseOneIn\":       ${t#lapseOneIn},"
+            :: "  \"lapseFor\":         ${t#lapseFor},"
+            :: "  \"lapseSpread\":      ${t#lapseSpread},"
+            :: Nil
 
     def movementGroup(t: Tuning): List[String] =
         "  \"startAt\":          ${t#startAt}," :: "  \"reverseAt\":        ${t#reverseAt}," :: Nil
 
     def dangerGroup(t: Tuning): List[String] =
-        "  \"dangerWidth\":      ${t#dangerWidth}," ::
-            "  \"selfPreservation\": ${t#selfPreservation}," ::
-            "  \"urgency\":          ${t#urgency}," ::
-            "  \"shelterRelief\":    ${t#shelterRelief}," ::
-            "  \"blockedCost\":      ${t#blockedCost}," ::
-            Nil
+        "  \"dangerWidth\":      ${t#dangerWidth},"
+            :: "  \"selfPreservation\": ${t#selfPreservation},"
+            :: "  \"urgency\":          ${t#urgency},"
+            :: "  \"shelterRelief\":    ${t#shelterRelief},"
+            :: "  \"blockedCost\":      ${t#blockedCost},"
+            :: Nil
 
     def targetGroup(t: Tuning): List[String] =
-        "  \"calm\":             ${t#calm}," ::
-            "  \"finishFlank\":      ${t#finishFlank}," ::
-            "  \"narrowTo\":         ${t#narrowTo}," ::
-            "  \"narrowing\":        ${t#narrowing}," ::
-            "  \"fireWindow\":       ${t#fireWindow}," ::
-            "  \"imminence\":        ${t#imminence}" ::
-            Nil
+        "  \"calm\":             ${t#calm},"
+            :: "  \"finishFlank\":      ${t#finishFlank},"
+            :: "  \"narrowTo\":         ${t#narrowTo},"
+            :: "  \"narrowing\":        ${t#narrowing},"
+            :: "  \"fireWindow\":       ${t#fireWindow},"
+            :: "  \"imminence\":        ${t#imminence}"
+            :: Nil
 
     /// Encodes a Tuning configuration record into formatted JSON text.
     pub def encode(t: Tuning): String =
         let groups =
             aimGroup(t) :::
-                "" ::
-                lapseGroup(t) :::
-                "" ::
-                movementGroup(t) :::
-                "" ::
-                dangerGroup(t) :::
-                "" ::
-                targetGroup(t);
+                ""
+                :: lapseGroup(t) :::
+                ""
+                :: movementGroup(t) :::
+                ""
+                :: dangerGroup(t) :::
+                ""
+                :: targetGroup(t);
         String.unlines("{" :: groups ::: "}" :: Nil)
 
     // -- reading -----------------------------------------------------------------------------
@@ -84,7 +84,7 @@ mod Tuning {
     def fields(text: String): Option[Map[String, Json]] =
         match Util.Json.parse(text) {
             case Ok(Json.JObject(members)) => Some(members)
-            case _ => None
+            case _                         => None
         }
 
     /// A numeric field, or `fallback` when it is absent or not a number.
@@ -92,13 +92,13 @@ mod Tuning {
         match Map.get(key, members) {
             case Some(Json.JNumber(v)) =>
                 Option.getWithDefault(fallback, BigDecimal.tryToFloat32(v))
-            case _ => fallback
+            case _                     => fallback
         }
 
     def whole(members: Map[String, Json], key: String, fallback: Int32): Int32 =
         match Map.get(key, members) {
             case Some(Json.JNumber(v)) => Option.getWithDefault(fallback, BigDecimal.tryToInt32(v))
-            case _ => fallback
+            case _                     => fallback
         }
 
     ///
@@ -110,7 +110,7 @@ mod Tuning {
     ///
     pub def decode(base: Tuning, text: String): Result[String, Tuning] =
         match fields(text) {
-            case None => Err("not a JSON object")
+            case None          => Err("not a JSON object")
             case Some(members) => Ok({
                 aimJitter = whole(members, "aimJitter", base#aimJitter),
                 judgeFor = whole(members, "judgeFor", base#judgeFor),
@@ -197,7 +197,7 @@ mod Tuning {
 
     /// Serializes and writes a Tuning configuration record to disk at the specified path.
     pub def save(file: String, dir: String, t: Tuning): Result[String, Unit] \ Fs.FileWrite =
-        Fs.FileWrite.mkDirs(dir) |>
-            Result.flatMap(_ -> Fs.FileWrite.write(str = encode(t), file)) |>
-            Result.mapErr(why -> "${why}")
+        Fs.FileWrite.mkDirs(dir)
+            |> Result.flatMap(_ -> Fs.FileWrite.write(str = encode(t), file))
+            |> Result.mapErr(why -> "${why}")
 }

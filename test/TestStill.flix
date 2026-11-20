@@ -42,14 +42,14 @@ mod TestStill {
         let ellipses = List.count(
             cmd -> match cmd {
                 case DrawCmd.Ellipse(_, _, _, _) => true
-                case _ => false
+                case _                           => false
             },
             cmds
         );
         let rects = List.count(
             cmd -> match cmd {
                 case DrawCmd.Rect(_, _, _, _) => true
-                case _ => false
+                case _                        => false
             },
             cmds
         );
@@ -103,10 +103,10 @@ mod TestStill {
                 );
         List.forEach(
             cmd -> match cmd {
-                case DrawCmd.Clear(c) => vouched(c, "the sky")
-                case DrawCmd.Fill(c) => vouched(c, "a shape")
+                case DrawCmd.Clear(c)        => vouched(c, "the sky")
+                case DrawCmd.Fill(c)         => vouched(c, "a shape")
                 case DrawCmd.FillAlpha(c, _) => vouched(c, "an overlay")
-                case _ => ()
+                case _                       => ()
             },
             scene()
         )

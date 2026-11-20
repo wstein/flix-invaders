@@ -37,13 +37,13 @@ mod Sketch {
     ///
     pub def defaultConfig(): Config =
         {
-            title = "Flix sketch",
-            width = 640,
-            height = 480,
-            seed = 42i64,
-            hz = 60,
+            title     = "Flix sketch",
+            width     = 640,
+            height    = 480,
+            seed      = 42i64,
+            hz        = 60,
             maxFrames = None,
-            fontPath = None
+            fontPath  = None
         }
 
     ///
@@ -59,7 +59,7 @@ mod Sketch {
         else
             match Int32.parse(10, raw) {
                 case Result.Ok(n) if n > 0 => Some(n)
-                case _ => None
+                case _                     => None
             }
     }
 
@@ -92,13 +92,13 @@ mod Sketch {
     pub def parseSeed(raw: String): Option[Int64] =
         match Int64.parse(10, String.trim(raw)) {
             case Result.Ok(n) => Some(n)
-            case _ => None
+            case _            => None
         }
 
     /// Generates a fresh random seed from system nanoTime or reads FLIX_INVADERS_SEED.
     pub def freshSeed(): Int64 \ IO = match seedFromEnv() {
         case Some(n) => n
-        case None => System.nanoTime()
+        case None    => System.nanoTime()
     }
 
     ///
@@ -299,7 +299,7 @@ mod Sketch {
         Ref.put(frames, loop#refs#frames);
         match loop#cfg#maxFrames {
             case Some(limit) => if (frames >= limit) Surface.requestClose(loop#surface) else ()
-            case None => ()
+            case None        => ()
         }
     }
 
@@ -336,14 +336,14 @@ mod Sketch {
         let voices = Audio.open();
 
         {
-            cfg = cfg,
-            stepNs = stepNs,
+            cfg      = cfg,
+            stepNs   = stepNs,
             budgetNs = budgetNs,
-            surface = surface,
-            voices = voices,
-            refs = refs,
-            step = step,
-            view = view
+            surface  = surface,
+            voices   = voices,
+            refs     = refs,
+            step     = step,
+            view     = view
         }
     }
 
@@ -469,10 +469,7 @@ mod Sketch {
     /// The clock is `simulate`'s business, not this function's: it knows the list's length
     /// before the walk starts, so nothing is learned by paying for the ticks one at a time.
     ///
-    def advance(
-        step: ((s, Snapshot) -> s \ Sound),
-        world: Ref[s, r],
-        inputs: List[Snapshot]
-    ): Unit \ Sound + r =
+    def advance(step: ((s, Snapshot) -> s \ Sound), world: Ref[s, r], inputs: List[Snapshot]): Unit
+        \ Sound + r =
         inputs |> List.forEach(snapshot -> Ref.transform(s -> step(s, snapshot), world))
 }

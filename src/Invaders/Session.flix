@@ -137,16 +137,16 @@ mod Session {
     /// blurred into one game with two scores.
     ///
     pub def onScreen(s: Session): World = match s#screen {
-        case Screen.Playing => active(s)
+        case Screen.Playing  => active(s)
         case Screen.Entering => active(s)
-        case _ => s#demo
+        case _               => s#demo
     }
 
     /// Starts a fresh game for `players` players.
     def begin(players: Int32, s: Session): Session = {
         let best = Scores.best(s#scores);
-        let freshWorlds = Vector.range(0, players) |>
-            Vector.map(i -> {
+        let freshWorlds = Vector.range(0, players)
+            |> Vector.map(i -> {
                 let fresh = Game.initial(s#seed + Int32.toInt64(i));
                 { hiScore = best | fresh }
             });
@@ -178,7 +178,7 @@ mod Session {
         let waiting = { demo = restarted, demoHand = nextHand | s };
         match startRequest(input) {
             case Some(players) => begin(players, waiting)
-            case None => waiting
+            case None          => waiting
         }
     }
 
@@ -206,10 +206,10 @@ mod Session {
     /// either ask for their initials or go straight to the table.
     ///
     def finish(s: Session): Session = {
-        let earned = Vector.toList(s#worlds) |>
-            List.mapWithIndex((i, w) -> (i, w)) |>
-            List.filter(match (_, w) -> Scores.qualifies(w#score, s#scores)) |>
-            List.map(match (i, w) -> let entry = { name = "", score = w#score, level = w#level };
+        let earned = Vector.toList(s#worlds)
+            |> List.mapWithIndex((i, w) -> (i, w))
+            |> List.filter(match (_, w) -> Scores.qualifies(w#score, s#scores))
+            |> List.map(match (i, w) -> let entry = { name = "", score = w#score, level = w#level };
             { player = i, entry = entry });
         if (List.isEmpty(earned))
             { screen = Screen.Table, pending = Nil | s }
@@ -244,7 +244,10 @@ mod Session {
             checked_ecast(if (counted#over > 0) counted else afterGameOver(counted))
         } else if (s#handover > 0)
             checked_ecast({ handover = s#handover - 1 | s })
-        else if (allDone(s)) finish(s) else advanceWorld(input, s)
+        else if (allDone(s))
+            finish(s)
+        else
+            advanceWorld(input, s)
     }
 
     ///
@@ -255,7 +258,7 @@ mod Session {
     ///
     def afterGameOver(s: Session): Session = match nextPlayer(s#current, s) {
         case Some(next) => { current = next, handover = Rules.handoverTicks() | s }
-        case None => s
+        case None       => s
     }
 
     ///
@@ -268,7 +271,7 @@ mod Session {
         let typed = Set.foldLeft(
             (acc, k) -> match Key.nameCharacter(k) {
                 case Some(c) if String.length(acc) < Scores.nameLength() => acc + "${c}"
-                case _ => acc
+                case _                                                   => acc
             },
             s#typing,
             input#pressed
@@ -282,7 +285,7 @@ mod Session {
             { typing = afterDelete | s }
         else
             match s#pending {
-                case Nil => { screen = Screen.Table, typing = "" | s }
+                case Nil           => { screen = Screen.Table, typing = "" | s }
                 case claim :: rest => {
                     let recorded = Scores.insert({ name = afterDelete | claim#entry }, s#scores);
                     if (List.isEmpty(rest))
@@ -319,9 +322,9 @@ mod Session {
     }
 
     def advance(s: Session, input: Snapshot): Session \ Sound = match s#screen {
-        case Screen.Attract => attract(input, s)
-        case Screen.Playing => playing(input, s)
+        case Screen.Attract  => attract(input, s)
+        case Screen.Playing  => playing(input, s)
         case Screen.Entering => entering(input, s)
-        case Screen.Table => table(input, s)
+        case Screen.Table    => table(input, s)
     }
 }

@@ -50,14 +50,14 @@ mod Audio {
     ///
     def frac(x: Float32): Float32 = match Float32.tryToInt32(x) {
         case Some(whole) => x - Int32.toFloat32(whole)
-        case None => unreachable!()
+        case None        => unreachable!()
     }
 
     /// Clips a sample into signed 8-bit range. `level` is always bounded by the amplitude
     /// the callers pass, so the conversion cannot fail.
     def toSample(level: Float32): Int8 = match Float32.tryToInt32(level) {
         case Some(whole) => Int32.clampToInt8(min = -127i8, max = 127i8, whole)
-        case None => unreachable!()
+        case None        => unreachable!()
     }
 
     type alias SweepSpec = { startHz = Float32, endHz = Float32, millis = Int32, volume = Float32 }
@@ -117,21 +117,21 @@ mod Audio {
     /// The waveform for one sound.
     ///
     def samplesFor(rc: Region[r], cmd: SoundCmd): Array[Int8, r] \ r = match cmd {
-        case SoundCmd.Shoot =>
+        case SoundCmd.Shoot           =>
             let p = { startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32 };
             sweep(rc, p)
-        case SoundCmd.InvaderDies => burst(rc, 190, 0.7f32)
-        case SoundCmd.PlayerDies => burst(rc, 620, 1.0f32)
-        case SoundCmd.MysteryAppears =>
+        case SoundCmd.InvaderDies     => burst(rc, 190, 0.7f32)
+        case SoundCmd.PlayerDies      => burst(rc, 620, 1.0f32)
+        case SoundCmd.MysteryAppears  =>
             let p = { startHz = 620.0f32, endHz = 900.0f32, millis = 220, volume = 0.4f32 };
             sweep(rc, p)
-        case SoundCmd.MysteryDies =>
+        case SoundCmd.MysteryDies     =>
             let params = { startHz = 900.0f32, endHz = 180.0f32, millis = 380, volume = 0.6f32 };
             sweep(rc, params)
-        case SoundCmd.ShieldBlock =>
+        case SoundCmd.ShieldBlock     =>
             let params = { startHz = 300.0f32, endHz = 1100.0f32, millis = 130, volume = 0.5f32 };
             sweep(rc, params)
-        case SoundCmd.ExtraLife =>
+        case SoundCmd.ExtraLife       =>
             let params = { startHz = 500.0f32, endHz = 1600.0f32, millis = 420, volume = 0.6f32 };
             sweep(rc, params)
         case SoundCmd.MarchStep(note) => {
@@ -170,7 +170,7 @@ mod Audio {
                     List.filterMap(
                         _ -> match openVoice(fmt, cmd) {
                             case Some(clip) => Some((cmd, clip))
-                            case None => None
+                            case None       => None
                         },
                         List.range(0, voicesFor(cmd))
                     ),
@@ -193,7 +193,7 @@ mod Audio {
             // not restart all three.
             let isIdleVoice = entry -> fst(entry) == cmd and not snd(entry).isRunning();
             match List.findLeft(isIdleVoice, voices) {
-                case None => ()
+                case None            => ()
                 case Some((_, clip)) => {
                     clip.setFramePosition(0);
                     clip.start()

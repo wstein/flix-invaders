@@ -27,9 +27,9 @@ mod TestScores {
         match Scores.render(original :: Nil) {
             case line :: Nil => match Scores.parseLine(line) {
                 case Some(back) => assertEq(expected = shown(original), shown(back))
-                case None => Assert.fail("a rendered line did not parse back")
+                case None       => Assert.fail("a rendered line did not parse back")
             }
-            case _ => Assert.fail("render produced the wrong number of lines")
+            case _           => Assert.fail("render produced the wrong number of lines")
         }
     }
 

@@ -14,8 +14,8 @@ mod Game {
     /// The formation at the start of a game.
     ///
     def formation(level: Int32): Vector[Invader] =
-        Vector.range(0, Rules.totalInvaders()) |>
-            Vector.map(index -> {
+        Vector.range(0, Rules.totalInvaders())
+            |> Vector.map(index -> {
                 let column = Int32.remainder(index, Rules.columns());
                 let row = index / Rules.columns();
                 let fx = Rules.formationLeft() + Int32.toFloat32(column) * Rules.columnSpacing();
@@ -98,9 +98,9 @@ mod Game {
     /// Bullets rise and are dropped when they leave the top of the field.
     def moveBullets(w: World): World =
         {
-            bullets = w#bullets |>
-                List.map(b -> { y = b#y - Rules.bulletSpeed() | b }) |>
-                List.filter(b -> b#y > -Rules.bulletSize()#y) | w
+            bullets = w#bullets
+                |> List.map(b -> { y = b#y - Rules.bulletSpeed() | b })
+                |> List.filter(b -> b#y > -Rules.bulletSize()#y) | w
         }
 
     ///
@@ -123,14 +123,14 @@ mod Game {
                 else
                     -Rules.bombWiggleSpeed();
         {
-            bombs = w#bombs |>
-                List.map(b ->
+            bombs = w#bombs
+                |> List.map(b ->
                     {
                         x = clampTo(half, Rules.fieldWidth() - half, b#x + sway(b)),
                         y = b#y + Rules.bombSpeedFor(b#kind),
                         age = b#age + 1 | b
-                    }) |>
-                List.filter(b -> b#y < floor) | w
+                    })
+                |> List.filter(b -> b#y < floor) | w
         }
     }
 
@@ -141,7 +141,7 @@ mod Game {
                 acc
             else
                 match acc {
-                    case None => Some((inv#pos#x, inv#pos#x))
+                    case None           => Some((inv#pos#x, inv#pos#x))
                     case Some((lo, hi)) =>
                         Some((Float32.min(lo, inv#pos#x), Float32.max(hi, inv#pos#x)))
                 };
@@ -157,7 +157,7 @@ mod Game {
     def marchInvaders(w: World): World \ Sound = {
         let half = Rules.invaderSize()#x / 2.0f32;
         match liveBounds(w#invaders) {
-            case None => w
+            case None           => w
             case Some((lo, hi)) => {
                 let living = Vector.count(inv -> inv#alive, w#invaders);
                 let stepX = w#marchDir * Rules.marchSpeedFor(living, w#level);
@@ -231,7 +231,7 @@ mod Game {
         else {
             let (pick, afterPick) = Rng.nextInt32Below(count, rng);
             match List.nth(pick, candidates) {
-                case None => { rng = afterPick | w }
+                case None      => { rng = afterPick | w }
                 case Some(inv) => placeBomb(inv, afterPick, w)
             }
         }
@@ -341,7 +341,7 @@ mod Game {
     ///
     def meetInvader(pass: BulletPass, bullet: Vec2): BulletPass =
         match hitIndex(bullet, pass#invaders) {
-            case None => { kept = bullet :: pass#kept | pass }
+            case None    => { kept = bullet :: pass#kept | pass }
             case Some(i) => {
                 let hit = Vector.get(i, pass#invaders);
                 let struck = { alive = false | hit };
@@ -471,14 +471,17 @@ mod Game {
     def spawnMystery(w: World): World \ Sound =
         if (formationTooThin(w))
             w
-        else if (w#mysteryTimer > 1) { mysteryTimer = w#mysteryTimer - 1 | w } else launchMystery(w)
+        else if (w#mysteryTimer > 1)
+            { mysteryTimer = w#mysteryTimer - 1 | w }
+        else
+            launchMystery(w)
 
     ///
     /// Flies the mystery ship across, or counts down to the next one.
     ///
     def moveMystery(w: World): World \ Sound = match w#mystery {
         case Some(m) => stepActiveMystery(m, w)
-        case None => spawnMystery(w)
+        case None    => spawnMystery(w)
     }
 
     ///
@@ -488,7 +491,7 @@ mod Game {
     /// bullet has already had its chance at everything below it.
     ///
     def resolveMystery(w: World): World \ Sound = match w#mystery {
-        case None => w
+        case None    => w
         case Some(m) => {
             let pos = { x = m#x, y = Rules.mysteryY() };
             let hits =
@@ -548,9 +551,9 @@ mod Game {
     ///
     def ageBlasts(w: World): World =
         {
-            blasts = w#blasts |>
-                List.map(b -> { ticksLeft = b#ticksLeft - 1 | b }) |>
-                List.filter(b -> b#ticksLeft > 0) | w
+            blasts = w#blasts
+                |> List.map(b -> { ticksLeft = b#ticksLeft - 1 | b })
+                |> List.filter(b -> b#ticksLeft > 0) | w
         }
 
     /// Whether any living invader has reached the player's line.
@@ -588,7 +591,10 @@ mod Game {
                 bullets = Nil,
                 bombs = Nil | w
             }
-        else if (w#lives <= 0 or invasionComplete(w#invaders)) { phase = Phase.Lost | w } else w
+        else if (w#lives <= 0 or invasionComplete(w#invaders))
+            { phase = Phase.Lost | w }
+        else
+            w
 
     ///
     /// The next level: a fresh formation and fresh bunkers, marching faster and dropping
@@ -674,7 +680,7 @@ mod Game {
 
     /// The saucer: where it is, or how long until the next one.
     def showMystery(w: World): String = match w#mystery {
-        case None => "|u-${w#mysteryTimer}"
+        case None    => "|u-${w#mysteryTimer}"
         case Some(m) => group("u", "${m#x}" :: "${m#dir}" :: Nil)
     }
 
@@ -703,28 +709,27 @@ mod Game {
             let countDown = n -> { pause = n#pause - 1, tick = n#tick + 1 | n };
             w |> ageBlasts |> countDown
         } else
-            w |>
-                movePlayer(input) |>
-                fire(input) |>
-                moveBullets |>
-                moveBombs |>
-                marchInvaders |>
-                moveMystery |>
-                invaderFire
+            w
+                |> movePlayer(input)
+                |> fire(input)
+                |> moveBullets
+                |> moveBombs
+                |> marchInvaders
+                |> moveMystery
+                |> invaderFire
                 // Ages before anything can grant a shield, so a shield lasts exactly its
                 // full duration rather than losing its first tick to the grant itself.
-                |>
-                ageShield |>
-                resolveBunkers |>
-                resolveShotsMeetBombs |>
-                resolveBullets |>
-                resolveMystery |>
-                resolveBombs |>
-                awardBonusLife |>
-                ageBlasts |>
-                trackHiScore |>
-                checkEnd |>
-                (next -> { tick = next#tick + 1 | next })
+                |> ageShield
+                |> resolveBunkers
+                |> resolveShotsMeetBombs
+                |> resolveBullets
+                |> resolveMystery
+                |> resolveBombs
+                |> awardBonusLife
+                |> ageBlasts
+                |> trackHiScore
+                |> checkEnd
+                |> (next -> { tick = next#tick + 1 | next })
 
     ///
     /// Advances the game by exactly one logical tick.
@@ -742,7 +747,7 @@ mod Game {
                 else
                     nextLevel(w)
 
-            case Phase.Lost =>
+            case Phase.Lost    =>
                 // Enter starts a new game. Nothing else happens once it is over, so a lost world
                 // is stable no matter how many steps run. The hi-score outlives the game, the
                 // way an arcade cabinet's does.

@@ -50,17 +50,17 @@ mod Bench {
     /// temptation, having got a pleasing number, is to stop.
     ///
     pub def seeds(): List[Int64] =
-        2026i64 ::
-            7i64 ::
-            99i64 ::
-            1234i64 ::
-            555i64 ::
-            31i64 ::
-            17i64 ::
-            404i64 ::
-            88i64 ::
-            5i64 ::
-            Nil
+        2026i64
+            :: 7i64
+            :: 99i64
+            :: 1234i64
+            :: 555i64
+            :: 31i64
+            :: 17i64
+            :: 404i64
+            :: 88i64
+            :: 5i64
+            :: Nil
 
     ///
     /// Sixty seeds, for deciding rather than for iterating.
@@ -272,7 +272,7 @@ mod Bench {
             let wide = Int32.toInt64(count) * 100000i64 / Int32.toInt64(ticks);
             match Int64.tryToInt32(wide) {
                 case Some(rate) => rate
-                case None => Int32.maxValue()
+                case None       => Int32.maxValue()
             }
         }
 
@@ -420,59 +420,59 @@ mod Bench {
                 let dw = scaled(t#dangerWidth, by);
                 { dangerWidth = dw | t }),
             spread()
-        ) ::
-            List.map(
+        )
+            :: List.map(
                 by -> ((t: Tuning) ->
                     let sp = scaled(t#selfPreservation, by);
                     { selfPreservation = sp | t }),
                 spread()
-            ) ::
-            List.map(
+            )
+            :: List.map(
                 by -> ((t: Tuning) ->
                     let u = scaled(t#urgency, by);
                     { urgency = u | t }),
                 spread()
-            ) ::
-            List.map(
+            )
+            :: List.map(
                 by -> ((t: Tuning) ->
                     let bc = scaled(t#blockedCost, by);
                     { blockedCost = bc | t }),
                 spread()
-            ) ::
-            List.map(
+            )
+            :: List.map(
                 by -> ((t: Tuning) ->
                     let sr = scaled(t#shelterRelief, by);
                     { shelterRelief = sr | t }),
                 spread()
-            ) ::
-            List.map(
+            )
+            :: List.map(
                 by -> ((t: Tuning) ->
                     let c = scaled(t#calm, by);
                     { calm = c | t }),
                 spread()
-            ) ::
-            List.map(
+            )
+            :: List.map(
                 by -> ((t: Tuning) ->
                     let ff = scaled(t#finishFlank, by);
                     { finishFlank = ff | t }),
                 spread()
-            ) ::
-            List.map(
+            )
+            :: List.map(
                 by -> ((t: Tuning) ->
                     let sa = scaled(t#startAt, by);
                     { startAt = sa | t }),
                 spread()
-            ) ::
-            List.map(
+            )
+            :: List.map(
                 by -> ((t: Tuning) ->
                     let ra = scaled(t#reverseAt, by);
                     { reverseAt = ra | t }),
                 spread()
-            ) ::
-            List.map(n -> ((t: Tuning) -> { aimJitter = t#aimJitter + n | t }), bumps()) ::
-            List.map(n -> ((t: Tuning) -> { judgeFor = t#judgeFor + n * 4 | t }), bumps()) ::
-            List.map(n -> ((t: Tuning) -> { lapseFor = t#lapseFor + n | t }), bumps()) ::
-            Nil
+            )
+            :: List.map(n -> ((t: Tuning) -> { aimJitter = t#aimJitter + n | t }), bumps())
+            :: List.map(n -> ((t: Tuning) -> { judgeFor = t#judgeFor + n * 4 | t }), bumps())
+            :: List.map(n -> ((t: Tuning) -> { lapseFor = t#lapseFor + n | t }), bumps())
+            :: Nil
 
     // -- reporting --------------------------------------------------------------------------
 
@@ -568,9 +568,9 @@ mod Bench {
         };
         let parseRounds = givenOpt -> {
             let n =
-                givenOpt |>
-                    Option.flatMap(Int32.fromString) |>
-                    Option.getWithDefault(defaultRounds());
+                givenOpt
+                    |> Option.flatMap(Int32.fromString)
+                    |> Option.getWithDefault(defaultRounds());
             Some(Flag.Recalc(n))
         };
         let recalcOpt = {
@@ -610,7 +610,7 @@ mod Bench {
         List.findMap(
             flag -> match flag {
                 case Flag.Recalc(n) => Some(n)
-                case _ => None
+                case _              => None
             },
             flags
         )
@@ -619,7 +619,7 @@ mod Bench {
         List.findMap(
             flag -> match flag {
                 case Flag.Config(path) => Some(path)
-                case _ => None
+                case _                 => None
             },
             flags
         )
@@ -629,7 +629,7 @@ mod Bench {
         let separator = Sys.Env.getFileSeparator();
         match List.reverse(String.splitOn(substr = separator, file)) {
             case _ :: rest => String.intercalate(separator, List.reverse(rest))
-            case Nil => "."
+            case Nil       => "."
         }
     }
 
@@ -661,7 +661,7 @@ mod Bench {
         let stored = startingTuning(flags, configFile);
         println(provenance(flags, configFile));
         match roundsIn(flags) {
-            case None =>
+            case None         =>
                 let playing = if (List.memberOf(Flag.Wide, flags)) wideSeeds() else seeds();
                 println("Bot benchmark -- ${List.length(playing)} seeds, budget ${budget()} ticks");
                 println("");
@@ -686,7 +686,7 @@ mod Bench {
             let flags = parsed#options;
             let configFile = match configIn(flags) {
                 case Some(given) => Some(given)
-                case None => Tuning.path()
+                case None        => Tuning.path()
             };
             runBenchOptions(flags, configFile)
         }
@@ -706,7 +706,7 @@ mod Bench {
             "Tuning: the compiled-in defaults (--defaults)."
         else
             match configFile {
-                case None => "Tuning: the compiled-in defaults; no config file was found."
+                case None       => "Tuning: the compiled-in defaults; no config file was found."
                 case Some(file) =>
                     "Tuning: ${file} if it exists, otherwise the compiled-in defaults."
             }
@@ -726,9 +726,9 @@ mod Bench {
             Demo.defaults()
         else
             match configFile {
-                case None => Demo.defaults()
+                case None       => Demo.defaults()
                 case Some(file) => match Tuning.load(file) {
-                    case Ok(t) => t
+                    case Ok(t)    => t
                     case Err(why) =>
                         println("could not read ${file}: ${why}; using the compiled-in defaults");
                         Demo.defaults()
@@ -737,9 +737,9 @@ mod Bench {
 
     def writeTuning(configFile: Option[String], t: Tuning): Unit \ { Fs.FileWrite, Sys.Env, IO } =
         match configFile {
-            case None => println("nowhere to write a config; the tuning above was not saved")
+            case None       => println("nowhere to write a config; the tuning above was not saved")
             case Some(file) => match Tuning.save(file, parentOf(file), t) {
-                case Ok(_) => println("Wrote ${file}.")
+                case Ok(_)    => println("Wrote ${file}.")
                 case Err(why) => println("could not write ${file}: ${why}")
             }
         }

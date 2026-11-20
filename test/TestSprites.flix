@@ -63,20 +63,20 @@ mod TestSprites {
         )
 
     def everySprite(): List[Sprite] =
-        Sprites.squidA() ::
-            Sprites.squidB() ::
-            Sprites.crabA() ::
-            Sprites.crabB() ::
-            Sprites.octopusA() ::
-            Sprites.octopusB() ::
-            Sprites.cannon() ::
-            Sprites.bullet() ::
-            Sprites.bomb() ::
-            Sprites.invaderBlast() ::
-            Sprites.playerBlastA() ::
-            Sprites.playerBlastB() ::
-            Sprites.mystery() ::
-            Nil
+        Sprites.squidA()
+            :: Sprites.squidB()
+            :: Sprites.crabA()
+            :: Sprites.crabB()
+            :: Sprites.octopusA()
+            :: Sprites.octopusB()
+            :: Sprites.cannon()
+            :: Sprites.bullet()
+            :: Sprites.bomb()
+            :: Sprites.invaderBlast()
+            :: Sprites.playerBlastA()
+            :: Sprites.playerBlastB()
+            :: Sprites.mystery()
+            :: Nil
 
     @Test
     def testEverySpriteHasArtworkInIt(): Unit \ Assert =

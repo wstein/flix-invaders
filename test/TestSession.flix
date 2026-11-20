@@ -22,7 +22,7 @@ mod TestSession {
         let cmds = Canvas.commands(dims, () -> Screens.render(s, stats));
         let isRect = cmd -> match cmd {
             case DrawCmd.Rect(_, _, _, _) => true
-            case _ => false
+            case _                        => false
         };
         List.count(isRect, cmds)
     }
@@ -34,7 +34,7 @@ mod TestSession {
         let cmds = Canvas.commands(dims, () -> Screens.render(s, stats));
         let getText = cmd -> match cmd {
             case DrawCmd.Text(t, _, _) => Some(t)
-            case _ => None
+            case _                     => None
         };
         List.filterMap(getText, cmds)
     }
@@ -172,7 +172,7 @@ mod TestSession {
         let says = needle -> List.exists(
             cmd -> match cmd {
                 case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
-                case _ => false
+                case _                     => false
             },
             cmds
         );
@@ -192,7 +192,7 @@ mod TestSession {
         let shows = needle -> List.exists(
             cmd -> match cmd {
                 case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
-                case _ => false
+                case _                     => false
             },
             cmds
         );
@@ -359,7 +359,7 @@ mod TestSession {
             List.exists(
                 cmd -> match cmd {
                     case DrawCmd.Text(t, _, _) => String.contains(substr = "1234", t)
-                    case _ => false
+                    case _                     => false
                 },
                 cmds
             )
@@ -380,14 +380,14 @@ mod TestSession {
     @Test
     def testAFullScoreTableFitsAboveThePrompt(): Unit \ Assert = {
         let full =
-            List.range(0, Scores.places()) |>
-                List.map(i -> { name = "AAA", score = 1000 - i, level = 1 });
+            List.range(0, Scores.places())
+                |> List.map(i -> { name = "AAA", score = 1000 - i, level = 1 });
         let s = { screen = Screen.Table | Session.withScores(2026i64, full) };
-        let baselines = Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty())) |>
-            List.filterMap(cmd -> match cmd {
+        let baselines = Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty()))
+            |> List.filterMap(cmd -> match cmd {
                 case DrawCmd.Text(t, _, y) =>
                     if (String.startsWith(prefix = "AAA", t)) Some(y) else None
-                case _ => None
+                case _                     => None
             });
         assertTrueWithMsg(
             List.length(baselines) == Scores.places(),
@@ -409,7 +409,7 @@ mod TestSession {
             List.exists(
                 cmd -> match cmd {
                     case DrawCmd.Text(t, _, _) => String.contains(substr = "P1", t)
-                    case _ => false
+                    case _                     => false
                 },
                 cmds
             )
@@ -664,19 +664,19 @@ mod TestSession {
             current = 1,
             screen = Screen.Playing | twoPlayer()
         };
-        let dimmed = Canvas.commands((640, 480), () -> Screens.render(waiting, Stats.empty())) |>
-            List.exists(cmd -> match cmd {
+        let dimmed = Canvas.commands((640, 480), () -> Screens.render(waiting, Stats.empty()))
+            |> List.exists(cmd -> match cmd {
                 case DrawCmd.FillAlpha(_, _) => true
-                case _ => false
+                case _                       => false
             });
         assertTrueWithMsg(dimmed, "the get-ready text is drawn straight onto the game");
 
         // ...and it is not there once play begins.
         let live = { handover = 0 | waiting };
-        let plain = Canvas.commands((640, 480), () -> Screens.render(live, Stats.empty())) |>
-            List.exists(cmd -> match cmd {
+        let plain = Canvas.commands((640, 480), () -> Screens.render(live, Stats.empty()))
+            |> List.exists(cmd -> match cmd {
                 case DrawCmd.FillAlpha(_, _) => true
-                case _ => false
+                case _                       => false
             });
         assertFalseWithMsg(plain, "the panel is still up after the count finished")
     }
@@ -692,11 +692,9 @@ mod TestSession {
                 digit(1)
             )
         };
-        let typed = ticks(1, asking, Input.holding(Key.Other(87) :: Nil)) // W
-            |>
-            (s1 -> ticks(1, s1, Input.holding(Key.Other(51) :: Nil))) // 3
-            |>
-            (s2 -> ticks(1, s2, Input.holding(Key.Other(83) :: Nil))); // S
+        let typed = ticks(1, asking, Input.holding(Key.Other(87) :: Nil))  // W
+            |> (s1 -> ticks(1, s1, Input.holding(Key.Other(51) :: Nil)))   // 3
+            |> (s2 -> ticks(1, s2, Input.holding(Key.Other(83) :: Nil)));  // S
         assertEq(expected = "W3S", typed#typing)
     }
 
@@ -721,9 +719,9 @@ mod TestSession {
         let base = twoPlayer();
         let asking = {
             screen = Screen.Entering,
-            pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } ::
-                { player = 1, entry = { name = "", score = 3130, level = 3 } } ::
-                Nil | base
+            pending = { player = 0, entry = { name = "", score = 5000, level = 4 } }
+                :: { player = 1, entry = { name = "", score = 3130, level = 3 } }
+                :: Nil | base
         };
         assertTrueWithMsg(
             List.memberOf("PLAYER 1", texts(asking)),
@@ -826,7 +824,7 @@ mod TestSession {
         let says = needle -> List.exists(
             cmd -> match cmd {
                 case DrawCmd.Text(t, _, _) => String.contains(substr = needle, t)
-                case _ => false
+                case _                     => false
             },
             cmds
         );

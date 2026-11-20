@@ -199,12 +199,12 @@ mod TestStats {
         // It is only useful if it is the same fingerprint, so two runs can be checked by eye.
         let w = Session.onScreen(start());
         let shown =
-            Screens.nerdLines(start(), w, Stats.empty()) |>
-                List.filterMap(
+            Screens.nerdLines(start(), w, Stats.empty())
+                |> List.filterMap(
                     match (label, value) -> if (label == "DIGEST") Some(value) else None
-                ) |>
-                List.head |>
-                Option.getWithDefault("");
+                )
+                |> List.head
+                |> Option.getWithDefault("");
         assertTrueWithMsg(
             String.startsWith(prefix = String.takeLeft(20, shown), Game.digest(w)),
             "the overlay's digest ${shown} is not a prefix of ${Game.digest(w)}"

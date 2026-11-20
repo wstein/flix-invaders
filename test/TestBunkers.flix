@@ -470,8 +470,8 @@ mod TestBunkers {
         let eroded = drilledAt(6, Bunkers.initial());
         let left = first()#origin#x - 8.0f32;
         let width = Int32.toFloat32(Rules.bunkerColumns()) * Rules.bunkerCell() + 16.0f32;
-        let disagreements = List.range(0, Float32.tryToInt32(width) |> Option.getWithDefault(0)) |>
-            List.filterMap(step -> {
+        let disagreements = List.range(0, Float32.tryToInt32(width) |> Option.getWithDefault(0))
+            |> List.filterMap(step -> {
                 let x = left + Int32.toFloat32(step);
                 let guarded = Bunkers.obstructs(eroded, x, Rules.bulletSize()#x);
                 // What the shot actually does: rise through every row and see if anything stops it.
@@ -535,11 +535,11 @@ mod TestBunkers {
     @Test
     def testTheCannonCannotLineUpToCamp(): Unit \ Assert = {
         let centres =
-            List.range(0, Rules.bunkerCount()) |>
-                List.flatMap(
+            List.range(0, Rules.bunkerCount())
+                |> List.flatMap(
                     b ->
-                        List.range(0, Rules.bunkerColumns()) |>
-                            List.map(
+                        List.range(0, Rules.bunkerColumns())
+                            |> List.map(
                                 c ->
                                     Vector.get(b, Bunkers.initial())#origin#x +
                                         (Int32.toFloat32(c) + 0.5f32) * Rules.bunkerCell()
@@ -547,8 +547,8 @@ mod TestBunkers {
                 );
 
         let aligned =
-            latticeStarts() |>
-                List.flatMap(
+            latticeStarts()
+                |> List.flatMap(
                     base -> centres |> List.filter(centre -> nearestStand(base, centre) == centre)
                 );
         assertTrueWithMsg(

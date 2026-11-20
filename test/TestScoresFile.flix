@@ -47,7 +47,7 @@ mod TestScoresFile {
     def loaded(at: Scores.Location): List[Entry] \ Fs.FileRead + Assert =
         match Scores.load(at) {
             case Ok(entries) => entries
-            case Err(why) => {
+            case Err(why)    => {
                 Assert.fail("load failed: ${why}");
                 Nil
             }
@@ -55,7 +55,7 @@ mod TestScoresFile {
 
     def saved(at: Scores.Location, entries: List[Entry]): Unit \ Fs.FileWrite + Assert =
         match Scores.save(at, entries) {
-            case Ok() => ()
+            case Ok()     => ()
             case Err(why) => Assert.fail("save failed: ${why}")
         }
 
@@ -74,7 +74,7 @@ mod TestScoresFile {
         // A missing file is the ordinary first run, not an error to report.
         match Scores.load(somewhere()) {
             case Ok(entries) => assertTrue(List.isEmpty(entries))
-            case Err(why) => Assert.fail("a missing file should be an empty table, got ${why}")
+            case Err(why)    => Assert.fail("a missing file should be an empty table, got ${why}")
         })
 
     @Test
@@ -111,9 +111,9 @@ mod TestScoresFile {
     def testAHandEditedFileLosesOnlyTheBadLines(): Unit \ Assert = onMemoryFS(() -> {
         // Corrupting the file should cost you those entries, not the game.
         let at = somewhere();
-        Fs.FileWrite.writeLines(lines = "AAA|100|1" :: "nonsense" :: "CCC|50|2" :: Nil, at#file) |>
-            Result.mapErr(why -> Assert.fail("could not plant a corrupt file: ${why}")) |>
-            Result.getWithDefault(());
+        Fs.FileWrite.writeLines(lines = "AAA|100|1" :: "nonsense" :: "CCC|50|2" :: Nil, at#file)
+            |> Result.mapErr(why -> Assert.fail("could not plant a corrupt file: ${why}"))
+            |> Result.getWithDefault(());
         assertEq(expected = "AAA" :: "CCC" :: Nil, List.map(e -> e#name, loaded(at)))
     })
 
@@ -140,20 +140,27 @@ mod TestScoresFile {
 
     @Test
     def testAMissingFileIsTranslatedToAnEmptyTable(): Unit \ Assert =
-        readingFails(IoError.ErrorKind.NotFound, () ->
-            match Scores.load(somewhere()) {
-                case Ok(entries) => assertTrue(List.isEmpty(entries))
-                case Err(why) => Assert.fail("NotFound should mean no scores yet, got ${why}")
-            })
+        readingFails(
+            IoError.ErrorKind.NotFound,
+            () ->
+                match Scores.load(somewhere()) {
+                    case Ok(entries) => assertTrue(List.isEmpty(entries))
+                    case Err(why)    =>
+                        Assert.fail("NotFound should mean no scores yet, got ${why}")
+                }
+        )
 
     @Test
     def testAnUnreadableFileIsNotSilentlyAnEmptyTable(): Unit \ Assert =
         // The distinction `load` exists to preserve: "no scores yet" and "I could not read
         // your scores" must not look the same. If they did, the save on the way out would
         // overwrite a table the game merely failed to read.
-        readingFails(IoError.ErrorKind.PermissionDenied, () ->
-            match Scores.load(somewhere()) {
-                case Err(_) => assertTrue(true)
-                case Ok(_) => Assert.fail("an unreadable file was reported as an empty table")
-            })
+        readingFails(
+            IoError.ErrorKind.PermissionDenied,
+            () ->
+                match Scores.load(somewhere()) {
+                    case Err(_) => assertTrue(true)
+                    case Ok(_)  => Assert.fail("an unreadable file was reported as an empty table")
+                }
+        )
 }

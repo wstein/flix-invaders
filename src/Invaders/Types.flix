@@ -223,8 +223,8 @@ mod Rules {
     /// standing still and the wiggler is slower than either, which is what makes its sideways
     /// sweep readable instead of a blur.
     pub def bombSpeedFor(kind: BombKind): Float32 = match kind {
-        case BombKind.Slow => 3.0f32
-        case BombKind.Fast => 5.0f32
+        case BombKind.Slow   => 3.0f32
+        case BombKind.Fast   => 5.0f32
         case BombKind.Wiggly => 2.4f32
     }
 
@@ -291,8 +291,8 @@ mod Rules {
 
     /// Point value awarded for destroying an invader of the given kind.
     pub def pointsFor(kind: InvaderKind): Int32 = match kind {
-        case InvaderKind.Squid => 30
-        case InvaderKind.Crab => 20
+        case InvaderKind.Squid   => 30
+        case InvaderKind.Crab    => 20
         case InvaderKind.Octopus => 10
     }
 
@@ -357,8 +357,8 @@ mod Rules {
     /// what a dagger does, so which kind is falling changes how long a shelter lasts.
     ///
     pub def bombCraterFor(kind: BombKind): Float32 = match kind {
-        case BombKind.Slow => bombCrater()
-        case BombKind.Fast => bombCrater()
+        case BombKind.Slow   => bombCrater()
+        case BombKind.Fast   => bombCrater()
         case BombKind.Wiggly => bombCrater() * 1.5f32
     }
 

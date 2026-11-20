@@ -26,14 +26,14 @@ mod SoundCmd {
     /// Every sound the game can make, which is what the runtime pre-builds voices for.
     ///
     pub def all(): List[SoundCmd] =
-        SoundCmd.Shoot ::
-            SoundCmd.InvaderDies ::
-            SoundCmd.PlayerDies ::
-            SoundCmd.MysteryAppears ::
-            SoundCmd.MysteryDies ::
-            SoundCmd.ShieldBlock ::
-            SoundCmd.ExtraLife ::
-            List.map(n -> SoundCmd.MarchStep(n), List.range(0, marchNotes()))
+        SoundCmd.Shoot
+            :: SoundCmd.InvaderDies
+            :: SoundCmd.PlayerDies
+            :: SoundCmd.MysteryAppears
+            :: SoundCmd.MysteryDies
+            :: SoundCmd.ShieldBlock
+            :: SoundCmd.ExtraLife
+            :: List.map(n -> SoundCmd.MarchStep(n), List.range(0, marchNotes()))
 }
 
 ///

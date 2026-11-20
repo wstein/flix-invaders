@@ -118,7 +118,7 @@ mod TestGame {
         let later = stepped(fired, Input.empty());
         match (List.head(fired#bullets), List.head(later#bullets)) {
             case (Some(a), Some(b)) => assertTrue(b#y < a#y)
-            case _ => Assert.fail("expected a bullet in flight")
+            case _                  => Assert.fail("expected a bullet in flight")
         }
     }
 
@@ -225,10 +225,10 @@ mod TestGame {
     @Test
     def testUnstruckBombsKeepTheirOrder(): Unit \ Assert = {
         let falling =
-            Rules.bombAt({ x = 100.0f32, y = 120.0f32 }, BombKind.Slow) ::
-                Rules.bombAt({ x = 200.0f32, y = 160.0f32 }, BombKind.Slow) ::
-                Rules.bombAt({ x = 300.0f32, y = 200.0f32 }, BombKind.Slow) ::
-                Nil;
+            Rules.bombAt({ x = 100.0f32, y = 120.0f32 }, BombKind.Slow)
+                :: Rules.bombAt({ x = 200.0f32, y = 160.0f32 }, BombKind.Slow)
+                :: Rules.bombAt({ x = 300.0f32, y = 200.0f32 }, BombKind.Slow)
+                :: Nil;
         let after = stepped({ bombs = falling | start() }, Input.empty());
         // `invaderFire` may add one of its own at the head, so compare only the tail.
         let xs = List.map(b -> b#x, after#bombs);
@@ -379,8 +379,8 @@ mod TestGame {
         // down parts of the game that were never broken. Levels one to three are quick but
         // catchable at their worst -- the cap must not touch them, or every figure recorded for
         // the early game silently means something else.
-        let untouched = List.range(1, 4) |>
-            List.forEach(level -> {
+        let untouched = List.range(1, 4)
+            |> List.forEach(level -> {
                 let thinnest = Rules.marchSpeedFor(1, level);
                 assertTrueWithMsg(
                     thinnest < Rules.maxMarchSpeed(),
@@ -513,7 +513,7 @@ mod TestGame {
         List.count(
             cmd -> match cmd {
                 case DrawCmd.Rect(_, _, _, _) => true
-                case _ => false
+                case _                        => false
             },
             Canvas.commands((640, 480), () -> View.render(w))
         )
@@ -573,7 +573,7 @@ mod TestGame {
         let hasHint = List.exists(
             cmd -> match cmd {
                 case DrawCmd.Text(s, _, _) => String.contains(substr = "ENTER", s)
-                case _ => false
+                case _                     => false
             },
             cmds
         );
@@ -608,7 +608,7 @@ mod TestGame {
                 assertEq(expected = died#x, b#pos#x);
                 assertEq(expected = died#y, b#pos#y)
             }
-            case None => Assert.fail("expected a blast")
+            case None    => Assert.fail("expected a blast")
         }
     }
 
@@ -682,8 +682,8 @@ mod TestGame {
                 pos = { x = 10.0f32, y = 10.0f32 },
                 ticksLeft = 999,
                 kind = BlastKind.InvaderBlast
-            } ::
-                Nil | swept()
+            }
+                :: Nil | swept()
         };
         let next = steps(Rules.levelPauseTicks() + 2, stepped(messy, Input.empty()), Input.empty());
         assertEq(expected = 0, blastCount(next))
@@ -725,7 +725,7 @@ mod TestGame {
             n -> {
                 let nearly = { mysteryTimer = 1 | Game.initial(seed() + Int32.toInt64(n)) };
                 match stepped(nearly, Input.empty())#mystery {
-                    case None => assertTrueWithMsg(false, "seed ${n} launched no ship")
+                    case None    => assertTrueWithMsg(false, "seed ${n} launched no ship")
                     case Some(m) => {
                         let offScreen = m#x < 0.0f32 or m#x > Rules.fieldWidth();
                         assertTrueWithMsg(offScreen, "seed ${n} started on screen at ${m#x}");
@@ -743,8 +743,8 @@ mod TestGame {
     ///
     @Test
     def testBothSidesAreUsed(): Unit \ Assert = {
-        let entries = List.range(0, 20) |>
-            List.filterMap(n -> {
+        let entries = List.range(0, 20)
+            |> List.filterMap(n -> {
                 let nearly = { mysteryTimer = 1 | Game.initial(seed() + Int32.toInt64(n)) };
                 stepped(nearly, Input.empty())#mystery
             });
@@ -757,7 +757,7 @@ mod TestGame {
         let w = stepped(withMystery(100.0f32), Input.empty());
         match w#mystery {
             case Some(m) => assertEq(expected = 100.0f32 + Rules.mysterySpeed(), m#x)
-            case None => Assert.fail("the ship vanished mid-screen")
+            case None    => Assert.fail("the ship vanished mid-screen")
         }
     }
 
@@ -890,7 +890,7 @@ mod TestGame {
         let during = stepped(hit, Input.empty());
         match (hit#mystery, during#mystery) {
             case (Some(a), Some(b)) => assertEq(expected = a#x, b#x)
-            case _ => Assert.fail("expected the ship to still be there")
+            case _                  => Assert.fail("expected the ship to still be there")
         }
     }
 
@@ -906,7 +906,7 @@ mod TestGame {
         List.count(
             c -> match c {
                 case SoundCmd.MarchStep(_) => true
-                case _ => false
+                case _                     => false
             },
             cmds
         )
@@ -991,7 +991,7 @@ mod TestGame {
         let notes = List.filterMap(
             c -> match c {
                 case SoundCmd.MarchStep(n) => Some(n)
-                case _ => None
+                case _                     => None
             },
             heard(400, start(), Input.empty())
         );
@@ -1140,9 +1140,9 @@ mod TestGame {
         let whole = rectCount({ shield = Rules.shieldWarningTicks() + 40 | start() });
         let bare = rectCount({ shield = 0 | start() });
         let partial =
-            List.range(1, Rules.shieldWarningTicks()) |>
-                List.map(n -> rectCount({ shield = n | start() })) |>
-                List.filter(count -> count != bare and count != whole);
+            List.range(1, Rules.shieldWarningTicks())
+                |> List.map(n -> rectCount({ shield = n | start() }))
+                |> List.filter(count -> count != bare and count != whole);
         assertTrueWithMsg(
             List.isEmpty(partial),
             "the shield was drawn half-complete on some frames: ${partial}"
@@ -1444,10 +1444,10 @@ mod TestGame {
     @Test
     def testTheCapDoesNotConsumeRandomness(): Unit \ Assert = {
         let full = {
-            bombs = Rules.bombAt({ x = 100.0f32, y = 100.0f32 }, BombKind.Slow) ::
-                Rules.bombAt({ x = 200.0f32, y = 100.0f32 }, BombKind.Slow) ::
-                Rules.bombAt({ x = 300.0f32, y = 100.0f32 }, BombKind.Slow) ::
-                Nil | start()
+            bombs = Rules.bombAt({ x = 100.0f32, y = 100.0f32 }, BombKind.Slow)
+                :: Rules.bombAt({ x = 200.0f32, y = 100.0f32 }, BombKind.Slow)
+                :: Rules.bombAt({ x = 300.0f32, y = 100.0f32 }, BombKind.Slow)
+                :: Nil | start()
         };
         let after = stepped(full, Input.empty());
         assertTrueWithMsg(
@@ -1479,7 +1479,7 @@ mod TestGame {
                 );
             match List.last(w#bombs) {
                 case Some(b) => Float32.abs(b#x - 320.0f32)
-                case None => 0.0f32
+                case None    => 0.0f32
             }
         };
         assertTrueWithMsg(
@@ -1500,7 +1500,7 @@ mod TestGame {
         };
         let xAfter = n -> match List.last(steps(n, dropped, Input.empty())#bombs) {
             case Some(b) => b#x
-            case None => 320.0f32
+            case None    => 320.0f32
         };
         let out = xAfter(Rules.bombWiggleTicks());
         let back = xAfter(2 * Rules.bombWiggleTicks());
@@ -1621,9 +1621,9 @@ mod TestGame {
     def testEachWaveStartsLowerUntilTheCycleResets(): Unit \ Assert = {
         let tops = List.map(Rules.formationTopFor, List.range(1, 11));
         let rising =
-            List.zip(tops, List.drop(1, tops)) |>
-                List.take(Rules.wavesPerCycle() - 1) |>
-                List.forAll(match (a, b) -> b > a);
+            List.zip(tops, List.drop(1, tops))
+                |> List.take(Rules.wavesPerCycle() - 1)
+                |> List.forAll(match (a, b) -> b > a);
         assertTrueWithMsg(rising, "the first nine waves do not descend: ${tops}");
         assertTrueWithMsg(
             Rules.formationTopFor(Rules.wavesPerCycle() + 1) == Rules.formationTopFor(1),

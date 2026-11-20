@@ -148,8 +148,8 @@ mod Scores {
             Sys.Env.getVar("XDG_CONFIG_HOME") |> Option.filter(dir -> not String.isEmpty(dir));
         let fallback =
             Sys.Env.getUserHomeDirectory() |> Option.map(home -> "${home}${separator}.config");
-        Option.withDefault(default = fallback, configured) |>
-            Option.map(base -> {
+        Option.withDefault(default = fallback, configured)
+            |> Option.map(base -> {
                 let dir = "${base}${separator}${folder()}";
                 { dir = dir, file = "${dir}${separator}${fileName()}" }
             })
@@ -165,9 +165,9 @@ mod Scores {
     ///
     pub def load(at: Location): Result[IoError, List[Entry]] \ Fs.FileRead =
         match Fs.FileRead.readLines(at#file) {
-            case Ok(lines) => Ok(parse(lines))
+            case Ok(lines)                                           => Ok(parse(lines))
             case Err(IoError.IoError(IoError.ErrorKind.NotFound, _)) => Ok(Nil)
-            case Err(other) => Err(other)
+            case Err(other)                                          => Err(other)
         }
 
     ///
@@ -178,7 +178,7 @@ mod Scores {
     ///
     pub def save(at: Location, entries: List[Entry]): Result[IoError, Unit] \ Fs.FileWrite = {
         let lines = render(ranked(entries));
-        Fs.FileWrite.mkDirs(at#dir) |>
-            Result.flatMap(_ -> Fs.FileWrite.writeLines(lines = lines, at#file))
+        Fs.FileWrite.mkDirs(at#dir)
+            |> Result.flatMap(_ -> Fs.FileWrite.writeLines(lines = lines, at#file))
     }
 }

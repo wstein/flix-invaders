@@ -69,10 +69,10 @@ def runSession(saved: List[Entry], tuning: Tuning): Session \ IO = {
 ///
 def readScores(): List[Entry] \ { Fs.FileRead, Sys.Env, IO } =
     match Scores.location() {
-        case None => Nil
+        case None     => Nil
         case Some(at) => match Scores.load(at) {
             case Ok(entries) => entries
-            case Err(why) => {
+            case Err(why)    => {
                 println("could not read ${at#file}: ${why}");
                 Nil
             }
@@ -87,9 +87,9 @@ def readScores(): List[Entry] \ { Fs.FileRead, Sys.Env, IO } =
 ///
 def readTuning(): Tuning \ { Fs.FileRead, Sys.Env, IO } =
     match Tuning.path() {
-        case None => Demo.defaults()
+        case None       => Demo.defaults()
         case Some(file) => match Tuning.load(file) {
-            case Ok(t) => t
+            case Ok(t)    => t
             case Err(why) => {
                 println("could not read ${file}: ${why}");
                 Demo.defaults()
@@ -104,9 +104,9 @@ def readTuning(): Tuning \ { Fs.FileRead, Sys.Env, IO } =
 ///
 def writeScores(scores: List[Entry]): Unit \ { Fs.FileWrite, Sys.Env, IO } =
     match Scores.location() {
-        case None => ()
+        case None     => ()
         case Some(at) => match Scores.save(at, scores) {
-            case Ok(_) => ()
+            case Ok(_)    => ()
             case Err(why) => println("could not write ${at#file}: ${why}")
         }
     }

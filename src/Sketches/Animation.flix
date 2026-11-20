@@ -118,7 +118,10 @@ mod Animation {
     ) =
         if (pos < minPos)
             (minPos, Float32.abs(vel))
-        else if (pos > maxPos) (maxPos, -Float32.abs(vel)) else (pos, vel)
+        else if (pos > maxPos)
+            (maxPos, -Float32.abs(vel))
+        else
+            (pos, vel)
 
     ///
     /// Reflects a ball off the walls and moves it one step.

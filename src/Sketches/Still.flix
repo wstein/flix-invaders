@@ -59,13 +59,13 @@ mod Still {
     pub def main(): Unit \ IO = {
         let limit = Sketch.maxFramesFromEnv();
         let cfg = {
-            title = "Static",
-            width = 640,
-            height = 480,
-            seed = 0i64,
-            hz = 60,
+            title     = "Static",
+            width     = 640,
+            height    = 480,
+            seed      = 0i64,
+            hz        = 60,
             maxFrames = limit,
-            fontPath = None
+            fontPath  = None
         };
         let stepFn = Sound.silent((world, _snapshot) -> world);
         let drawFn = (_world, _stats) -> scene();

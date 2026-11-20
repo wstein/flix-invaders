@@ -43,7 +43,7 @@ mod Key {
     ///
     pub def nameCharacter(k: Key): Option[Char] = match letter(k) {
         case Some(c) => Some(c)
-        case None => Option.map(n -> String.charAt(n, digits()), digit(k))
+        case None    => Option.map(n -> String.charAt(n, digits()), digit(k))
     }
 
     /// The digits, in the order their key codes run.
@@ -57,7 +57,7 @@ mod Key {
     ///
     pub def digit(k: Key): Option[Int32] = match k {
         case Key.Other(code) if code >= 48 and code <= 57 => Some(code - 48)
-        case _ => None
+        case _                                            => None
     }
 
     ///
@@ -68,16 +68,16 @@ mod Key {
     /// have to change when the window did.
     ///
     pub def fromCode(code: Int32): Key = match code {
-        case 8 => Key.Backspace
-        case 10 => Key.Enter
-        case 27 => Key.Escape
-        case 32 => Key.Space
-        case 37 => Key.Left
-        case 38 => Key.Up
-        case 39 => Key.Right
-        case 40 => Key.Down
+        case 8   => Key.Backspace
+        case 10  => Key.Enter
+        case 27  => Key.Escape
+        case 32  => Key.Space
+        case 37  => Key.Left
+        case 38  => Key.Up
+        case 39  => Key.Right
+        case 40  => Key.Down
         case 114 => Key.F3
-        case _ => Key.Other(code)
+        case _   => Key.Other(code)
     }
 }
 

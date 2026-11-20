@@ -101,16 +101,16 @@ mod Demo {
 
     /// The offsets from its current position that the bot considers standing at.
     def options(): List[Float32] =
-        -96.0f32 ::
-            -64.0f32 ::
-            -36.0f32 ::
-            -16.0f32 ::
-            0.0f32 ::
-            16.0f32 ::
-            36.0f32 ::
-            64.0f32 ::
-            96.0f32 ::
-            Nil
+        -96.0f32
+            :: -64.0f32
+            :: -36.0f32
+            :: -16.0f32
+            :: 0.0f32
+            :: 16.0f32
+            :: 36.0f32
+            :: 64.0f32
+            :: 96.0f32
+            :: Nil
 
     ///
     /// What to shoot at.
@@ -121,7 +121,7 @@ mod Demo {
     ///
     def chooseTarget(t: Tuning, w: World): Option[Vec2] = match w#mystery {
         case Some(m) => Some({ x = m#x, y = Rules.mysteryY() })
-        case None => bestColumn(t, w)
+        case None    => bestColumn(t, w)
     }
 
     ///
@@ -148,9 +148,9 @@ mod Demo {
                     ),
             (Map.empty(): Map[Float32, (Float32, Int32)]),
             w#invaders
-        ) |>
-            Map.toList |>
-            List.map(match (x, found) -> {
+        )
+            |> Map.toList
+            |> List.map(match (x, found) -> {
                 let (y, depth) = found;
                 { x = x, y = y, depth = depth }
             })
@@ -186,12 +186,12 @@ mod Demo {
     def bestColumn(t: Tuning, w: World): Option[Vec2] = {
         let candidates = columns(w);
         let updateEdges = (acc, c) -> match acc {
-            case None => Some((c#x, c#x))
+            case None                => Some((c#x, c#x))
             case Some((left, right)) => Some((Float32.min(left, c#x), Float32.max(right, c#x)))
         };
         let edges = List.foldLeft(updateEdges, None, candidates);
         match edges {
-            case None => None
+            case None                => None
             case Some((left, right)) =>
                 let looming = pressure(candidates);
                 let spread = (right - left) / fullWidth();
@@ -199,7 +199,7 @@ mod Demo {
                 let selectBest = (best, c) -> {
                     let score = columnWorth(t, c, ctx);
                     match best {
-                        case None => Some(({ x = c#x, y = c#y }, score))
+                        case None           => Some(({ x = c#x, y = c#y }, score))
                         case Some((_, top)) =>
                             let here = { x = c#x, y = c#y };
                             if (score > top) Some((here, score)) else best
@@ -366,7 +366,7 @@ mod Demo {
         let pickBest = (best, candidate) -> {
             let (x, score) = candidate;
             match best {
-                case None => Some((x, score))
+                case None                 => Some((x, score))
                 case Some((_, bestScore)) => if (score < bestScore) Some((x, score)) else best
             }
         };
@@ -383,14 +383,14 @@ mod Demo {
     ///
     def intent(t: Tuning, error: Float32, w: World): Option[{ goal = Float32, fire = Bool }] = {
         match chooseTarget(t, w) {
-            case None => None
+            case None    => None
             case Some(p) =>
                 let living = Vector.count(inv -> inv#alive, w#invaders);
                 let flight = (Rules.playerY() - p#y) / Rules.bulletSpeed();
                 let mSpeed = Rules.marchSpeedFor(living, w#level);
                 let drift = match w#mystery {
                     case Some(m) => m#dir * Rules.mysterySpeed()
-                    case None => w#marchDir * mSpeed
+                    case None    => w#marchDir * mSpeed
                 };
                 let dx = (p#x + drift * flight + error) - w#playerX;
                 // A delta from where the cannon stands, not an absolute x: `playTick` walks
@@ -418,7 +418,7 @@ mod Demo {
     /// player. Its results are an optimistic bound -- a human misses.
     ///
     pub def aim(t: Tuning, w: World): Snapshot = match intent(t, 0.0f32, w) {
-        case None => Input.empty()
+        case None    => Input.empty()
         case Some(i) => keysFor(wants(t, i#goal), i#fire)
     }
 
@@ -437,7 +437,7 @@ mod Demo {
     def playTick(t: Tuning, w: World, hand: Hand, rng: Rng): (Snapshot, Hand) = {
         let (error, settled, next) = judge(t, hand, rng);
         match intent(t, error, w) {
-            case None =>
+            case None    =>
                 let h = { rng = next, error = error, settled = settled, moving = 0 | hand };
                 (Input.empty(), h)
             case Some(i) =>
