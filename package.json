@@ -6,6 +6,6 @@
   },
   "devDependencies": {
     "prettier": "3.10.1",
-    "prettier-plugin-flix": "https://github.com/wstein/prettier-plugin-flix/releases/download/v0.1.0/prettier-plugin-flix-0.1.0.tgz"
+    "prettier-plugin-flix": "https://github.com/wstein/prettier-plugin-flix/releases/download/v0.1.1/prettier-plugin-flix-0.1.1.tgz"
   }
 }
