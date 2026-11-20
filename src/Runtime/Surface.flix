@@ -155,9 +155,9 @@ mod Surface {
         );
 
         let loaded = match fontPath {
-            case None => None
+            case None       => None
             case Some(path) => match loadFont(path) {
-                case None =>
+                case None       =>
                     println("could not load font ${path}; using the default");
                     None
                 case Some(font) => Some(font)
@@ -354,11 +354,8 @@ mod Surface {
     /// JVM method on an anonymous class, and what it does to the caller's region is invisible
     /// from out here -- the same limit that keeps `loop` and `Sketch.start` concrete.
     ///
-    def openCanvas(
-        sheet: Sheet[r],
-        keys: Ref[Set[Int32], r],
-        closing: AtomicBoolean
-    ): AwtCanvas \ IO = {
+    def openCanvas(sheet: Sheet[r], keys: Ref[Set[Int32], r], closing: AtomicBoolean): AwtCanvas
+        \ IO = {
         let (w, h) = size(sheet);
         let canvas = new AwtCanvas();
         canvas.setPreferredSize(new Dimension(w, h));
@@ -369,7 +366,7 @@ mod Surface {
         canvas.addKeyListener(new KeyAdapter {
             def keyPressed(_a: KeyAdapter, e: KeyEvent): Unit \ IO + r =
                 match afterPress(Ref.get(keys), e.getKeyCode()) {
-                    case None => closing.set(true)
+                    case None      => closing.set(true)
                     case Some(now) => Ref.put(now, keys)
                 }
             def keyReleased(_a: KeyAdapter, e: KeyEvent): Unit \ IO + r =

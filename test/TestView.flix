@@ -16,20 +16,20 @@ mod TestView {
     def start(): World = Game.initial(2026i64)
 
     def texts(w: World): List[String] =
-        Canvas.commands((640, 480), () -> View.render(w)) |>
-            List.filterMap(cmd -> match cmd {
+        Canvas.commands((640, 480), () -> View.render(w))
+            |> List.filterMap(cmd -> match cmd {
                 case DrawCmd.Text(s, _, _) => Some(s)
-                case _ => None
+                case _                     => None
             })
 
     /// The baseline of the first text matching `wanted`.
     def baselineOf(wanted: String, w: World): Option[Float32] =
-        Canvas.commands((640, 480), () -> View.render(w)) |>
-            List.filterMap(cmd -> match cmd {
+        Canvas.commands((640, 480), () -> View.render(w))
+            |> List.filterMap(cmd -> match cmd {
                 case DrawCmd.Text(s, _, y) => if (s == wanted) Some(y) else None
-                case _ => None
-            }) |>
-            List.head
+                case _                     => None
+            })
+            |> List.head
 
     // -- the banners clear the attract panel --------------------------------------------------
 
@@ -50,8 +50,8 @@ mod TestView {
         // Not just the banner: the countdown digit sits below it and is the thing most likely
         // to creep back into the panel when the layout is next adjusted.
         let cleared = { phase = Phase.Cleared, pause = Rules.levelPauseTicks() | start() };
-        let below = Canvas.commands((640, 480), () -> View.render(cleared)) |>
-            List.filterMap(cmd -> match cmd {
+        let below = Canvas.commands((640, 480), () -> View.render(cleared))
+            |> List.filterMap(cmd -> match cmd {
                 case DrawCmd.Text(s, _, y) =>
                     if (y >= Screens.attractPanelTop() and y < Rules.fieldHeight() - 40.0f32)
                         Some(s)
@@ -69,9 +69,9 @@ mod TestView {
         // The point of a countdown. Half-second steps still reach one at the right moment and
         // still look like a countdown, which is why this needs saying out loud.
         let held =
-            List.range(1, Rules.levelPauseTicks() + 1) |>
-                List.map(View.countdown) |>
-                List.foldLeft(
+            List.range(1, Rules.levelPauseTicks() + 1)
+                |> List.map(View.countdown)
+                |> List.foldLeft(
                     (tally, n) -> Map.insertWith(a -> b -> a + b, n, 1, tally),
                     (Map.empty(): Map[Int32, Int32])
                 );
@@ -129,10 +129,10 @@ mod TestView {
         // It belongs to the pause between waves, not to the game. Checked by position rather
         // than by text: a bare "3" is also what three lives in reserve looks like, which is
         // what the first version of this test actually caught.
-        let atCountdown = Canvas.commands((640, 480), () -> View.render(start())) |>
-            List.filterMap(cmd -> match cmd {
+        let atCountdown = Canvas.commands((640, 480), () -> View.render(start()))
+            |> List.filterMap(cmd -> match cmd {
                 case DrawCmd.Text(t, _, y) => if (y == View.countdownY()) Some(t) else None
-                case _ => None
+                case _                     => None
             });
         assertTrueWithMsg(
             List.isEmpty(atCountdown),

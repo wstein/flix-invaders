@@ -11,7 +11,7 @@ mod TestAnimation {
     def only(w: Bouncing): Ball =
         match List.head(w#balls) {
             case Some(b) => b
-            case None => ball(0.0f32, 0.0f32, 0.0f32, 0.0f32)
+            case None    => ball(0.0f32, 0.0f32, 0.0f32, 0.0f32)
         }
 
     def stepTimes(n: Int32, w: Bouncing, snapshot: Snapshot): Bouncing =
@@ -122,7 +122,7 @@ mod TestAnimation {
         let ellipses = List.count(
             cmd -> match cmd {
                 case DrawCmd.Ellipse(_, _, _, _) => true
-                case _ => false
+                case _                           => false
             },
             cmds
         );
@@ -134,7 +134,7 @@ mod TestAnimation {
         let cmds = Canvas.commands((640, 480), () -> Animation.view(Animation.initial(1i64)));
         match List.head(cmds) {
             case Some(DrawCmd.Clear(_)) => Assert.success("cleared first")
-            case other => Assert.fail("expected a Clear first, got ${other}")
+            case other                  => Assert.fail("expected a Clear first, got ${other}")
         }
     }
 
@@ -145,7 +145,7 @@ mod TestAnimation {
     def at(index: Int32, w: Bouncing): Ball =
         match List.nth(index, w#balls) {
             case Some(b) => b
-            case None => ball(0.0f32, 0.0f32, 0.0f32, 0.0f32)
+            case None    => ball(0.0f32, 0.0f32, 0.0f32, 0.0f32)
         }
 
     def separation(w: Bouncing): Float32 = {

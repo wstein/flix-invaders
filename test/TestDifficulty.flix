@@ -162,8 +162,8 @@ mod TestDifficulty {
         let ticks = descentTicks();
         let reach = Rules.playerY() - Rules.playerSize()#y - Rules.formationBottom();
         let flight =
-            Float32.tryToInt32(Float32.ceil(reach / Rules.bulletSpeed())) |>
-                Option.getWithDefault(Rules.shotFlightTicks());
+            Float32.tryToInt32(Float32.ceil(reach / Rules.bulletSpeed()))
+                |> Option.getWithDefault(Rules.shotFlightTicks());
         let shots = ticks / Int32.max(1, flight);
         assertTrueWithMsg(
             shots > Rules.totalInvaders() * 2,

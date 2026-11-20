@@ -54,7 +54,10 @@ mod View {
     def rowColor(row: Int32): Color =
         if (row <= 1)
             Palette.invaderGreen()
-        else if (row <= 3) Palette.invaderCyan() else Palette.invaderMagenta()
+        else if (row <= 3)
+            Palette.invaderCyan()
+        else
+            Palette.invaderMagenta()
 
     def drawInvaders(w: World): Unit \ Canvas = {
         let frame = animationFrame(w);
@@ -68,8 +71,8 @@ mod View {
                 if (inv#alive) {
                     Canvas.fill(rowColor(inv#row));
                     let sprite = match inv#kind {
-                        case InvaderKind.Squid => squid
-                        case InvaderKind.Crab => crab
+                        case InvaderKind.Squid   => squid
+                        case InvaderKind.Crab    => crab
                         case InvaderKind.Octopus => octopus
                     };
                     Sprite.draw(sprite, inv#pos, Rules.spriteScale())
@@ -133,7 +136,7 @@ mod View {
         }
 
     def drawMystery(w: World): Unit \ Canvas = match w#mystery {
-        case None => ()
+        case None    => ()
         case Some(m) =>
             Canvas.fill(Palette.invaderMagenta());
             let mPos = { x = m#x, y = Rules.mysteryY() };
@@ -201,11 +204,11 @@ mod View {
             b -> {
                 Canvas.fill(match b#kind {
                     case BlastKind.InvaderBlast => Palette.ink()
-                    case BlastKind.PlayerBlast => Palette.coral()
+                    case BlastKind.PlayerBlast  => Palette.coral()
                 });
                 let scale = match b#kind {
                     case BlastKind.InvaderBlast => Rules.spriteScale()
-                    case BlastKind.PlayerBlast => Rules.cannonScale()
+                    case BlastKind.PlayerBlast  => Rules.cannonScale()
                 };
                 Sprite.draw(Sprites.forBlast(b#kind, b#ticksLeft), b#pos, scale)
             },

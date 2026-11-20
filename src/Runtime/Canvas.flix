@@ -48,13 +48,13 @@ mod Canvas {
     ///
     pub def paint(cmds: List[DrawCmd]): Unit \ Canvas = {
         let processCmd = cmd -> match cmd {
-            case DrawCmd.Clear(c) => Canvas.clear(c)
-            case DrawCmd.Fill(c) => Canvas.fill(c)
-            case DrawCmd.FillAlpha(c, a) => Canvas.fillAlpha(c, a)
-            case DrawCmd.Rect(x, y, w, h) => Canvas.rect(x, y, w, h)
+            case DrawCmd.Clear(c)            => Canvas.clear(c)
+            case DrawCmd.Fill(c)             => Canvas.fill(c)
+            case DrawCmd.FillAlpha(c, a)     => Canvas.fillAlpha(c, a)
+            case DrawCmd.Rect(x, y, w, h)    => Canvas.rect(x, y, w, h)
             case DrawCmd.Ellipse(x, y, w, h) => Canvas.ellipse(x, y, w, h)
-            case DrawCmd.Text(s, x, y) => Canvas.text(s, x, y)
-            case DrawCmd.TextSize(px) => Canvas.textSize(px)
+            case DrawCmd.Text(s, x, y)       => Canvas.text(s, x, y)
+            case DrawCmd.TextSize(px)        => Canvas.textSize(px)
         };
         List.forEach(processCmd, cmds)
     }
@@ -117,10 +117,8 @@ mod Canvas {
     ///
     /// Runs `f`, returning its result together with the draw commands it produced.
     ///
-    pub def runWithCollector(dims: (Int32, Int32), f: Unit -> a \ ef): (
-        a,
-        List[DrawCmd]
-    ) \ ef - Canvas = handleWithCollector(dims, f)()
+    pub def runWithCollector(dims: (Int32, Int32), f: Unit -> a \ ef): (a, List[DrawCmd])
+        \ ef - Canvas = handleWithCollector(dims, f)()
 
     ///
     /// Interprets `Canvas` by discarding every drawing operation.

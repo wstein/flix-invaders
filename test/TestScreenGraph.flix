@@ -20,15 +20,18 @@ mod TestScreenGraph {
 
     /// Enter, space, 1, 2, a letter, backspace, and nothing at all.
     def inputs(): List[Snapshot] =
-        Input.empty() ::
-            Input.holding(Key.Enter :: Nil) ::
-            Input.holding(Key.Space :: Nil) ::
-            Input.holding(Key.Other(49) :: Nil) :: // '1'
-            Input.holding(Key.Other(50) :: Nil) :: // '2'
-            Input.holding(Key.Other(65) :: Nil) :: // 'A'
-            Input.holding(Key.Backspace :: Nil) ::
-            Input.holding(Key.Left :: Key.Space :: Nil) ::
-            Nil
+        Input.empty()
+            :: Input.holding(Key.Enter :: Nil)
+            :: Input.holding(Key.Space :: Nil)
+            :: Input.holding(Key.Other(49) :: Nil)
+            ::  // '1'
+            Input.holding(Key.Other(50) :: Nil)
+            ::  // '2'
+            Input.holding(Key.Other(65) :: Nil)
+            ::  // 'A'
+            Input.holding(Key.Backspace :: Nil)
+            :: Input.holding(Key.Left :: Key.Space :: Nil)
+            :: Nil
 
     ///
     /// Every world finished, on a score worth recording.
@@ -56,11 +59,11 @@ mod TestScreenGraph {
         let playing = gameOver({ screen = Screen.Playing, players = 1 | base });
         let pEntry = { player = 0, entry = { name = "", score = 9999, level = 4 } };
         let entering = { screen = Screen.Entering, pending = pEntry :: Nil, typing = "AB" | base };
-        (Screen.Attract, base) ::
-            (Screen.Playing, playing) ::
-            (Screen.Entering, entering) ::
-            (Screen.Table, { screen = Screen.Table | base }) ::
-            Nil
+        (Screen.Attract, base)
+            :: (Screen.Playing, playing)
+            :: (Screen.Entering, entering)
+            :: (Screen.Table, { screen = Screen.Table | base })
+            :: Nil
     }
 
     ///
@@ -107,9 +110,9 @@ mod TestScreenGraph {
     def testEveryScreenIsReachableFromTheTitle(): Unit \ Assert = {
         let paths = reachable(discoveredEdges());
         let stranded =
-            screens() |>
-                List.filter(target -> target != Screen.Attract) |>
-                List.filter(target -> not leadsTo(paths, Screen.Attract, target));
+            screens()
+                |> List.filter(target -> target != Screen.Attract)
+                |> List.filter(target -> not leadsTo(paths, Screen.Attract, target));
         assertTrueWithMsg(
             List.isEmpty(stranded),
             "no sequence of keys reaches ${stranded} from the title screen"
@@ -131,11 +134,11 @@ mod TestScreenGraph {
         // reachable from every other, which for this cabinet is a genuine cycle.
         let paths = reachable(discoveredEdges());
         let missing =
-            screens() |>
-                List.flatMap(
+            screens()
+                |> List.flatMap(
                     source ->
-                        screens() |>
-                            List.filterMap(
+                        screens()
+                            |> List.filterMap(
                                 target ->
                                     if (leadsTo(paths, source, target))
                                         None

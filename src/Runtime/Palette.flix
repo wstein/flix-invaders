@@ -58,16 +58,16 @@ mod Palette {
     /// Colours used for shapes on `background`. Must reach a 3.0 contrast ratio.
     ///
     pub def shapeColors(): List[Color] =
-        silhouette() ::
-            sun() ::
-            coral() ::
-            mint() ::
-            azure() ::
-            invaderGreen() ::
-            invaderCyan() ::
-            invaderMagenta() ::
-            cannonGreen() ::
-            ground() ::
-            shot() ::
-            Nil
+        silhouette()
+            :: sun()
+            :: coral()
+            :: mint()
+            :: azure()
+            :: invaderGreen()
+            :: invaderCyan()
+            :: invaderMagenta()
+            :: cannonGreen()
+            :: ground()
+            :: shot()
+            :: Nil
 }

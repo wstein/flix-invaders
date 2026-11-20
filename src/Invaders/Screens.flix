@@ -41,7 +41,7 @@ mod Screens {
     /// Draws a stack of centred captions, starting with the first baseline a line down.
     def stack(captions: List[Caption], top: Float32): Unit \ Canvas = {
         def draw(rest, y) = match rest {
-            case Nil => ()
+            case Nil       => ()
             case c :: more =>
                 let x = View.centredX(c#text, c#size);
                 let nextY = y + c#size;
@@ -88,10 +88,10 @@ mod Screens {
     }
 
     def attractCaptions(): List[Caption] =
-        caption("FLIX INVADERS", View.bannerSize(), Palette.invaderGreen()) ::
-            caption(Meta.label(), View.hudSize(), Palette.invaderGreen()) ::
-            caption("PRESS 1 OR 2 FOR PLAYERS TO PLAY", View.hudSize(), Palette.ink()) ::
-            Nil
+        caption("FLIX INVADERS", View.bannerSize(), Palette.invaderGreen())
+            :: caption(Meta.label(), View.hudSize(), Palette.invaderGreen())
+            :: caption("PRESS 1 OR 2 FOR PLAYERS TO PLAY", View.hudSize(), Palette.ink())
+            :: Nil
 
     ///
     /// The top edge of the attract screen's panel.
@@ -124,25 +124,25 @@ mod Screens {
             if (s#players < 2)
                 Nil
             else
-                asking |>
-                    Option.map(
+                asking
+                    |> Option.map(
                         claim ->
                             caption(
                                 "PLAYER ${claim#player + 1}",
                                 View.hudSize(),
                                 Palette.invaderGreen()
-                            ) ::
-                                Nil
-                    ) |>
-                    Option.getWithDefault(Nil);
+                            )
+                                :: Nil
+                    )
+                    |> Option.getWithDefault(Nil);
 
         let captions =
             List.append(
                 whose,
-                caption("NEW HIGH SCORE ${score}", View.hudSize(), Palette.sun()) ::
-                    caption(s#typing + caret, View.bannerSize(), Palette.ink()) ::
-                    caption("TYPE 3, THEN ENTER", View.hudSize(), Palette.invaderCyan()) ::
-                    Nil
+                caption("NEW HIGH SCORE ${score}", View.hudSize(), Palette.sun())
+                    :: caption(s#typing + caret, View.bannerSize(), Palette.ink())
+                    :: caption("TYPE 3, THEN ENTER", View.hudSize(), Palette.invaderCyan())
+                    :: Nil
             );
         block(captions, centredTop(captions))
     }
@@ -240,21 +240,21 @@ mod Screens {
         let targetMs = 1000.0f32 / Int32.toFloat32(Rules.ticksPerSecond());
         let totalTime = telemetry#simMs + telemetry#drawMs;
         let bMsg = "${Stats.twoDecimals(totalTime)} / " + "${Stats.twoDecimals(targetMs)} MS";
-        ("FPS", fpsStr) ::
-            ("SIM", simStr) ::
-            ("DRAW", drawStr) ::
-            ("BUDGET", bMsg) ::
-            ("STEPS", "${telemetry#steps}  CATCHUP ${telemetry#catchUps}") ::
-            ("FRAMES", "${telemetry#frames}") ::
-            ("SCREEN", "${s#screen}") ::
-            ("TICK", "${w#tick}  LEVEL ${w#level}") ::
-            ("INVADERS", "${alive} / ${Rules.totalInvaders()}") ::
-            ("SHOTS", "${List.length(w#bullets)} UP  ${List.length(w#bombs)} DOWN") ::
-            ("BUNKERS", "${blocks}") ::
-            ("SHIELD", "${w#shield}") ::
-            ("SEED", "${w#seed}") ::
-            ("DIGEST", digestOf(w)) ::
-            Nil
+        ("FPS", fpsStr)
+            :: ("SIM", simStr)
+            :: ("DRAW", drawStr)
+            :: ("BUDGET", bMsg)
+            :: ("STEPS", "${telemetry#steps}  CATCHUP ${telemetry#catchUps}")
+            :: ("FRAMES", "${telemetry#frames}")
+            :: ("SCREEN", "${s#screen}")
+            :: ("TICK", "${w#tick}  LEVEL ${w#level}")
+            :: ("INVADERS", "${alive} / ${Rules.totalInvaders()}")
+            :: ("SHOTS", "${List.length(w#bullets)} UP  ${List.length(w#bombs)} DOWN")
+            :: ("BUNKERS", "${blocks}")
+            :: ("SHIELD", "${w#shield}")
+            :: ("SEED", "${w#seed}")
+            :: ("DIGEST", digestOf(w))
+            :: Nil
     }
 
     /// The replay fingerprint, shortened to something a person can compare at a glance.
@@ -283,9 +283,9 @@ mod Screens {
             else
                 caption("${count}", View.countdownSize(), Palette.sun()) :: Nil;
         let captions =
-            caption("PLAYER ${s#current + 1}", View.bannerSize(), Palette.ink()) ::
-                caption("GET READY", View.hudSize(), Palette.invaderCyan()) ::
-                digits;
+            caption("PLAYER ${s#current + 1}", View.bannerSize(), Palette.ink())
+                :: caption("GET READY", View.hudSize(), Palette.invaderCyan())
+                :: digits;
         // Positioned so the first line lands on the same baseline as every other banner.
         block(captions, View.bannerY() - View.bannerSize())
     }
@@ -318,8 +318,8 @@ mod Screens {
     ///
     pub def render(s: Session, telemetry: Stats): Unit \ Canvas = {
         match s#screen {
-            case Screen.Attract => attract(s)
-            case Screen.Playing =>
+            case Screen.Attract  => attract(s)
+            case Screen.Playing  =>
                 if (s#over > 0)
                     gameOver(s)
                 else if (s#handover > 0)
@@ -327,7 +327,7 @@ mod Screens {
                 else
                     View.renderWith(Session.active(s), Session.cabinet(s))
             case Screen.Entering => entering(s)
-            case Screen.Table => table(s)
+            case Screen.Table    => table(s)
         };
         if (s#nerds) nerds(s, telemetry) else ()
     }

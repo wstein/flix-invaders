@@ -69,7 +69,7 @@ mod Rng {
             // that had quietly stopped being random.
             match Int64.tryToInt32(scaled) {
                 case Some(fits) => (fits, next)
-                case None => unreachable!()
+                case None       => unreachable!()
             }
         }
 

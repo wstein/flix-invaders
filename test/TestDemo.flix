@@ -143,8 +143,8 @@ mod TestDemo {
         // prize -- that is time to stand under the formation and fire.
         let w = settled();
         let overhead = {
-            bombs = Rules.bombAt({ x = w#playerX, y = Rules.playerY() - 60.0f32 }, BombKind.Slow) ::
-                Nil | w
+            bombs = Rules.bombAt({ x = w#playerX, y = Rules.playerY() - 60.0f32 }, BombKind.Slow)
+                :: Nil | w
         };
         let shielded = { shield = Rules.shieldTicks() | overhead };
         assertTrueWithMsg(
@@ -180,7 +180,10 @@ mod TestDemo {
         let held = Demo.aim(t, w)#held;
         if (Set.memberOf(Key.Left, held))
             Some(Key.Left)
-        else if (Set.memberOf(Key.Right, held)) Some(Key.Right) else None
+        else if (Set.memberOf(Key.Right, held))
+            Some(Key.Right)
+        else
+            None
     }
 
     ///
@@ -464,8 +467,8 @@ mod TestDemo {
             bombs = Rules.bombAt(
                 { x = sheltered#playerX, y = Rules.playerY() - 60.0f32 },
                 BombKind.Slow
-            ) ::
-                Nil | sheltered
+            )
+                :: Nil | sheltered
         };
         let exposed = {
             bunkers = Vector.map(
@@ -564,9 +567,9 @@ mod TestDemo {
     def testItCommitsToAMisjudgement(): Unit \ Assert = {
         // A person misjudges a shot and lives with it for a beat. Re-deciding every frame is
         // what shakes. On a world held still, the same judgement should hold for many ticks.
-        let steady = shaky(60, midGame(), Demo.fresh(7i64)) |>
-            List.map(s -> s#held) |>
-            List.foldLeft(
+        let steady = shaky(60, midGame(), Demo.fresh(7i64))
+            |> List.map(s -> s#held)
+            |> List.foldLeft(
                 (acc, held) -> {
                     let (previous, longest, current) = acc;
                     if (Some(held) == previous)
@@ -587,8 +590,8 @@ mod TestDemo {
     def testAPauseIsAHesitationNotAFreeze(): Unit \ Assert = {
         // Lapses last a fraction of a second, not a single frame and not a second. A one-frame
         // dropout is invisible; a long one reads as a hang, and cannot dodge a bomb.
-        let runs = played(2000, 42i64) |>
-            List.foldLeft(
+        let runs = played(2000, 42i64)
+            |> List.foldLeft(
                 (acc, tick) -> {
                     let (longest, current) = acc;
                     let (input, counts) = tick;
@@ -638,8 +641,8 @@ mod TestDemo {
         // Staying alive beats lining up a shot.
         let w = midGame();
         let overhead = {
-            bombs = Rules.bombAt({ x = w#playerX, y = Rules.playerY() - 60.0f32 }, BombKind.Slow) ::
-                Nil | w
+            bombs = Rules.bombAt({ x = w#playerX, y = Rules.playerY() - 60.0f32 }, BombKind.Slow)
+                :: Nil | w
         };
         let moves = Demo.aim(Demo.defaults(), overhead)#held;
         assertTrueWithMsg(
@@ -656,8 +659,8 @@ mod TestDemo {
             bombs = Rules.bombAt(
                 { x = w#playerX + 300.0f32, y = Rules.playerY() - 60.0f32 },
                 BombKind.Slow
-            ) ::
-                Nil | w
+            )
+                :: Nil | w
         };
         assertEq(expected = Demo.aim(Demo.defaults(), w)#held, Demo.aim(Demo.defaults(), wide)#held)
     }
@@ -671,8 +674,8 @@ mod TestDemo {
             bombs = Rules.bombAt(
                 { x = cornered#playerX, y = Rules.playerY() - 40.0f32 },
                 BombKind.Slow
-            ) ::
-                Nil | cornered
+            )
+                :: Nil | cornered
         };
         assertTrue(Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), bomb)#held))
     }

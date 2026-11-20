@@ -48,11 +48,10 @@ mod Sprite {
     }
 
     /// Closes off a run that was in progress, if any.
-    def close(y: Int32, x: Int32, start: Option[Int32], acc: List[(Int32, Int32, Int32)]): List[
-        (Int32, Int32, Int32)
-    ] =
+    def close(y: Int32, x: Int32, start: Option[Int32], acc: List[(Int32, Int32, Int32)]):
+        List[(Int32, Int32, Int32)] =
         match start {
-            case None => acc
+            case None         => acc
             case Some(startX) =>
                 let len = x - startX;
                 (y, startX, len) :: acc
@@ -80,9 +79,9 @@ mod Sprite {
 
     /// Collapses every row into runs. Called once per sprite, by `of`.
     def parse(rows: Vector[String]): List[(Int32, Int32, Int32)] =
-        Vector.toList(rows) |>
-            List.mapWithIndex((y, row) -> rowRuns(y, String.toList(row))) |>
-            List.flatten
+        Vector.toList(rows)
+            |> List.mapWithIndex((y, row) -> rowRuns(y, String.toList(row)))
+            |> List.flatten
 
     ///
     /// Every lit run in the sprite, as `(row, startColumn, length)`, top row first.
@@ -264,8 +263,8 @@ mod Sprites {
 
     /// The sprite for a bomb of the given kind.
     pub def bombFor(kind: BombKind): Sprite = match kind {
-        case BombKind.Slow => bomb()
-        case BombKind.Fast => bombFast()
+        case BombKind.Slow   => bomb()
+        case BombKind.Fast   => bombFast()
         case BombKind.Wiggly => bombWiggly()
     }
 
@@ -331,7 +330,7 @@ mod Sprites {
     ///
     pub def forBlast(kind: BlastKind, ticksLeft: Int32): Sprite = match kind {
         case BlastKind.InvaderBlast => invaderBlast()
-        case BlastKind.PlayerBlast =>
+        case BlastKind.PlayerBlast  =>
             if (Int32.remainder(ticksLeft / 6, 2) == 0) playerBlastA() else playerBlastB()
     }
 
@@ -340,10 +339,10 @@ mod Sprites {
     ///
     pub def forKind(kind: InvaderKind, frame: Int32): Sprite =
         match (kind, Int32.remainder(frame, 2)) {
-            case (InvaderKind.Squid, 0) => squidA()
-            case (InvaderKind.Squid, _) => squidB()
-            case (InvaderKind.Crab, 0) => crabA()
-            case (InvaderKind.Crab, _) => crabB()
+            case (InvaderKind.Squid, 0)   => squidA()
+            case (InvaderKind.Squid, _)   => squidB()
+            case (InvaderKind.Crab, 0)    => crabA()
+            case (InvaderKind.Crab, _)    => crabB()
             case (InvaderKind.Octopus, 0) => octopusA()
             case (InvaderKind.Octopus, _) => octopusB()
         }

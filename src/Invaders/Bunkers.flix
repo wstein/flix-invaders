@@ -31,8 +31,8 @@ mod Bunkers {
     def freshCells(): Vector[Bool] = {
         let totalCells = Rules.bunkerColumns() * Rules.bunkerRows();
         let shapes = shape();
-        Vector.range(0, totalCells) |>
-            Vector.map(index -> {
+        Vector.range(0, totalCells)
+            |> Vector.map(index -> {
                 let column = Int32.remainder(index, Rules.bunkerColumns());
                 let row = index / Rules.bunkerColumns();
                 match Vector.nth(row, shapes) {
@@ -41,7 +41,7 @@ mod Bunkers {
                             String.charAt(column, line) == '#'
                         else
                             false
-                    case None => false
+                    case None       => false
                 }
             })
     }
@@ -50,8 +50,8 @@ mod Bunkers {
     /// Four undamaged bunkers, evenly spaced.
     ///
     pub def initial(): Vector[Bunker] =
-        Vector.range(0, Rules.bunkerCount()) |>
-            Vector.map(index ->
+        Vector.range(0, Rules.bunkerCount())
+            |> Vector.map(index ->
                 {
                     origin = { x = Rules.bunkerLeft(index), y = Rules.bunkerTop() },
                     cells = freshCells()
@@ -82,14 +82,10 @@ mod Bunkers {
         (pos, size)
     }
 
-    def closeRun(
-        row: Int32,
-        col: Int32,
-        start: Option[Int32],
-        acc: List[(Int32, Int32, Int32)]
-    ): List[(Int32, Int32, Int32)] =
+    def closeRun(row: Int32, col: Int32, start: Option[Int32], acc: List[(Int32, Int32, Int32)]):
+        List[(Int32, Int32, Int32)] =
         match start {
-            case None => acc
+            case None           => acc
             case Some(startCol) => (row, startCol, col - startCol) :: acc
         }
 
@@ -109,12 +105,12 @@ mod Bunkers {
                     let idx = row * bCols + col;
                     if (Vector.get(idx, bunker#cells))
                         match scan#runStart {
-                            case None => { runStart = Some(col) | scan }
+                            case None    => { runStart = Some(col) | scan }
                             case Some(_) => scan
                         }
                     else
                         match scan#runStart {
-                            case None => scan
+                            case None           => scan
                             case Some(startCol) =>
                                 let runItem = (row, startCol, col - startCol);
                                 { runs = runItem :: scan#runs, runStart = None }
@@ -177,8 +173,8 @@ mod Bunkers {
     def standingInColumn(bunker: Bunker, column: Int32): Bool =
         Vector.exists(
             row ->
-                Vector.nth(row * Rules.bunkerColumns() + column, bunker#cells) |>
-                    Option.getWithDefault(false),
+                Vector.nth(row * Rules.bunkerColumns() + column, bunker#cells)
+                    |> Option.getWithDefault(false),
             Vector.range(0, Rules.bunkerRows())
         )
 
@@ -193,7 +189,7 @@ mod Bunkers {
             bunker -> {
                 let offset = (x - bunker#origin#x) / Rules.bunkerCell();
                 match Float32.tryToInt32(Float32.floor(offset)) {
-                    case None => false
+                    case None         => false
                     case Some(column) =>
                         if (column < 0 or column >= Rules.bunkerColumns())
                             false
@@ -323,7 +319,7 @@ mod Bunkers {
         };
         let bRange = Vector.range(0, Vector.length(bunkers));
         match Vector.findMap(struck, bRange) {
-            case None => (bunkers, false)
+            case None                => (bunkers, false)
             case Some((which, cell)) => {
                 let bunker = Vector.get(which, bunkers);
                 let hitPos = cellCentre(bunker, cell);

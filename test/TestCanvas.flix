@@ -16,10 +16,10 @@ mod TestCanvas {
             Canvas.rect(1.0f32, 2.0f32, 3.0f32, 4.0f32)
         });
         let expected =
-            DrawCmd.Clear(Color.Rgb(0, 0, 0)) ::
-                DrawCmd.Fill(Color.Rgb(255, 255, 255)) ::
-                DrawCmd.Rect(1.0f32, 2.0f32, 3.0f32, 4.0f32) ::
-                Nil;
+            DrawCmd.Clear(Color.Rgb(0, 0, 0))
+                :: DrawCmd.Fill(Color.Rgb(255, 255, 255))
+                :: DrawCmd.Rect(1.0f32, 2.0f32, 3.0f32, 4.0f32)
+                :: Nil;
         assertEq(expected = expected, cmds)
     }
 
@@ -47,11 +47,11 @@ mod TestCanvas {
     @Test
     def testPaintRoundTrips(): Unit \ Assert = {
         let cmds =
-            DrawCmd.Clear(Color.grey(30)) ::
-                DrawCmd.TextSize(12.0f32) ::
-                DrawCmd.Text("hi", 5.0f32, 6.0f32) ::
-                DrawCmd.Ellipse(1.0f32, 2.0f32, 3.0f32, 4.0f32) ::
-                Nil;
+            DrawCmd.Clear(Color.grey(30))
+                :: DrawCmd.TextSize(12.0f32)
+                :: DrawCmd.Text("hi", 5.0f32, 6.0f32)
+                :: DrawCmd.Ellipse(1.0f32, 2.0f32, 3.0f32, 4.0f32)
+                :: Nil;
         assertEq(expected = cmds, Canvas.commands((640, 480), () -> Canvas.paint(cmds)))
     }
 
@@ -127,9 +127,9 @@ mod TestCanvas {
             Canvas.rect(0.0f32, 0.0f32, 10.0f32, 10.0f32)
         });
         assertEq(
-            expected = DrawCmd.FillAlpha(Color.Rgb(0, 0, 0), 170) ::
-                DrawCmd.Rect(0.0f32, 0.0f32, 10.0f32, 10.0f32) ::
-                Nil,
+            expected = DrawCmd.FillAlpha(Color.Rgb(0, 0, 0), 170)
+                :: DrawCmd.Rect(0.0f32, 0.0f32, 10.0f32, 10.0f32)
+                :: Nil,
             cmds
         )
     }
@@ -145,9 +145,9 @@ mod TestCanvas {
     @Test
     def testPaintRoundTripsTranslucentFills(): Unit \ Assert = {
         let cmds =
-            DrawCmd.FillAlpha(Color.grey(30), 200) ::
-                DrawCmd.Rect(1.0f32, 2.0f32, 3.0f32, 4.0f32) ::
-                Nil;
+            DrawCmd.FillAlpha(Color.grey(30), 200)
+                :: DrawCmd.Rect(1.0f32, 2.0f32, 3.0f32, 4.0f32)
+                :: Nil;
         assertEq(expected = cmds, Canvas.commands((640, 480), () -> Canvas.paint(cmds)))
     }
 }

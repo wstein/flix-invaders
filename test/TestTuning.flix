@@ -17,7 +17,7 @@ mod TestTuning {
     def decoded(text: String): Tuning \ Assert = {
         let res = Tuning.decode(Demo.defaults(), text);
         match res {
-            case Ok(t) => t
+            case Ok(t)    => t
             case Err(why) =>
                 Assert.fail("decode failed: ${why}");
                 Demo.defaults()
