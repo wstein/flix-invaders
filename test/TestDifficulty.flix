@@ -51,7 +51,7 @@ mod TestDifficulty {
             if (n <= 0 or w#phase == Phase.Lost)
                 n
             else {
-                let safe = { lives = 99, bombs = Nil | w };
+                let safe = {lives = 99, bombs = Nil | w};
                 let steppedW = Game.step(safe, Input.empty());
                 loop(n - 1, steppedW)
             };
@@ -67,8 +67,8 @@ mod TestDifficulty {
         let cleared = List.count(seed -> play(6000, Game.initial(seed))#level > 1, seeds());
         assertTrueWithMsg(
             cleared >= List.length(seeds()) - 1,
-            "a bot that never misses cleared level one on only ${cleared} of ${List.length(seeds())} seeds; " +
-                "the game is too hard"
+            "a bot that never misses cleared level one on only ${cleared} of ${List.length(seeds())} seeds; "
+                + "the game is too hard"
         )
     }
 
@@ -86,8 +86,8 @@ mod TestDifficulty {
         let good = List.count(level -> level >= 4, reached);
         assertTrueWithMsg(
             good >= List.length(seeds()) - 1,
-            "the demo reached only ${reached} across ${List.length(seeds())} seeds; " +
-                "it should get to about level four"
+            "the demo reached only ${reached} across ${List.length(seeds())} seeds; "
+                + "it should get to about level four"
         );
         assertTrueWithMsg(
             List.forAll(level -> level < 10, reached),
@@ -130,8 +130,8 @@ mod TestDifficulty {
         let meanTenths = (List.sum(reached) * 10) / List.length(seeds());
         assertTrueWithMsg(
             meanTenths >= 43,
-            "the demo averaged level ${meanTenths / 10}.${meanTenths `Int32.remainder` 10} " +
-                "across ${reached}; it reached 4.6 when that figure was last written down"
+            "the demo averaged level ${meanTenths / 10}.${meanTenths `Int32.remainder` 10} "
+                + "across ${reached}; it reached 4.6 when that figure was last written down"
         )
     }
 
@@ -141,8 +141,8 @@ mod TestDifficulty {
         let ended = List.count(seed -> playShaky(wholeGame(), seed)#phase == Phase.Lost, seeds());
         assertTrueWithMsg(
             ended == List.length(seeds()),
-            "the bot was still alive on ${List.length(seeds()) - ended} seeds after " +
-                "${wholeGame()} ticks; the game is too easy"
+            "the bot was still alive on ${List.length(seeds()) - ended} seeds after "
+                + "${wholeGame()} ticks; the game is too easy"
         )
     }
 
@@ -167,8 +167,8 @@ mod TestDifficulty {
         let shots = ticks / Int32.max(1, flight);
         assertTrueWithMsg(
             shots > Rules.totalInvaders() * 2,
-            "only ${shots} shots fit into the ${ticks}-tick descent for ${Rules.totalInvaders()} " +
-                "invaders (flight ${flight} ticks)"
+            "only ${shots} shots fit into the ${ticks}-tick descent for ${Rules.totalInvaders()} "
+                + "invaders (flight ${flight} ticks)"
         )
     }
 

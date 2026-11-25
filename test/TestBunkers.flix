@@ -31,7 +31,7 @@ mod TestBunkers {
                 if (y < minY)
                     seen
                 else {
-                    let shotPos = { x = x, y = y };
+                    let shotPos = {x = x, y = y};
                     let (damaged, hit) =
                         Bunkers.absorb(seen, shotPos, Rules.bulletSize(), Rules.bulletCrater());
                     if (hit) damaged else rise(y - 2.0f32, seen)
@@ -47,7 +47,7 @@ mod TestBunkers {
     /// A point in the solid top of the first bunker.
     def solidSpot(): Vec2 = {
         let b = first();
-        { x = b#origin#x + 24.0f32, y = b#origin#y + 6.0f32 }
+        {x = b#origin#x + 24.0f32, y = b#origin#y + 6.0f32}
     }
 
     @Test
@@ -114,7 +114,7 @@ mod TestBunkers {
 
     @Test
     def testAShotThatMissesChangesNothing(): Unit \ Assert = {
-        let far = { x = 5.0f32, y = 5.0f32 };
+        let far = {x = 5.0f32, y = 5.0f32};
         let (untouched, hit) =
             Bunkers.absorb(Bunkers.initial(), far, Rules.bulletSize(), Rules.bulletCrater());
         assertFalse(hit);
@@ -168,7 +168,7 @@ mod TestBunkers {
                 Rules.bulletSize(),
                 Rules.bulletCrater()
             );
-        let elsewhere = { x = solidSpot()#x + 24.0f32, y = solidSpot()#y };
+        let elsewhere = {x = solidSpot()#x + 24.0f32, y = solidSpot()#y};
         let (twice, _) = Bunkers.absorb(once, elsewhere, Rules.bulletSize(), Rules.bulletCrater());
         assertTrue(Bunkers.totalRemaining(twice) <= Bunkers.totalRemaining(once))
     }
@@ -176,7 +176,7 @@ mod TestBunkers {
     @Test
     def testAbsorbAllKeepsOnlyTheShotsThatGotThrough(): Unit \ Assert = {
         let hits = solidSpot();
-        let misses = { x = 5.0f32, y = 5.0f32 };
+        let misses = {x = 5.0f32, y = 5.0f32};
         let (_, survivors) =
             Bunkers.absorbAll(
                 Bunkers.initial(),
@@ -204,7 +204,7 @@ mod TestBunkers {
 
     @Test
     def testAPlayerBulletIsStoppedByABunker(): Unit \ Assert = {
-        let w = stepped({ bullets = solidSpot() :: Nil | start() }, Input.empty());
+        let w = stepped({bullets = solidSpot() :: Nil | start()}, Input.empty());
         assertEq(expected = 0, List.length(w#bullets));
         assertTrue(Bunkers.totalRemaining(w#bunkers) < Bunkers.totalRemaining(start()#bunkers))
     }
@@ -212,10 +212,10 @@ mod TestBunkers {
     @Test
     def testAnInvaderBombIsStoppedByABunker(): Unit \ Assert = {
         // The bomb is placed just above the bunker so that one step's fall lands it inside.
-        let spot = { x = solidSpot()#x, y = solidSpot()#y - Rules.bombSpeedFor(BombKind.Slow) };
+        let spot = {x = solidSpot()#x, y = solidSpot()#y - Rules.bombSpeedFor(BombKind.Slow)};
         let before = List.length(start()#bombs);
         let w =
-            stepped({ bombs = Rules.bombAt(spot, BombKind.Slow) :: Nil | start() }, Input.empty());
+            stepped({bombs = Rules.bombAt(spot, BombKind.Slow) :: Nil | start()}, Input.empty());
         assertEq(expected = before, List.length(w#bombs));
         assertTrue(Bunkers.totalRemaining(w#bunkers) < Bunkers.totalRemaining(start()#bunkers))
     }
@@ -233,7 +233,7 @@ mod TestBunkers {
         };
         let w =
             stepped(
-                { playerX = bunkerX, bombs = Rules.bombAt(bomb, BombKind.Slow) :: Nil | base },
+                {playerX = bunkerX, bombs = Rules.bombAt(bomb, BombKind.Slow) :: Nil | base},
                 Input.empty()
             );
         assertEq(expected = Rules.startingLives(), w#lives);
@@ -245,7 +245,7 @@ mod TestBunkers {
         let base = start();
         let landed =
             Vector.map(
-                inv -> { pos = { y = Rules.bunkerTop() + 8.0f32 | inv#pos } | inv },
+                inv -> {pos = {y = Rules.bunkerTop() + 8.0f32 | inv#pos} | inv},
                 base#invaders
             );
         let eroded = Bunkers.erode(base#bunkers, landed);
@@ -263,7 +263,7 @@ mod TestBunkers {
     def testBunkerDamageShowsUpInTheDigest(): Unit \ Assert = {
         // The digest backs the replay tests, so it has to notice bunker damage.
         let base = start();
-        let damaged = stepped({ bullets = solidSpot() :: Nil | base }, Input.empty());
+        let damaged = stepped({bullets = solidSpot() :: Nil | base}, Input.empty());
         Assert.assertNeq(unexpected = Game.digest(base), Game.digest(damaged))
     }
 
@@ -281,7 +281,7 @@ mod TestBunkers {
             Bunkers.runs(bunker)
         );
         let base = start();
-        let damaged = stepped({ bullets = solidSpot() :: Nil | base }, Input.empty());
+        let damaged = stepped({bullets = solidSpot() :: Nil | base}, Input.empty());
         assertTrue(covered(Vector.get(0, damaged#bunkers)) < covered(Vector.get(0, base#bunkers)))
     }
 
@@ -377,7 +377,7 @@ mod TestBunkers {
         let x = Vector.get(0, base#bunkers)#origin#x + 24.0f32;
         def fly(n, w) =
             if (n <= 0 or List.isEmpty(w#bullets)) w else fly(n - 1, stepped(w, Input.empty()));
-        let fired = stepped({ playerX = x | base }, Input.holding(Key.Space :: Nil));
+        let fired = stepped({playerX = x | base}, Input.holding(Key.Space :: Nil));
         let after = fly(20, fired);
         assertTrueWithMsg(
             Bunkers.totalRemaining(after#bunkers) < Bunkers.totalRemaining(base#bunkers),
@@ -405,7 +405,7 @@ mod TestBunkers {
         // a player at the cabinet alike.
         let column = 6;
         let x = columnCentre(column);
-        let lane = { x = x, y = Rules.bunkerTop() + 2.0f32 };
+        let lane = {x = x, y = Rules.bunkerTop() + 2.0f32};
 
         let drilled = drilledAt(column, Bunkers.initial());
 
@@ -420,8 +420,8 @@ mod TestBunkers {
         // while `absorb` let the shot through at every height.
         assertFalseWithMsg(
             Bunkers.obstructs(drilled, x, Rules.bulletSize()#x),
-            "a channel drilled on a column centre still reports itself blocked for a " +
-                "${Rules.bulletSize()#x}px shot; the bot can never aim to camp"
+            "a channel drilled on a column centre still reports itself blocked for a "
+                + "${Rules.bulletSize()#x}px shot; the bot can never aim to camp"
         );
 
         // The cannon's own shots now pass straight through, at every height.
@@ -431,7 +431,7 @@ mod TestBunkers {
                 let (_, hit) =
                     Bunkers.absorb(
                         drilled,
-                        { x = x, y = y },
+                        {x = x, y = y},
                         Rules.bulletSize(),
                         Rules.bulletCrater()
                     );
@@ -478,12 +478,12 @@ mod TestBunkers {
                 let stopped = List.exists(
                     row -> {
                         let y =
-                            Rules.bunkerTop() +
-                                (Int32.toFloat32(row) + 0.5f32) * Rules.bunkerCell();
+                            Rules.bunkerTop()
+                                + (Int32.toFloat32(row) + 0.5f32) * Rules.bunkerCell();
                         let (_, hit) =
                             Bunkers.absorb(
                                 eroded,
-                                { x = x, y = y },
+                                {x = x, y = y},
                                 Rules.bulletSize(),
                                 Rules.bulletCrater()
                             );
@@ -495,8 +495,8 @@ mod TestBunkers {
             });
         assertTrueWithMsg(
             List.isEmpty(disagreements),
-            "the guard and the collision disagree at ${disagreements} " +
-                "-- each triple is (x, obstructs, actually stopped)"
+            "the guard and the collision disagree at ${disagreements} "
+                + "-- each triple is (x, obstructs, actually stopped)"
         )
     }
 
@@ -541,8 +541,8 @@ mod TestBunkers {
                         List.range(0, Rules.bunkerColumns())
                             |> List.map(
                                 c ->
-                                    Vector.get(b, Bunkers.initial())#origin#x +
-                                        (Int32.toFloat32(c) + 0.5f32) * Rules.bunkerCell()
+                                    Vector.get(b, Bunkers.initial())#origin#x
+                                        + (Int32.toFloat32(c) + 0.5f32) * Rules.bunkerCell()
                             )
                 );
 
@@ -553,8 +553,8 @@ mod TestBunkers {
                 );
         assertTrueWithMsg(
             List.isEmpty(aligned),
-            "the cannon can stand on block centres ${aligned}; the camping tactic is reachable " +
-                "after all, and the bot should be taught it"
+            "the cannon can stand on block centres ${aligned}; the camping tactic is reachable "
+                + "after all, and the bot should be taught it"
         );
 
         // The consequence, from the closest the cannon ever gets to the column the shelter
@@ -569,14 +569,14 @@ mod TestBunkers {
         let (_, bombStopped) =
             Bunkers.absorb(
                 camped,
-                { x = stand, y = Rules.bunkerTop() + 2.0f32 },
+                {x = stand, y = Rules.bunkerTop() + 2.0f32},
                 Rules.bombSize(),
                 Rules.bombCrater()
             );
         assertFalseWithMsg(
             bombStopped,
-            "a lane drilled from ${stand} stopped a bomb, so the cannon can shelter without " +
-                "lining up and the tactic is worth teaching"
+            "a lane drilled from ${stand} stopped a bomb, so the cannon can shelter without "
+                + "lining up and the tactic is worth teaching"
         )
     }
 

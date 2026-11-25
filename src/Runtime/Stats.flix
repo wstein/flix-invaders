@@ -28,7 +28,7 @@ pub type alias Stats = {
 mod Stats {
     /// Initial zeroed telemetry statistics record.
     pub def empty(): Stats =
-        { fps = 0.0f32, simMs = 0.0f32, drawMs = 0.0f32, steps = 0, frames = 0, catchUps = 0 }
+        {fps = 0.0f32, simMs = 0.0f32, drawMs = 0.0f32, steps = 0, frames = 0, catchUps = 0}
 
     ///
     /// How much of each new sample to believe.

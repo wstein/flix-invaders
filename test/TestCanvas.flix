@@ -7,7 +7,6 @@ mod TestCanvas {
     /// no window and no `IO`. If any of them needed a display, the effect boundary would
     /// have leaked.
     ///
-
     @Test
     def testRecordsOperationsInOrder(): Unit \ Assert = {
         let cmds = Canvas.commands((640, 480), () -> {

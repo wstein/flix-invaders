@@ -20,7 +20,7 @@ mod Game {
                 let row = index / Rules.columns();
                 let fx = Rules.formationLeft() + Int32.toFloat32(column) * Rules.columnSpacing();
                 let fy = Rules.formationTopFor(level) + Int32.toFloat32(row) * Rules.rowSpacing();
-                { pos = { x = fx, y = fy }, alive = true, kind = Rules.kindForRow(row), row = row }
+                {pos = {x = fx, y = fy}, alive = true, kind = Rules.kindForRow(row), row = row}
             })
 
     ///
@@ -71,7 +71,7 @@ mod Game {
         let right = if (held(Key.Right)) Rules.playerSpeed() else 0.0f32;
         let half = Rules.playerSize()#x / 2.0f32;
         let moved = w#playerX + left + right;
-        { playerX = clampTo(half, Rules.fieldWidth() - half, moved) | w }
+        {playerX = clampTo(half, Rules.fieldWidth() - half, moved) | w}
     }
 
     ///
@@ -88,7 +88,7 @@ mod Game {
             w
         else {
             let barrel = Rules.playerY() - Rules.playerSize()#y;
-            let muzzle = { x = w#playerX, y = barrel };
+            let muzzle = {x = w#playerX, y = barrel};
             emit(SoundCmd.Shoot, {
                 bullets = muzzle :: w#bullets,
                 shotsFired = w#shotsFired + 1 | w
@@ -99,7 +99,7 @@ mod Game {
     def moveBullets(w: World): World =
         {
             bullets = w#bullets
-                |> List.map(b -> { y = b#y - Rules.bulletSpeed() | b })
+                |> List.map(b -> {y = b#y - Rules.bulletSpeed() | b})
                 |> List.filter(b -> b#y > -Rules.bulletSize()#y) | w
         }
 
@@ -169,19 +169,19 @@ mod Game {
                 if (hitsWall)
                     let updatedInvaders = Vector.map(
                         inv -> {
-                            pos = { y = inv#pos#y + Rules.marchDrop() | inv#pos } | inv
+                            pos = {y = inv#pos#y + Rules.marchDrop() | inv#pos} | inv
                         },
                         sounded#invaders
                     );
-                    { marchDir = -sounded#marchDir, invaders = updatedInvaders | sounded }
+                    {marchDir = -sounded#marchDir, invaders = updatedInvaders | sounded}
                 else
                     let updatedInvaders = Vector.map(
                         inv -> {
-                            pos = { x = inv#pos#x + stepX | inv#pos } | inv
+                            pos = {x = inv#pos#x + stepX | inv#pos} | inv
                         },
                         sounded#invaders
                     );
-                    { invaders = updatedInvaders | sounded }
+                    {invaders = updatedInvaders | sounded}
             }
         }
     }
@@ -192,7 +192,7 @@ mod Game {
     def beat(distance: Float32, w: World): World \ Sound = {
         let total = w#marchedSince + distance;
         if (total < Rules.marchNoteDistance())
-            { marchedSince = total | w }
+            {marchedSince = total | w}
         else
             emit(SoundCmd.MarchStep(w#marchNote), {
                 marchedSince = total - Rules.marchNoteDistance(),
@@ -217,8 +217,8 @@ mod Game {
 
     def placeBomb(inv: Invader, rng: Rng, w: World): World = {
         let (kind, afterKind) = Rules.bombKindFrom(rng);
-        let bomb = { x = inv#pos#x, y = inv#pos#y + Rules.invaderSize()#y, kind = kind, age = 0 };
-        { bombs = bomb :: w#bombs, rng = afterKind | w }
+        let bomb = {x = inv#pos#x, y = inv#pos#y + Rules.invaderSize()#y, kind = kind, age = 0};
+        {bombs = bomb :: w#bombs, rng = afterKind | w}
     }
 
     ///
@@ -227,11 +227,11 @@ mod Game {
     def spawnBomb(candidates: List[Invader], rng: Rng, w: World): World = {
         let count = List.length(candidates);
         if (count == 0)
-            { rng = rng | w }
+            {rng = rng | w}
         else {
             let (pick, afterPick) = Rng.nextInt32Below(count, rng);
             match List.nth(pick, candidates) {
-                case None      => { rng = afterPick | w }
+                case None      => {rng = afterPick | w}
                 case Some(inv) => placeBomb(inv, afterPick, w)
             }
         }
@@ -250,7 +250,7 @@ mod Game {
         else {
             let (drops, afterChance) = Rng.chance(Rules.bombChanceFor(w#level), w#rng);
             if (not drops)
-                { rng = afterChance | w }
+                {rng = afterChance | w}
             else
                 spawnBomb(bombers(w#invaders), afterChance, w)
         }
@@ -262,7 +262,7 @@ mod Game {
     /// each field instead of as three values kept in the right order by hand. `kept` is
     /// newest-first, as an accumulated list is, and reversed once at the end.
     ///
-    type alias ShotPass = { bullets = List[Vec2], rng = Rng, kept = List[Bomb] }
+    type alias ShotPass = {bullets = List[Vec2], rng = Rng, kept = List[Bomb]}
 
     ///
     /// One bomb against the shots still in flight.
@@ -273,11 +273,11 @@ mod Game {
                 Collide.overlaps(
                     aPos = b,
                     aSize = Rules.bulletSize(),
-                    bPos = { x = bomb#x, y = bomb#y },
+                    bPos = {x = bomb#x, y = bomb#y},
                     bSize = Rules.bombSize()
                 );
         if (not List.exists(struck, pass#bullets))
-            { kept = bomb :: pass#kept | pass }
+            {kept = bomb :: pass#kept | pass}
         else {
             // The shot is spent either way; only the bomb's fate is a die roll.
             let (survives, next) = Rng.chance(Rules.bombSurvivesShot(), pass#rng);
@@ -306,15 +306,15 @@ mod Game {
             kept = Nil
         };
         let pass = List.foldLeft(meetBomb, initPass, w#bombs);
-        { bombs = List.reverse(pass#kept), bullets = pass#bullets, rng = pass#rng | w }
+        {bombs = List.reverse(pass#kept), bullets = pass#bullets, rng = pass#rng | w}
     }
 
     /// The index of the first living invader this bullet hits.
     def hitIndex(bullet: Vec2, invaders: Vector[Invader]): Option[Int32] =
         Vector.findIndexOfLeft(
             inv ->
-                inv#alive and
-                    Collide.overlaps(
+                inv#alive
+                    and Collide.overlaps(
                         aPos = bullet,
                         aSize = Rules.bulletSize(),
                         bPos = inv#pos,
@@ -341,10 +341,10 @@ mod Game {
     ///
     def meetInvader(pass: BulletPass, bullet: Vec2): BulletPass =
         match hitIndex(bullet, pass#invaders) {
-            case None    => { kept = bullet :: pass#kept | pass }
+            case None    => {kept = bullet :: pass#kept | pass}
             case Some(i) => {
                 let hit = Vector.get(i, pass#invaders);
-                let struck = { alive = false | hit };
+                let struck = {alive = false | hit};
                 let blast = {
                     pos = hit#pos,
                     ticksLeft = Rules.invaderBlastTicks(),
@@ -364,7 +364,7 @@ mod Game {
     /// A bullet is spent on the first invader it hits, so one shot can never clear two.
     ///
     def resolveBullets(w: World): World \ Sound = {
-        let start = { kept = Nil, invaders = w#invaders, score = w#score, blasts = w#blasts };
+        let start = {kept = Nil, invaders = w#invaders, score = w#score, blasts = w#blasts};
         let pass = List.foldLeft(meetInvader, start, w#bullets);
         let killed = List.length(pass#blasts) - List.length(w#blasts);
         // One noise per kill: two bullets landing in one tick must be heard twice.
@@ -385,11 +385,11 @@ mod Game {
     /// only notice from the life counter.
     ///
     def resolveBombs(w: World): World \ Sound = {
-        let player = { x = w#playerX, y = Rules.playerY() };
+        let player = {x = w#playerX, y = Rules.playerY()};
         let overlapsPlayer =
             b ->
                 Collide.overlaps(
-                    aPos = { x = b#x, y = b#y },
+                    aPos = {x = b#x, y = b#y},
                     aSize = Rules.bombSize(),
                     bPos = player,
                     bSize = Rules.playerSize()
@@ -400,7 +400,7 @@ mod Game {
         else if (w#shield > 0)
             // The shield takes it. The bombs on screen are still cleared, so a shielded hit
             // buys breathing room as well as a life.
-            emit(SoundCmd.ShieldBlock, { bombs = Nil | w })
+            emit(SoundCmd.ShieldBlock, {bombs = Nil | w})
         else {
             let wreck = {
                 pos = player,
@@ -422,9 +422,9 @@ mod Game {
     def stepActiveMystery(m: Mystery, w: World): World = {
         let x = m#x + m#dir * Rules.mysterySpeed();
         if (x < -mysteryMargin() or x > Rules.fieldWidth() + mysteryMargin())
-            { mystery = None | w }
+            {mystery = None | w}
         else
-            { mystery = Some({ x = x | m }) | w }
+            {mystery = Some({x = x | m}) | w}
     }
 
     ///
@@ -445,9 +445,9 @@ mod Game {
     ///
     def mysteryEntry(fromLeft: Bool): Mystery =
         if (fromLeft)
-            { x = -mysteryMargin(), dir = 1.0f32 }
+            {x = -mysteryMargin(), dir = 1.0f32}
         else
-            { x = Rules.fieldWidth() + mysteryMargin(), dir = -1.0f32 }
+            {x = Rules.fieldWidth() + mysteryMargin(), dir = -1.0f32}
 
     ///
     /// Launches a saucer from a randomly chosen side and sets the wait for the next one.
@@ -472,7 +472,7 @@ mod Game {
         if (formationTooThin(w))
             w
         else if (w#mysteryTimer > 1)
-            { mysteryTimer = w#mysteryTimer - 1 | w }
+            {mysteryTimer = w#mysteryTimer - 1 | w}
         else
             launchMystery(w)
 
@@ -493,7 +493,7 @@ mod Game {
     def resolveMystery(w: World): World \ Sound = match w#mystery {
         case None    => w
         case Some(m) => {
-            let pos = { x = m#x, y = Rules.mysteryY() };
+            let pos = {x = m#x, y = Rules.mysteryY()};
             let hits =
                 b ->
                     Collide.overlaps(
@@ -534,17 +534,17 @@ mod Game {
         if (w#score < w#nextBonusAt)
             w
         else {
-            let raised = { nextBonusAt = w#nextBonusAt + Rules.bonusLifeScore() | w };
+            let raised = {nextBonusAt = w#nextBonusAt + Rules.bonusLifeScore() | w};
             if (w#lives >= Rules.maxLives())
                 // The threshold still advances, so a capped player does not get a fresh
                 // award on every subsequent point.
                 awardBonusLife(raised)
             else
-                awardBonusLife(emit(SoundCmd.ExtraLife, { lives = raised#lives + 1 | raised }))
+                awardBonusLife(emit(SoundCmd.ExtraLife, {lives = raised#lives + 1 | raised}))
         }
 
     /// Counts the shield down. It runs on wall time, not on hits.
-    def ageShield(w: World): World = { shield = Int32.max(0, w#shield - 1) | w }
+    def ageShield(w: World): World = {shield = Int32.max(0, w#shield - 1) | w}
 
     ///
     /// Ages every blast by a tick and drops the ones that have burnt out.
@@ -552,7 +552,7 @@ mod Game {
     def ageBlasts(w: World): World =
         {
             blasts = w#blasts
-                |> List.map(b -> { ticksLeft = b#ticksLeft - 1 | b })
+                |> List.map(b -> {ticksLeft = b#ticksLeft - 1 | b})
                 |> List.filter(b -> b#ticksLeft > 0) | w
         }
 
@@ -572,11 +572,11 @@ mod Game {
             Bunkers.absorbAll(w#bunkers, w#bullets, Rules.bulletSize(), Rules.bulletCrater());
         let (afterBombs, bombs) = Bunkers.absorbBombs(afterBullets, w#bombs);
         let finalBunkers = Bunkers.erode(afterBombs, w#invaders);
-        { bunkers = finalBunkers, bullets = bullets, bombs = bombs | w }
+        {bunkers = finalBunkers, bullets = bullets, bombs = bombs | w}
     }
 
     /// The hi-score is the best score seen so far.
-    def trackHiScore(w: World): World = if (w#score > w#hiScore) { hiScore = w#score | w } else w
+    def trackHiScore(w: World): World = if (w#score > w#hiScore) {hiScore = w#score | w} else w
 
     ///
     /// Decides whether the formation is cleared, or the game is lost.
@@ -592,7 +592,7 @@ mod Game {
                 bombs = Nil | w
             }
         else if (w#lives <= 0 or invasionComplete(w#invaders))
-            { phase = Phase.Lost | w }
+            {phase = Phase.Lost | w}
         else
             w
 
@@ -694,19 +694,19 @@ mod Game {
     /// blurring it. A digest also gives a readable diff when a replay does drift.
     ///
     pub def digest(w: World): String =
-        header(w) +
-            eachOf(showShot, w#bullets) +
-            eachOf(showBomb, w#bombs) +
-            eachIn(showInvader, w#invaders) +
-            eachIn(showShelter, w#bunkers) +
-            eachOf(showBlast, w#blasts) +
-            showMystery(w)
+        header(w)
+            + eachOf(showShot, w#bullets)
+            + eachOf(showBomb, w#bombs)
+            + eachIn(showInvader, w#invaders)
+            + eachIn(showShelter, w#bunkers)
+            + eachOf(showBlast, w#blasts)
+            + showMystery(w)
 
     // -- the step ---------------------------------------------------------------------
 
     def stepPlaying(w: World, input: Snapshot): World \ Sound =
         if (w#pause > 0) {
-            let countDown = n -> { pause = n#pause - 1, tick = n#tick + 1 | n };
+            let countDown = n -> {pause = n#pause - 1, tick = n#tick + 1 | n};
             w |> ageBlasts |> countDown
         } else
             w
@@ -729,7 +729,7 @@ mod Game {
                 |> ageBlasts
                 |> trackHiScore
                 |> checkEnd
-                |> (next -> { tick = next#tick + 1 | next })
+                |> (next -> {tick = next#tick + 1 | next})
 
     ///
     /// Advances the game by exactly one logical tick.
@@ -743,16 +743,16 @@ mod Game {
             case Phase.Cleared =>
                 // A beat to see the field cleared, then the next level.
                 if (w#pause > 1)
-                    { pause = w#pause - 1 | w }
+                    {pause = w#pause - 1 | w}
                 else
                     nextLevel(w)
 
-            case Phase.Lost    =>
+            case Phase.Lost =>
                 // Enter starts a new game. Nothing else happens once it is over, so a lost world
                 // is stable no matter how many steps run. The hi-score outlives the game, the
                 // way an arcade cabinet's does.
                 if (Set.memberOf(Key.Enter, input#pressed))
-                    { hiScore = w#hiScore | initial(w#seed) }
+                    {hiScore = w#hiScore | initial(w#seed)}
                 else
                     w
         }

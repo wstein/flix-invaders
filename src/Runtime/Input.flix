@@ -124,7 +124,7 @@ mod Input {
     ///
     /// The two sets are named because transposing them inverts every edge, turning presses
     /// into releases.
-    pub def diff(previous: { previous = Set[Key] }, current: { current = Set[Key] }): Snapshot = {
+    pub def diff(previous: {previous = Set[Key]}, current: {current = Set[Key]}): Snapshot = {
         let before = previous#previous;
         let now = current#current;
         {
@@ -164,7 +164,7 @@ mod Input {
     ///
     /// The same snapshot with its edges removed: still held, but pressed and released nothing.
     ///
-    pub def steady(s: Snapshot): Snapshot = { pressed = Set.empty(), released = Set.empty() | s }
+    pub def steady(s: Snapshot): Snapshot = {pressed = Set.empty(), released = Set.empty() | s}
 
     ///
     /// One frame's reading of the keyboard, spread over the `n` ticks it has to drive.

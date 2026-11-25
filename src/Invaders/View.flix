@@ -26,11 +26,11 @@
 /// gating both on one flag is what made the level banner disappear from the cabinet and left
 /// a silent three-second pause where it used to be.
 ///
-pub type alias Cabinet = { player = Int32, players = Int32, otherScore = Int32, ownGameOver = Bool }
+pub type alias Cabinet = {player = Int32, players = Int32, otherScore = Int32, ownGameOver = Bool}
 
 mod Cabinet {
     /// A single player with nobody to contrast against.
-    pub def solo(): Cabinet = { player = 1, players = 1, otherScore = 0, ownGameOver = true }
+    pub def solo(): Cabinet = {player = 1, players = 1, otherScore = 0, ownGameOver = true}
 }
 
 mod View {
@@ -91,7 +91,7 @@ mod View {
         Canvas.fill(Palette.coral());
         List.forEach(
             b -> {
-                let pos = { x = b#x, y = b#y };
+                let pos = {x = b#x, y = b#y};
                 Sprite.draw(Sprites.bombFor(b#kind), pos, Rules.spriteScale())
             },
             w#bombs
@@ -131,7 +131,7 @@ mod View {
             ()
         else {
             Canvas.fill(Palette.cannonGreen());
-            let pos = { x = w#playerX, y = Rules.playerY() };
+            let pos = {x = w#playerX, y = Rules.playerY()};
             Sprite.draw(Sprites.cannon(), pos, Rules.cannonScale())
         }
 
@@ -139,7 +139,7 @@ mod View {
         case None    => ()
         case Some(m) =>
             Canvas.fill(Palette.invaderMagenta());
-            let mPos = { x = m#x, y = Rules.mysteryY() };
+            let mPos = {x = m#x, y = Rules.mysteryY()};
             let sx = Rules.mysteryScaleX();
             let sy = Rules.mysteryScaleY();
             Sprite.drawScaled(Sprites.mystery(), mPos, scaleX = sx, scaleY = sy)
@@ -330,7 +330,7 @@ mod View {
             ()
         else {
             let x = 52.0f32 + Int32.toFloat32(index) * 40.0f32;
-            Sprite.draw(cannon, { x = x, y = Rules.fieldHeight() - 14.0f32 }, 2.0f32);
+            Sprite.draw(cannon, {x = x, y = Rules.fieldHeight() - 14.0f32}, 2.0f32);
             drawSpareLives(cannon, remaining, index + 1)
         }
 
@@ -380,7 +380,7 @@ mod View {
             }
         }
         // ...but who announces the end of the *game* depends on what is around it.
-        case Phase.Lost => if (c#ownGameOver) banner("GAME OVER") else ()
+        case Phase.Lost    => if (c#ownGameOver) banner("GAME OVER") else ()
     }
 
     def banner(message: String): Unit \ Canvas = {

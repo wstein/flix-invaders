@@ -168,7 +168,7 @@ mod TestSprites {
         let cmds =
             Canvas.commands(
                 (640, 480),
-                () -> Sprite.draw(tiny(), { x = 100.0f32, y = 100.0f32 }, 2.0f32)
+                () -> Sprite.draw(tiny(), {x = 100.0f32, y = 100.0f32}, 2.0f32)
             );
         match List.head(cmds) {
             case Some(DrawCmd.Rect(x, y, w, h)) => {
@@ -186,7 +186,7 @@ mod TestSprites {
         let cmds =
             Canvas.commands(
                 (640, 480),
-                () -> Sprite.draw(tiny(), { x = 0.0f32, y = 0.0f32 }, 1.0f32)
+                () -> Sprite.draw(tiny(), {x = 0.0f32, y = 0.0f32}, 1.0f32)
             );
         assertEq(expected = List.length(Sprite.runs(tiny())), List.length(cmds))
     }
@@ -196,12 +196,12 @@ mod TestSprites {
         let single =
             Canvas.commands(
                 (640, 480),
-                () -> Sprite.draw(Sprites.crabA(), { x = 0.0f32, y = 0.0f32 }, 1.0f32)
+                () -> Sprite.draw(Sprites.crabA(), {x = 0.0f32, y = 0.0f32}, 1.0f32)
             );
         let double =
             Canvas.commands(
                 (640, 480),
-                () -> Sprite.draw(Sprites.crabA(), { x = 0.0f32, y = 0.0f32 }, 2.0f32)
+                () -> Sprite.draw(Sprites.crabA(), {x = 0.0f32, y = 0.0f32}, 2.0f32)
             );
         assertEq(expected = List.length(single), List.length(double))
     }

@@ -2,8 +2,8 @@ mod TestCollide {
     use Assert.assertTrue
     use Assert.assertFalse
 
-    def at(x: Float32, y: Float32): Vec2 = { x = x, y = y }
-    def size(w: Float32, h: Float32): Vec2 = { x = w, y = h }
+    def at(x: Float32, y: Float32): Vec2 = {x = x, y = y}
+    def size(w: Float32, h: Float32): Vec2 = {x = w, y = h}
 
     /// The standard 20x20 box used by most of these cases.
     def box(): Vec2 = size(20.0f32, 20.0f32)

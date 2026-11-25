@@ -7,7 +7,7 @@
 ///
 
 /// A point, or a size, depending on context.
-pub type alias Vec2 = { x = Float32, y = Float32 }
+pub type alias Vec2 = {x = Float32, y = Float32}
 
 /// The three kinds of invader, worth different points -- as in the original.
 pub enum InvaderKind with Eq, ToString {
@@ -20,12 +20,12 @@ pub enum InvaderKind with Eq, ToString {
 /// A defensive bunker: a grid of small blocks, each of which is either still there or shot
 /// away. `origin` is the top-left corner of the block grid.
 ///
-pub type alias Bunker = { origin = Vec2, cells = Vector[Bool] }
+pub type alias Bunker = {origin = Vec2, cells = Vector[Bool]}
 
 ///
 /// The mystery ship, while one is on screen. `dir` is -1.0 or 1.0.
 ///
-pub type alias Mystery = { x = Float32, dir = Float32 }
+pub type alias Mystery = {x = Float32, dir = Float32}
 
 /// What blew up. The two look different and last for different lengths of time.
 pub enum BlastKind with Eq, ToString {
@@ -36,10 +36,10 @@ pub enum BlastKind with Eq, ToString {
 ///
 /// A short-lived explosion. `ticksLeft` counts down to zero, at which point it is dropped.
 ///
-pub type alias Blast = { pos = Vec2, ticksLeft = Int32, kind = BlastKind }
+pub type alias Blast = {pos = Vec2, ticksLeft = Int32, kind = BlastKind}
 
 /// One invader in the formation. Dead ones keep their slot so the grid never reshuffles.
-pub type alias Invader = { pos = Vec2, alive = Bool, kind = InvaderKind, row = Int32 }
+pub type alias Invader = {pos = Vec2, alive = Bool, kind = InvaderKind, row = Int32}
 
 ///
 /// The three kinds of bomb the invaders drop, as in the original: "slow straight ones, fast
@@ -61,7 +61,7 @@ pub enum BombKind with Eq, ToString {
 /// wigglers dropped at different moments sway out of step, and what keeps `step` a pure
 /// function of its argument.
 ///
-pub type alias Bomb = { x = Float32, y = Float32, kind = BombKind, age = Int32 }
+pub type alias Bomb = {x = Float32, y = Float32, kind = BombKind, age = Int32}
 
 ///
 /// What the game is currently doing.
@@ -134,7 +134,7 @@ mod Rules {
     pub def fieldHeight(): Float32 = 480.0f32
 
     /// Matches the cannon sprite at `spriteScale` x 3: 13 x 8 pixels.
-    pub def playerSize(): Vec2 = { x = 39.0f32, y = 24.0f32 }
+    pub def playerSize(): Vec2 = {x = 39.0f32, y = 24.0f32}
 
     /// The fixed vertical baseline Y position of the player cannon.
     pub def playerY(): Float32 = 436.0f32
@@ -146,7 +146,7 @@ mod Rules {
     pub def startingLives(): Int32 = 3
 
     /// Bounding size of a player cannon bullet.
-    pub def bulletSize(): Vec2 = { x = 4.0f32, y = 12.0f32 }
+    pub def bulletSize(): Vec2 = {x = 4.0f32, y = 12.0f32}
 
     /// Screen pixels per sprite pixel.
     pub def spriteScale(): Float32 = 2.0f32
@@ -186,7 +186,7 @@ mod Rules {
     }
 
     /// Bounding size of an invader bomb.
-    pub def bombSize(): Vec2 = { x = 6.0f32, y = 14.0f32 }
+    pub def bombSize(): Vec2 = {x = 6.0f32, y = 14.0f32}
 
     ///
     /// How many bombs the formation may have in the air at once.
@@ -201,7 +201,7 @@ mod Rules {
     pub def maxBombs(): Int32 = 3
 
     /// A freshly dropped bomb. One place knows that a new bomb starts at age zero.
-    pub def bombAt(pos: Vec2, kind: BombKind): Bomb = { x = pos#x, y = pos#y, kind = kind, age = 0 }
+    pub def bombAt(pos: Vec2, kind: BombKind): Bomb = {x = pos#x, y = pos#y, kind = kind, age = 0}
 
     ///
     /// One in this many bombs survives being shot.
@@ -240,7 +240,7 @@ mod Rules {
     pub def bombChance(): Int32 = 60
 
     /// One hit box for every kind, so a squid is no harder to hit than an octopus.
-    pub def invaderSize(): Vec2 = { x = 24.0f32, y = 16.0f32 }
+    pub def invaderSize(): Vec2 = {x = 24.0f32, y = 16.0f32}
 
     /// Number of columns of invaders in a full formation.
     pub def columns(): Int32 = 11
@@ -613,7 +613,6 @@ mod Rules {
     /// Deterministic also means the saucer no longer draws from the generator, so what a
     /// player scores depends on how they played rather than on where the stream happened to
     /// be -- which is a better property for a replayable game than the randomness it cost.
-
     pub def mysteryFirstBonusShot(): Int32 = 23
 
     /// Interval of shots after the first bonus shot that awards 300 points.
@@ -626,8 +625,8 @@ mod Rules {
     /// Computes the score value awarded for hitting the mystery ship on `shotsFired`.
     pub def mysteryScoreFor(shotsFired: Int32): Int32 =
         if (
-            shotsFired >= mysteryFirstBonusShot() and
-                Int32.remainder(shotsFired - mysteryFirstBonusShot(), mysteryBonusEvery()) == 0
+            shotsFired >= mysteryFirstBonusShot()
+                and Int32.remainder(shotsFired - mysteryFirstBonusShot(), mysteryBonusEvery()) == 0
         )
             300
         else {

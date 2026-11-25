@@ -4,9 +4,9 @@ mod TestAnimation {
     use Assert.assertNeq
 
     def ball(x: Float32, y: Float32, dx: Float32, dy: Float32): Ball =
-        { x = x, y = y, dx = dx, dy = dy, radius = 10.0f32, tint = Color.white() }
+        {x = x, y = y, dx = dx, dy = dy, radius = 10.0f32, tint = Color.white()}
 
-    def worldOf(b: Ball): Bouncing = { balls = b :: Nil, nudge = 0.0f32 }
+    def worldOf(b: Ball): Bouncing = {balls = b :: Nil, nudge = 0.0f32}
 
     def only(w: Bouncing): Ball =
         match List.head(w#balls) {
@@ -140,7 +140,7 @@ mod TestAnimation {
 
     // -- ball-to-ball collisions ------------------------------------------------------
 
-    def worldOfTwo(a: Ball, b: Ball): Bouncing = { balls = a :: b :: Nil, nudge = 0.0f32 }
+    def worldOfTwo(a: Ball, b: Ball): Bouncing = {balls = a :: b :: Nil, nudge = 0.0f32}
 
     def at(index: Int32, w: Bouncing): Ball =
         match List.nth(index, w#balls) {
@@ -301,7 +301,7 @@ mod TestAnimation {
 
     // -- mass ------------------------------------------------------------------------
 
-    type alias BallSpec = { pos = (Float32, Float32), vel = (Float32, Float32), r = Float32 }
+    type alias BallSpec = {pos = (Float32, Float32), vel = (Float32, Float32), r = Float32}
 
     def ballR(spec: BallSpec): Ball = match (spec#pos, spec#vel) {
         case ((x, y), (dx, dy)) => {
@@ -343,8 +343,8 @@ mod TestAnimation {
         let v1 = (4.0f32, 0.0f32);
         let p2 = (338.0f32, 240.0f32);
         let v2 = (-4.0f32, 0.0f32);
-        let b1 = ballR({ pos = p1, vel = v1, r = 30.0f32 });
-        let b2 = ballR({ pos = p2, vel = v2, r = 10.0f32 });
+        let b1 = ballR({pos = p1, vel = v1, r = 30.0f32});
+        let b2 = ballR({pos = p2, vel = v2, r = 10.0f32});
         worldOfTwo(b1, b2)
     }
 
@@ -397,8 +397,8 @@ mod TestAnimation {
     def testLighterBallGivesWayWhenSeparating(): Unit \ Assert = {
         // Two stationary overlapping balls are pushed apart, and the lighter one moves the
         // larger share of the distance.
-        let heavy = ballR({ pos = (300.0f32, 240.0f32), vel = (0.0f32, 0.0f32), r = 30.0f32 });
-        let light = ballR({ pos = (320.0f32, 240.0f32), vel = (0.0f32, 0.0f32), r = 10.0f32 });
+        let heavy = ballR({pos = (300.0f32, 240.0f32), vel = (0.0f32, 0.0f32), r = 30.0f32});
+        let light = ballR({pos = (320.0f32, 240.0f32), vel = (0.0f32, 0.0f32), r = 10.0f32});
         let after = Animation.step(worldOfTwo(heavy, light), Input.empty());
         let heavyMoved = Float32.abs(at(0, after)#x - heavy#x);
         let lightMoved = Float32.abs(at(1, after)#x - light#x);
@@ -411,8 +411,8 @@ mod TestAnimation {
     @Test
     def testEqualMassesStillExchangeVelocities(): Unit \ Assert = {
         // The mass-weighted impulse must reduce to a plain swap when the masses match.
-        let a = ballR({ pos = (300.0f32, 240.0f32), vel = (5.0f32, 0.0f32), r = 15.0f32 });
-        let b = ballR({ pos = (328.0f32, 240.0f32), vel = (-2.0f32, 0.0f32), r = 15.0f32 });
+        let a = ballR({pos = (300.0f32, 240.0f32), vel = (5.0f32, 0.0f32), r = 15.0f32});
+        let b = ballR({pos = (328.0f32, 240.0f32), vel = (-2.0f32, 0.0f32), r = 15.0f32});
         let after = Animation.step(worldOfTwo(a, b), Input.empty());
         Assert.assertTrueWithMsg(
             Float32.abs(at(0, after)#dx - -2.0f32) < 0.001f32,

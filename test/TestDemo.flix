@@ -39,7 +39,7 @@ mod TestDemo {
     @Test
     def testTheBotHoldsFireWhenNothingIsLeft(): Unit \ Assert = {
         let cleared = {
-            invaders = Vector.map(inv -> { alive = false | inv }, start()#invaders) | start()
+            invaders = Vector.map(inv -> {alive = false | inv}, start()#invaders) | start()
         };
         assertTrue(Set.isEmpty(Demo.aim(Demo.defaults(), cleared)#held))
     }
@@ -129,12 +129,12 @@ mod TestDemo {
     ///
     def settled(): World = {
         let base = midGame();
-        let w = { bombs = Nil, mystery = None, marchDir = 0.0f32 | base };
-        let overhead = { x = w#playerX, y = 260.0f32 };
+        let w = {bombs = Nil, mystery = None, marchDir = 0.0f32 | base};
+        let overhead = {x = w#playerX, y = 260.0f32};
         let updateInv = (i, inv) ->
-            if (i == 0) { pos = overhead, alive = true | inv } else { alive = false | inv };
+            if (i == 0) {pos = overhead, alive = true | inv} else {alive = false | inv};
         let one = Vector.mapWithIndex(updateInv, w#invaders);
-        { invaders = one | w }
+        {invaders = one | w}
     }
 
     @Test
@@ -143,18 +143,18 @@ mod TestDemo {
         // prize -- that is time to stand under the formation and fire.
         let w = settled();
         let overhead = {
-            bombs = Rules.bombAt({ x = w#playerX, y = Rules.playerY() - 60.0f32 }, BombKind.Slow)
+            bombs = Rules.bombAt({x = w#playerX, y = Rules.playerY() - 60.0f32}, BombKind.Slow)
                 :: Nil | w
         };
-        let shielded = { shield = Rules.shieldTicks() | overhead };
+        let shielded = {shield = Rules.shieldTicks() | overhead};
         assertTrueWithMsg(
-            Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), overhead)#held) or
-                Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), overhead)#held),
+            Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), overhead)#held)
+                or Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), overhead)#held),
             "the fixture does not provoke a dodge in the first place"
         );
         assertFalseWithMsg(
-            Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), shielded)#held) or
-                Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), shielded)#held),
+            Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), shielded)#held)
+                or Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), shielded)#held),
             "the bot fled a bomb its shield was going to stop"
         )
     }
@@ -163,12 +163,12 @@ mod TestDemo {
     def testItStillDodgesWhenTheShieldIsAboutToLapse(): Unit \ Assert = {
         // The shield runs on a clock. One with a few ticks left does nothing about a bomb that
         // takes forty to arrive, and walking calmly into that would be a strange celebration.
-        let w = { bombs = Nil, mystery = None | midGame() };
-        let bomb = { x = w#playerX, y = Rules.playerY() - 60.0f32 };
-        let lapsing = { shield = 2, bombs = Rules.bombAt(bomb, BombKind.Slow) :: Nil | w };
+        let w = {bombs = Nil, mystery = None | midGame()};
+        let bomb = {x = w#playerX, y = Rules.playerY() - 60.0f32};
+        let lapsing = {shield = 2, bombs = Rules.bombAt(bomb, BombKind.Slow) :: Nil | w};
         assertTrueWithMsg(
-            Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), lapsing)#held) or
-                Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), lapsing)#held),
+            Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), lapsing)#held)
+                or Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), lapsing)#held),
             "the bot trusted a shield that expires before the bomb lands"
         )
     }
@@ -211,15 +211,15 @@ mod TestDemo {
         let up = 0.04f32 * Rules.invasionLine();
         let edge = 0.08f32 * Rules.invasionLine();
         let middle = 0.16f32 * Rules.invasionLine();
-        let place = (x, y) -> { x = x, y = y };
+        let place = (x, y) -> {x = x, y = y};
         let placed = Vector.mapWithIndex(
             (i, inv) -> match i {
-                case 0 => { pos = place(at(5 - gap), up), alive = true | inv }
-                case 1 => { pos = place(at(5 - gap), edge), alive = true | inv }
-                case 2 => { pos = place(at(5 + gap), up), alive = true | inv }
-                case 3 => { pos = place(at(5 + gap), edge), alive = true | inv }
-                case 4 => { pos = place(at(5), middle), alive = true | inv }
-                case _ => { alive = false | inv }
+                case 0 => {pos = place(at(5 - gap), up), alive = true | inv}
+                case 1 => {pos = place(at(5 - gap), edge), alive = true | inv}
+                case 2 => {pos = place(at(5 + gap), up), alive = true | inv}
+                case 3 => {pos = place(at(5 + gap), edge), alive = true | inv}
+                case 4 => {pos = place(at(5), middle), alive = true | inv}
+                case _ => {alive = false | inv}
             },
             midGame()#invaders
         );
@@ -247,7 +247,7 @@ mod TestDemo {
     def testWithoutTheRuleItWouldTakeTheLowerColumnInstead(): Unit \ Assert = {
         // The other half of the same claim: the fixture is one where lowest-first genuinely
         // disagrees. Without it this test would pass on a bot that always walks left.
-        let off = { narrowing = 0.0f32 | Demo.defaults() };
+        let off = {narrowing = 0.0f32 | Demo.defaults()};
         assertEq(expected = None, walks(off, wideBlock()))
     }
 
@@ -277,10 +277,10 @@ mod TestDemo {
         let yPos = 0.60f32 * Rules.invasionLine();
         let low =
             Vector.mapWithIndex(
-                (i, inv) -> if (i == 4) { pos = { x = inv#pos#x, y = yPos } | inv } else inv,
+                (i, inv) -> if (i == 4) {pos = {x = inv#pos#x, y = yPos} | inv} else inv,
                 w#invaders
             );
-        { invaders = low | w }
+        {invaders = low | w}
     }
 
     ///
@@ -301,7 +301,7 @@ mod TestDemo {
         // The control, and the bug as it stood: at a weight of 1 a column 60% of the way down
         // cannot outbid `narrowing`, so the bot walks off to the flank. Without this the test
         // above would pass on a bot that never walks left at all.
-        let asItWas = { imminence = 1.0f32 | Demo.defaults() };
+        let asItWas = {imminence = 1.0f32 | Demo.defaults()};
         assertEq(expected = Some(Key.Left), walks(asItWas, comingDown()))
     }
 
@@ -344,8 +344,8 @@ mod TestDemo {
         );
         assertTrueWithMsg(
             survived >= List.length(seeds) - 1,
-            "the bot ran out of lives on ${List.length(seeds) - survived} of ${List.length(seeds)} " +
-                "seeds; it is being hit rather than invaded"
+            "the bot ran out of lives on ${List.length(seeds) - survived} of ${List.length(seeds)} "
+                + "seeds; it is being hit rather than invaded"
         )
     }
 
@@ -365,19 +365,19 @@ mod TestDemo {
     ///
     def overheadAtShelter(): World = {
         let base = midGame();
-        let w = { playerX = underShelter(), bombs = Nil, mystery = None | base };
-        let overhead = { x = w#playerX, y = 200.0f32 };
+        let w = {playerX = underShelter(), bombs = Nil, mystery = None | base};
+        let overhead = {x = w#playerX, y = 200.0f32};
         let updateInv = (i, inv) ->
-            if (i == 0) { pos = overhead, alive = true | inv } else { alive = false | inv };
+            if (i == 0) {pos = overhead, alive = true | inv} else {alive = false | inv};
         let one = Vector.mapWithIndex(updateInv, w#invaders);
-        { invaders = one | w }
+        {invaders = one | w}
     }
 
     @Test
     def testItDoesNotShootThroughItsOwnBunker(): Unit \ Assert = {
         // The rules allow it, and carving a slit is a tactic in the arcade original -- but a
         // bot doing it by accident spends shots demolishing its own cover.
-        let w = { marchDir = 0.0f32 | overheadAtShelter() };
+        let w = {marchDir = 0.0f32 | overheadAtShelter()};
         assertTrueWithMsg(
             Bunkers.blocks(w#bunkers, w#playerX),
             "the fixture is not actually standing under a bunker"
@@ -397,10 +397,9 @@ mod TestDemo {
         let w = overheadAtShelter();
         let edge = Rules.bunkerLeft(0) - 1.0f32;
         let updateInv =
-            (i, inv) ->
-                if (i == 0) { pos = { x = edge, y = 200.0f32 }, alive = true | inv } else inv;
+            (i, inv) -> if (i == 0) {pos = {x = edge, y = 200.0f32}, alive = true | inv} else inv;
         let overhead = Vector.mapWithIndex(updateInv, w#invaders);
-        { invaders = overhead, playerX = edge, marchDir = 0.0f32 | w }
+        {invaders = overhead, playerX = edge, marchDir = 0.0f32 | w}
     }
 
     @Test
@@ -447,12 +446,9 @@ mod TestDemo {
     def testItStillShootsOnceTheBunkerAboveIsGone(): Unit \ Assert = {
         // The rule is "not through my own cover", not "never from here". Same world, same
         // target directly overhead -- only the shelter is gone.
-        let w = { marchDir = 0.0f32 | overheadAtShelter() };
+        let w = {marchDir = 0.0f32 | overheadAtShelter()};
         let bare = {
-            bunkers = Vector.map(
-                b -> { cells = Vector.map(_ -> false, b#cells) | b },
-                w#bunkers
-            ) | w
+            bunkers = Vector.map(b -> {cells = Vector.map(_ -> false, b#cells) | b}, w#bunkers) | w
         };
         assertTrue(Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), bare)#held))
     }
@@ -462,23 +458,21 @@ mod TestDemo {
         // Standing under a bunker is safer than standing beside one, because the bomb hits the
         // shelter first. Given a bomb overhead, the bot should be less eager to flee cover.
         let w = midGame();
-        let sheltered = { playerX = underShelter() | w };
+        let sheltered = {playerX = underShelter() | w};
         let bomb = {
             bombs = Rules.bombAt(
-                { x = sheltered#playerX, y = Rules.playerY() - 60.0f32 },
+                {x = sheltered#playerX, y = Rules.playerY() - 60.0f32},
                 BombKind.Slow
             )
                 :: Nil | sheltered
         };
         let exposed = {
-            bunkers = Vector.map(
-                b -> { cells = Vector.map(_ -> false, b#cells) | b },
-                bomb#bunkers
-            ) | bomb
+            bunkers = Vector.map(b -> {cells = Vector.map(_ -> false, b#cells) | b}, bomb#bunkers)
+            | bomb
         };
         let staysPut =
-            Set.isEmpty(Demo.aim(Demo.defaults(), bomb)#held) or
-                not Set.isEmpty(Demo.aim(Demo.defaults(), exposed)#held);
+            Set.isEmpty(Demo.aim(Demo.defaults(), bomb)#held)
+                or not Set.isEmpty(Demo.aim(Demo.defaults(), exposed)#held);
         assertTrueWithMsg(staysPut, "the bot treated cover and open ground as equally dangerous")
     }
 
@@ -641,7 +635,7 @@ mod TestDemo {
         // Staying alive beats lining up a shot.
         let w = midGame();
         let overhead = {
-            bombs = Rules.bombAt({ x = w#playerX, y = Rules.playerY() - 60.0f32 }, BombKind.Slow)
+            bombs = Rules.bombAt({x = w#playerX, y = Rules.playerY() - 60.0f32}, BombKind.Slow)
                 :: Nil | w
         };
         let moves = Demo.aim(Demo.defaults(), overhead)#held;
@@ -657,7 +651,7 @@ mod TestDemo {
         let w = midGame();
         let wide = {
             bombs = Rules.bombAt(
-                { x = w#playerX + 300.0f32, y = Rules.playerY() - 60.0f32 },
+                {x = w#playerX + 300.0f32, y = Rules.playerY() - 60.0f32},
                 BombKind.Slow
             )
                 :: Nil | w
@@ -669,10 +663,10 @@ mod TestDemo {
     def testTheBotDodgesTowardsTheOpenSide(): Unit \ Assert = {
         // Fleeing into a wall would be worse than not fleeing.
         let w = midGame();
-        let cornered = { playerX = Rules.playerSize()#x / 2.0f32 | w };
+        let cornered = {playerX = Rules.playerSize()#x / 2.0f32 | w};
         let bomb = {
             bombs = Rules.bombAt(
-                { x = cornered#playerX, y = Rules.playerY() - 40.0f32 },
+                {x = cornered#playerX, y = Rules.playerY() - 40.0f32},
                 BombKind.Slow
             )
                 :: Nil | cornered
@@ -685,7 +679,7 @@ mod TestDemo {
         // Not only at its chosen target: any shot that will meet something is worth taking,
         // whatever the bot is aiming at. Here the saucer is the target, far off to one side.
         let w = settled();
-        let distracted = { mystery = Some({ x = 20.0f32, dir = -1.0f32 }) | w };
+        let distracted = {mystery = Some({x = 20.0f32, dir = -1.0f32}) | w};
         assertTrueWithMsg(
             Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), distracted)#held),
             "the bot held fire on a shot that would have connected"
@@ -717,19 +711,16 @@ mod TestDemo {
         let high =
             Vector.mapWithIndex(
                 (i, inv) ->
-                    if (i == 0)
-                        { pos = { x = w#playerX, y = 40.0f32 }, alive = true | inv }
-                    else
-                        inv,
+                    if (i == 0) {pos = {x = w#playerX, y = 40.0f32}, alive = true | inv} else inv,
                 w#invaders
             );
-        let marching = { marchDir = 1.0f32, invaders = high | w };
+        let marching = {marchDir = 1.0f32, invaders = high | w};
         let flight = (Rules.playerY() - 40.0f32) / Rules.bulletSpeed();
         let drift = Rules.marchSpeedFor(1, marching#level) * flight;
         assertTrueWithMsg(
             drift > fireWindowPx(),
-            "the fixture drifts ${drift}px against a ${fireWindowPx()}px window, so it does not " +
-                "put the invader out of reach and the assertion below would prove nothing"
+            "the fixture drifts ${drift}px against a ${fireWindowPx()}px window, so it does not "
+                + "put the invader out of reach and the assertion below would prove nothing"
         );
         assertFalseWithMsg(
             Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), marching)#held),
@@ -753,36 +744,36 @@ mod TestDemo {
         // and the window closed from 5.0 to 2.0 -- so the behaviour worth pinning is now the
         // refusal, not the widening.
         let w = settled();
-        let marching = { marchDir = 1.0f32 | w };
+        let marching = {marchDir = 1.0f32 | w};
         let flight = (Rules.playerY() - 260.0f32) / Rules.bulletSpeed();
         let drift = Rules.marchSpeedFor(1, marching#level) * flight;
         assertTrueWithMsg(
             drift > fireWindowPx(),
-            "the fixture drifts ${drift}px, which is inside the ${fireWindowPx()}px window, " +
-                "so it does not test the refusal"
+            "the fixture drifts ${drift}px, which is inside the ${fireWindowPx()}px window, "
+                + "so it does not test the refusal"
         );
         assertTrueWithMsg(
             not Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), marching)#held),
-            "the bot fired at a target that will have drifted ${drift}px out of a " +
-                "${fireWindowPx()}px window by the time the shot arrives"
+            "the bot fired at a target that will have drifted ${drift}px out of a "
+                + "${fireWindowPx()}px window by the time the shot arrives"
         )
     }
 
     @Test
     def testTheBotHoldsFireOverEmptySky(): Unit \ Assert = {
         // The other half: it should not fire at a column it has already cleared.
-        let w = { bombs = Nil, playerX = 40.0f32 | midGame() };
+        let w = {bombs = Nil, playerX = 40.0f32 | midGame()};
         let farRight =
             Vector.mapWithIndex(
                 (i, inv) ->
                     if (i == 0)
-                        { pos = { x = 600.0f32, y = 200.0f32 }, alive = true | inv }
+                        {pos = {x = 600.0f32, y = 200.0f32}, alive = true | inv}
                     else
-                        { alive = false | inv },
+                        {alive = false | inv},
                 w#invaders
             );
         assertFalse(
-            Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), { invaders = farRight | w })#held)
+            Set.memberOf(Key.Space, Demo.aim(Demo.defaults(), {invaders = farRight | w})#held)
         )
     }
 
@@ -792,8 +783,8 @@ mod TestDemo {
         let w = midGame();
         let far = Rules.fieldWidth() - 40.0f32;
         let ufo = {
-            mystery = Some({ x = far, dir = 1.0f32 }),
-            bombs = Nil | { playerX = 60.0f32 | w }
+            mystery = Some({x = far, dir = 1.0f32}),
+            bombs = Nil | {playerX = 60.0f32 | w}
         };
         assertTrueWithMsg(
             Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), ufo)#held),
@@ -805,24 +796,24 @@ mod TestDemo {
     def testTheBotReturnsToTheFormationWhenTheSaucerLeaves(): Unit \ Assert = {
         // Put the two candidate targets on opposite sides so the choice is legible in the
         // direction it moves: saucer far left, the surviving invader far right.
-        let base = { bombs = Nil, playerX = 320.0f32 | midGame() };
+        let base = {bombs = Nil, playerX = 320.0f32 | midGame()};
         let oneRight =
             Vector.mapWithIndex(
                 (i, inv) ->
                     if (i == 0)
-                        { pos = { x = 600.0f32, y = 300.0f32 }, alive = true | inv }
+                        {pos = {x = 600.0f32, y = 300.0f32}, alive = true | inv}
                     else
-                        { alive = false | inv },
+                        {alive = false | inv},
                 base#invaders
             );
-        let w = { invaders = oneRight | base };
-        let withUfo = { mystery = Some({ x = 40.0f32, dir = -1.0f32 }) | w };
+        let w = {invaders = oneRight | base};
+        let withUfo = {mystery = Some({x = 40.0f32, dir = -1.0f32}) | w};
         assertTrueWithMsg(
             Set.memberOf(Key.Left, Demo.aim(Demo.defaults(), withUfo)#held),
             "the bot did not go for the saucer on its left"
         );
         assertTrueWithMsg(
-            Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), { mystery = None | w })#held),
+            Set.memberOf(Key.Right, Demo.aim(Demo.defaults(), {mystery = None | w})#held),
             "the bot did not return to the invader on its right"
         )
     }

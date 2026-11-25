@@ -14,7 +14,6 @@ mod TestBench {
     ///
     /// Each case below is a mistake actually made while tuning this bot.
     ///
-
     def game(level: Int32, deaths: Int32, ticks: Int32): Outcome =
         {
             seed = 1i64,
@@ -26,7 +25,7 @@ mod TestBench {
             drops = 0,
             ticks = ticks,
             invaded = true,
-            endgame = { pixels = 0.0f32, ticks = 0, kills = 0 }
+            endgame = {pixels = 0.0f32, ticks = 0, kills = 0}
         }
 
     // -- rates, not totals ------------------------------------------------------------------
@@ -39,8 +38,8 @@ mod TestBench {
         let brief = game(5, 6, 4000) :: Nil;
         assertEq(expected = Bench.deaths(steady), Bench.deaths(brief));
         assertTrueWithMsg(
-            Bench.rateTenths(Bench.deaths(brief), Bench.totalTicks(brief)) >
-                Bench.rateTenths(Bench.deaths(steady), Bench.totalTicks(steady)),
+            Bench.rateTenths(Bench.deaths(brief), Bench.totalTicks(brief))
+                > Bench.rateTenths(Bench.deaths(steady), Bench.totalTicks(steady)),
             "the shorter game did not register as the worse one"
         )
     }
@@ -94,8 +93,8 @@ mod TestBench {
 
     @Test
     def testEndgameMetricsAreAggregatedPerKill(): Unit \ Assert = {
-        let first = { endgame = { pixels = 120.0f32, ticks = 60, kills = 1 } | game(4, 0, 100) };
-        let second = { endgame = { pixels = 300.0f32, ticks = 156, kills = 2 } | game(5, 0, 100) };
+        let first = {endgame = {pixels = 120.0f32, ticks = 60, kills = 1} | game(4, 0, 100)};
+        let second = {endgame = {pixels = 300.0f32, ticks = 156, kills = 2} | game(5, 0, 100)};
         let measured = Bench.endgame(first :: second :: Nil);
         assertEq(expected = 420.0f32, measured#pixels);
         assertEq(expected = 216, measured#ticks);
@@ -130,7 +129,7 @@ mod TestBench {
         // Invasion and running out of lives call for opposite fixes, and the bot has done both
         // during tuning. A summary that did not separate them sent the last round of work
         // after the wrong problem.
-        let mixed = game(5, 0, 100) :: { invaded = false | game(4, 3, 100) } :: Nil;
+        let mixed = game(5, 0, 100) :: {invaded = false | game(4, 3, 100)} :: Nil;
         assertEq(expected = 1, Bench.invasions(mixed))
     }
 
@@ -187,8 +186,8 @@ mod TestBench {
         let cleared = game#level - 1;
         assertTrueWithMsg(
             game#kills >= cleared * Rules.totalInvaders(),
-            "reached level ${game#level} on ${game#kills} kills, which is fewer than the " +
-                "${cleared * Rules.totalInvaders()} needed to clear ${cleared} formations"
+            "reached level ${game#level} on ${game#kills} kills, which is fewer than the "
+                + "${cleared * Rules.totalInvaders()} needed to clear ${cleared} formations"
         )
     }
 

@@ -8,8 +8,7 @@ mod TestScores {
     /// ordinary arithmetic on ordinary data; only reading and writing the file is an effect,
     /// and that lives in `main` where no test can reach it.
     ///
-
-    def entry(name: String, score: Int32): Entry = { name = name, score = score, level = 1 }
+    def entry(name: String, score: Int32): Entry = {name = name, score = score, level = 1}
 
     def names(es: List[Entry]): List[String] = List.map(e -> e#name, es)
 
@@ -23,7 +22,7 @@ mod TestScores {
 
     @Test
     def testALineRoundTrips(): Unit \ Assert = {
-        let original = { name = "WLS", score = 4200, level = 7 };
+        let original = {name = "WLS", score = 4200, level = 7};
         match Scores.render(original :: Nil) {
             case line :: Nil => match Scores.parseLine(line) {
                 case Some(back) => assertEq(expected = shown(original), shown(back))
@@ -79,7 +78,7 @@ mod TestScores {
     def testASeparatorInANameCannotCorruptTheFile(): Unit \ Assert = {
         // The stored format is delimited, so a name containing the delimiter would produce
         // a line that parses back as something else entirely.
-        let dodgy = { name = Scores.clean("A|B"), score = 10, level = 1 };
+        let dodgy = {name = Scores.clean("A|B"), score = 10, level = 1};
         let line = Scores.render(dodgy :: Nil) |> List.head |> Option.getWithDefault("");
         assertEq(expected = Some(shown(dodgy)), Option.map(shown, Scores.parseLine(line)))
     }

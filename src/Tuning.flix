@@ -67,15 +67,11 @@ mod Tuning {
     /// Encodes a Tuning configuration record into formatted JSON text.
     pub def encode(t: Tuning): String =
         let groups =
-            aimGroup(t) :::
-                ""
-                :: lapseGroup(t) :::
-                ""
-                :: movementGroup(t) :::
-                ""
-                :: dangerGroup(t) :::
-                ""
-                :: targetGroup(t);
+            aimGroup(t)
+                ::: "" :: lapseGroup(t)
+                ::: "" :: movementGroup(t)
+                ::: "" :: dangerGroup(t)
+                ::: "" :: targetGroup(t);
         String.unlines("{" :: groups ::: "}" :: Nil)
 
     // -- reading -----------------------------------------------------------------------------
@@ -92,7 +88,7 @@ mod Tuning {
         match Map.get(key, members) {
             case Some(Json.JNumber(v)) =>
                 Option.getWithDefault(fallback, BigDecimal.tryToFloat32(v))
-            case _                     => fallback
+            case _ => fallback
         }
 
     def whole(members: Map[String, Json], key: String, fallback: Int32): Int32 =

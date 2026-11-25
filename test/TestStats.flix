@@ -11,7 +11,6 @@ mod TestStats {
     /// something readable, and the promise that switching the display on does not change the
     /// game underneath it -- which is the whole reason it is safe to leave in.
     ///
-
     def second(): Int64 = 1000000000i64
     def milli(): Int64 = 1000000i64
 
@@ -172,7 +171,7 @@ mod TestStats {
         let loud =
             Canvas.commands(
                 (640, 480),
-                () -> Screens.render({ nerds = true | start() }, Stats.empty())
+                () -> Screens.render({nerds = true | start()}, Stats.empty())
             );
         assertTrueWithMsg(
             List.length(loud) > List.length(quiet),

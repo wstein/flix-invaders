@@ -12,7 +12,7 @@
 /// ticks against 3 for the bot with no error at all: the shake was the jitter, not the game.
 ///
 /// One occupied column of the formation: its lowest invader, and how deep it is.
-pub type alias Column = { x = Float32, y = Float32, depth = Int32 }
+pub type alias Column = {x = Float32, y = Float32, depth = Int32}
 
 ///
 /// Every number that decides how the demo player behaves.
@@ -77,26 +77,26 @@ mod Demo {
     /// Every value here was measured, not chosen. See `docs/ARCHITECTURE.md` and `bin/bench`.
     ///
     pub def defaults(): Tuning = {
-        aimJitter = 8,
-        judgeFor = 18,
-        judgeSpread = 19,
-        lapseOneIn = 200,
-        lapseFor = 4,
-        lapseSpread = 9,
-        startAt = 1.5f32,
-        reverseAt = 6.0f32,
-        dangerWidth = 60.0f32,
+        aimJitter        = 8,
+        judgeFor         = 18,
+        judgeSpread      = 19,
+        lapseOneIn       = 200,
+        lapseFor         = 4,
+        lapseSpread      = 9,
+        startAt          = 1.5f32,
+        reverseAt        = 6.0f32,
+        dangerWidth      = 60.0f32,
         selfPreservation = 6.0f32,
-        urgency = 40.0f32,
-        shelterRelief = 0.25f32,
-        blockedCost = 2.0f32,
-        calm = 0.25f32,
-        stragglers = 1,
-        finishFlank = 1.1f32,
-        narrowTo = 0.30f32,
-        narrowing = 2.0f32,
-        fireWindow = 2.0f32,
-        imminence = 4.0f32
+        urgency          = 40.0f32,
+        shelterRelief    = 0.25f32,
+        blockedCost      = 2.0f32,
+        calm             = 0.25f32,
+        stragglers       = 1,
+        finishFlank      = 1.1f32,
+        narrowTo         = 0.30f32,
+        narrowing        = 2.0f32,
+        fireWindow       = 2.0f32,
+        imminence        = 4.0f32
     }
 
     /// The offsets from its current position that the bot considers standing at.
@@ -120,7 +120,7 @@ mod Demo {
     /// it is the one dropping bombs.
     ///
     def chooseTarget(t: Tuning, w: World): Option[Vec2] = match w#mystery {
-        case Some(m) => Some({ x = m#x, y = Rules.mysteryY() })
+        case Some(m) => Some({x = m#x, y = Rules.mysteryY()})
         case None    => bestColumn(t, w)
     }
 
@@ -152,7 +152,7 @@ mod Demo {
             |> Map.toList
             |> List.map(match (x, found) -> {
                 let (y, depth) = found;
-                { x = x, y = y, depth = depth }
+                {x = x, y = y, depth = depth}
             })
 
     ///
@@ -195,13 +195,13 @@ mod Demo {
             case Some((left, right)) =>
                 let looming = pressure(candidates);
                 let spread = (right - left) / fullWidth();
-                let ctx = { left = left, right = right, spread = spread, looming = looming };
+                let ctx = {left = left, right = right, spread = spread, looming = looming};
                 let selectBest = (best, c) -> {
                     let score = columnWorth(t, c, ctx);
                     match best {
-                        case None           => Some(({ x = c#x, y = c#y }, score))
+                        case None           => Some(({x = c#x, y = c#y}, score))
                         case Some((_, top)) =>
-                            let here = { x = c#x, y = c#y };
+                            let here = {x = c#x, y = c#y};
                             if (score > top) Some((here, score)) else best
                     }
                 };
@@ -381,7 +381,7 @@ mod Demo {
     /// time. Aiming at where a target *is* rather than where it will *be* misses nearly
     /// every shot.
     ///
-    def intent(t: Tuning, error: Float32, w: World): Option[{ goal = Float32, fire = Bool }] = {
+    def intent(t: Tuning, error: Float32, w: World): Option[{goal = Float32, fire = Bool}] = {
         match chooseTarget(t, w) {
             case None    => None
             case Some(p) =>
@@ -397,7 +397,7 @@ mod Demo {
                 // `goal` pixels, so dropping this subtraction sends the bot to the far wall.
                 let goal = bestSpot(t, w#playerX + dx, w) - w#playerX;
                 let fire = worthFiring(t, dx, w);
-                Some({ goal = goal, fire = fire })
+                Some({goal = goal, fire = fire})
         }
     }
 
@@ -425,24 +425,24 @@ mod Demo {
     /// A hand that has not played yet.
     pub def fresh(seed: Int64): Hand = {
         let rng = Rng.fromSeed(seed);
-        { rng = rng, error = 0.0f32, settled = 0, moving = 0, lapse = 0 }
+        {rng = rng, error = 0.0f32, settled = 0, moving = 0, lapse = 0}
     }
 
     def startLapse(t: Tuning, hand: Hand, rng: Rng): (Snapshot, Hand) = {
         let (extra, next) = Rng.nextInt32Below(t#lapseSpread, rng);
         let lTime = t#lapseFor + extra;
-        (Input.empty(), { rng = next, lapse = lTime, moving = 0 | hand })
+        (Input.empty(), {rng = next, lapse = lTime, moving = 0 | hand})
     }
 
     def playTick(t: Tuning, w: World, hand: Hand, rng: Rng): (Snapshot, Hand) = {
         let (error, settled, next) = judge(t, hand, rng);
         match intent(t, error, w) {
             case None    =>
-                let h = { rng = next, error = error, settled = settled, moving = 0 | hand };
+                let h = {rng = next, error = error, settled = settled, moving = 0 | hand};
                 (Input.empty(), h)
             case Some(i) =>
                 let moving = commit(t, hand#moving, i#goal);
-                let h = { rng = next, error = error, settled = settled, moving = moving | hand };
+                let h = {rng = next, error = error, settled = settled, moving = moving | hand};
                 (keysFor(moving, i#fire), h)
         }
     }
@@ -459,7 +459,7 @@ mod Demo {
     ///
     pub def imperfect(t: Tuning, w: World, hand: Hand): (Snapshot, Hand) =
         if (hand#lapse > 0)
-            (Input.empty(), { lapse = hand#lapse - 1, moving = 0 | hand })
+            (Input.empty(), {lapse = hand#lapse - 1, moving = 0 | hand})
         else {
             let (lapsing, afterChance) = Rng.chance(t#lapseOneIn, hand#rng);
             if (lapsing) startLapse(t, hand, afterChance) else playTick(t, w, hand, afterChance)

@@ -28,7 +28,7 @@ mod TestTuning {
 
     @Test
     def testATuningSurvivesEncodingAndDecoding(): Unit \ Assert = {
-        let t = { dangerWidth = 44.5f32, stragglers = 2, aimJitter = 3 | Demo.defaults() };
+        let t = {dangerWidth = 44.5f32, stragglers = 2, aimJitter = 3 | Demo.defaults()};
         assertEq(expected = shown(t), shown(decoded(Tuning.encode(t))))
     }
 
@@ -118,13 +118,13 @@ mod TestTuning {
             "a firing window narrower than a hit survived"
         );
         assertTrueWithMsg(
-            Tuning.sane({ fireWindow = 500.0f32 | Demo.defaults() })#fireWindow <= 20.0f32,
+            Tuning.sane({fireWindow = 500.0f32 | Demo.defaults()})#fireWindow <= 20.0f32,
             "a firing window wider than the field survived"
         );
         // At zero the bot stops caring how far down a target has come, which is the one thing
         // that ends games.
         assertTrueWithMsg(
-            Tuning.sane({ imminence = 0.0f32 | Demo.defaults() })#imminence > 0.0f32,
+            Tuning.sane({imminence = 0.0f32 | Demo.defaults()})#imminence > 0.0f32,
             "a bot indifferent to invaders reaching the ground survived"
         )
     }
@@ -148,9 +148,9 @@ mod TestTuning {
             drops = 0,
             ticks = 1000,
             invaded = true,
-            endgame = { pixels = 0.0f32, ticks = 0, kills = 0 }
+            endgame = {pixels = 0.0f32, ticks = 0, kills = 0}
         };
-        let high = { level = 5 | low };
+        let high = {level = 5 | low};
         assertTrue(Bench.merit(high :: Nil) > Bench.merit(low :: Nil))
     }
 
@@ -168,10 +168,10 @@ mod TestTuning {
             drops = 0,
             ticks = 1000,
             invaded = true,
-            endgame = { pixels = 0.0f32, ticks = 0, kills = 0 }
+            endgame = {pixels = 0.0f32, ticks = 0, kills = 0}
         };
-        let steady = base :: { level = 5 | base } :: Nil;
-        let swingy = { level = 3 | base } :: { level = 6 | base } :: Nil;
+        let steady = base :: {level = 5 | base} :: Nil;
+        let swingy = {level = 3 | base} :: {level = 6 | base} :: Nil;
         assertEq(expected = Bench.meanLevelTenths(steady), Bench.meanLevelTenths(swingy));
         assertTrueWithMsg(
             Bench.merit(steady) > Bench.merit(swingy),

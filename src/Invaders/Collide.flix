@@ -18,10 +18,10 @@ mod Collide {
     /// All four arguments are named. They are structurally identical `Vec2`s, so a
     /// transposed pair would compile, type-check, and silently change collision.
     pub def overlaps(
-        aPos: { aPos = Vec2 },
-        aSize: { aSize = Vec2 },
-        bPos: { bPos = Vec2 },
-        bSize: { bSize = Vec2 }
+        aPos: {aPos = Vec2},
+        aSize: {aSize = Vec2},
+        bPos: {bPos = Vec2},
+        bSize: {bSize = Vec2}
     ): Bool = {
         let dx = Float32.abs(aPos#aPos#x - bPos#bPos#x);
         let dy = Float32.abs(aPos#aPos#y - bPos#bPos#y);

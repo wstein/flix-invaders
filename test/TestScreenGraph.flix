@@ -15,7 +15,6 @@ mod TestScreenGraph {
     /// machine rather than the state machine, and would keep passing after somebody deleted
     /// the way out of `Table`.
     ///
-
     def seed(): Int64 = 2026i64
 
     /// Enter, space, 1, 2, a letter, backspace, and nothing at all.
@@ -42,9 +41,9 @@ mod TestScreenGraph {
     /// `Entering` as unreachable.
     ///
     def gameOver(s: Session): Session = {
-        let updateWorld = w -> { phase = Phase.Lost, score = 9999 | w };
+        let updateWorld = w -> {phase = Phase.Lost, score = 9999 | w};
         let newWorlds = Vector.map(updateWorld, s#worlds);
-        { worlds = newWorlds | s }
+        {worlds = newWorlds | s}
     }
 
     ///
@@ -54,15 +53,15 @@ mod TestScreenGraph {
     /// to decide.
     ///
     def fixtures(): List[(Screen, Session)] = {
-        let oldScore = { name = "OLD", score = 10, level = 1 };
+        let oldScore = {name = "OLD", score = 10, level = 1};
         let base = Session.withScores(seed(), oldScore :: Nil);
-        let playing = gameOver({ screen = Screen.Playing, players = 1 | base });
-        let pEntry = { player = 0, entry = { name = "", score = 9999, level = 4 } };
-        let entering = { screen = Screen.Entering, pending = pEntry :: Nil, typing = "AB" | base };
+        let playing = gameOver({screen = Screen.Playing, players = 1 | base});
+        let pEntry = {player = 0, entry = {name = "", score = 9999, level = 4}};
+        let entering = {screen = Screen.Entering, pending = pEntry :: Nil, typing = "AB" | base};
         (Screen.Attract, base)
             :: (Screen.Playing, playing)
             :: (Screen.Entering, entering)
-            :: (Screen.Table, { screen = Screen.Table | base })
+            :: (Screen.Table, {screen = Screen.Table | base})
             :: Nil
     }
 
