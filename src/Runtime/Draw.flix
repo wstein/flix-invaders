@@ -49,9 +49,9 @@ mod Color {
     /// Relative luminance, from 0.0 (black) to 1.0 (white), per WCAG 2.1.
     ///
     pub def luminance(c: Color): Float64 =
-        0.2126 * linearize(redOf(c)) +
-            0.7152 * linearize(greenOf(c)) +
-            0.0722 * linearize(blueOf(c))
+        0.2126 * linearize(redOf(c))
+            + 0.7152 * linearize(greenOf(c))
+            + 0.0722 * linearize(blueOf(c))
 
     ///
     /// The WCAG 2.1 contrast ratio between two colours, from 1.0 to 21.0.

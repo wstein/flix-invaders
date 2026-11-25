@@ -110,7 +110,7 @@ mod Animation {
     /// exactly -- the reason the tests can assert about it at all.
     ///
     pub def initial(seed: Int64): Bouncing =
-        { balls = makeBalls(4, 0, Rng.fromSeed(seed)), nudge = 0.0f32 }
+        {balls = makeBalls(4, 0, Rng.fromSeed(seed)), nudge = 0.0f32}
 
     def clampBounds(pos: Float32, vel: Float32, minPos: Float32, maxPos: Float32): (
         Float32,
@@ -138,7 +138,7 @@ mod Animation {
         let maxY = fieldHeight() - b#radius;
         let (finalX, finalDx) = clampBounds(b#x + dx, dx, minX, maxX);
         let (finalY, finalDy) = clampBounds(b#y + dy, dy, minY, maxY);
-        { x = finalX, y = finalY, dx = finalDx, dy = finalDy | b }
+        {x = finalX, y = finalY, dx = finalDx, dy = finalDy | b}
     }
 
     def sqrtOf(x: Float32): Float32 = Float32.pow(base = x, 0.5f32)
@@ -169,10 +169,10 @@ mod Animation {
     /// `nx`/`ny` is the unit vector from one centre to the other; `closing` is the relative
     /// velocity projected onto it, negative when the balls are approaching.
     ///
-    type alias CollisionNorm = { nx = Float32, ny = Float32, closing = Float32 }
+    type alias CollisionNorm = {nx = Float32, ny = Float32, closing = Float32}
 
     /// The two masses in a collision, named so the caller cannot pass them the wrong way round.
-    type alias Masses = { a = Float32, b = Float32 }
+    type alias Masses = {a = Float32, b = Float32}
 
     ///
     /// Exchanges momentum along the collision normal.
@@ -192,8 +192,8 @@ mod Animation {
             let deltaBx = impulse / massB * norm#nx;
             let deltaBy = impulse / massB * norm#ny;
             (
-                { dx = a1#dx - deltaAx, dy = a1#dy - deltaAy | a1 },
-                { dx = b1#dx + deltaBx, dy = b1#dy + deltaBy | b1 }
+                {dx = a1#dx - deltaAx, dy = a1#dy - deltaAy | a1},
+                {dx = b1#dx + deltaBx, dy = b1#dy + deltaBy | b1}
             )
         }
 
@@ -232,13 +232,13 @@ mod Animation {
             let overlap = touching - distance;
             let shareA = overlap * (massB / total);
             let shareB = overlap * (massA / total);
-            let a1 = { x = a#x - nx * shareA, y = a#y - ny * shareA | a };
-            let b1 = { x = b#x + nx * shareB, y = b#y + ny * shareB | b };
+            let a1 = {x = a#x - nx * shareA, y = a#y - ny * shareA | a};
+            let b1 = {x = b#x + nx * shareB, y = b#y + ny * shareB | b};
 
             // Closing speed along the normal. Negative means they are approaching.
             let closing = (b#dx - a#dx) * nx + (b#dy - a#dy) * ny;
-            let masses = { a = massA, b = massB };
-            let norm = { nx = nx, ny = ny, closing = closing };
+            let masses = {a = massA, b = massB};
+            let norm = {nx = nx, ny = ny, closing = closing};
             bounceBalls(a1, b1, masses, norm)
         }
     }
@@ -272,7 +272,7 @@ mod Animation {
         let nudge = left + right;
         let moved = List.map(advanceBall(nudge), world#balls);
         let bounced = resolveCollisions(List.toVector(moved));
-        { balls = List.map(clampToField, Vector.toList(bounced)), nudge = nudge }
+        {balls = List.map(clampToField, Vector.toList(bounced)), nudge = nudge}
     }
 
     ///

@@ -429,19 +429,19 @@ mod Sketch {
         run {
             f()
         } with handler Canvas {
-            def clear(c, k) = {
+            def clear(c, k)            = {
                 Surface.background(sheet, c);
                 k()
             }
-            def fill(c, k) = {
+            def fill(c, k)             = {
                 Surface.fill(sheet, c);
                 k()
             }
-            def fillAlpha(c, a, k) = {
+            def fillAlpha(c, a, k)     = {
                 Surface.fillAlpha(sheet, c, a);
                 k()
             }
-            def rect(x, y, w, h, k) = {
+            def rect(x, y, w, h, k)    = {
                 Surface.rect(sheet, x, y, w, h);
                 k()
             }
@@ -449,15 +449,15 @@ mod Sketch {
                 Surface.ellipse(sheet, x, y, w, h);
                 k()
             }
-            def text(str, x, y, k) = {
+            def text(str, x, y, k)     = {
                 Surface.text(sheet, str, x, y);
                 k()
             }
-            def textSize(px, k) = {
+            def textSize(px, k)        = {
                 Surface.textSize(sheet, px);
                 k()
             }
-            def dimensions(k) = k(Surface.size(sheet))
+            def dimensions(k)          = k(Surface.size(sheet))
         }
 
     ///

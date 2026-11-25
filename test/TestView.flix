@@ -12,7 +12,6 @@ mod TestView {
     /// readable. And the between-levels countdown, which is ordinary arithmetic and so has no
     /// business being discovered wrong on screen.
     ///
-
     def start(): World = Game.initial(2026i64)
 
     def texts(w: World): List[String] =
@@ -40,8 +39,8 @@ mod TestView {
         // `Screens.attractPanelTop` is public at all.
         assertTrueWithMsg(
             View.bannerY() < Screens.attractPanelTop(),
-            "the banner baseline ${View.bannerY()} is inside the attract panel, " +
-                "which starts at ${Screens.attractPanelTop()}"
+            "the banner baseline ${View.bannerY()} is inside the attract panel, "
+                + "which starts at ${Screens.attractPanelTop()}"
         )
     }
 
@@ -49,7 +48,7 @@ mod TestView {
     def testEverythingTheClearedScreenDrawsClearsThePanel(): Unit \ Assert = {
         // Not just the banner: the countdown digit sits below it and is the thing most likely
         // to creep back into the panel when the layout is next adjusted.
-        let cleared = { phase = Phase.Cleared, pause = Rules.levelPauseTicks() | start() };
+        let cleared = {phase = Phase.Cleared, pause = Rules.levelPauseTicks() | start()};
         let below = Canvas.commands((640, 480), () -> View.render(cleared))
             |> List.filterMap(cmd -> match cmd {
                 case DrawCmd.Text(s, _, y) =>
@@ -117,7 +116,7 @@ mod TestView {
 
     @Test
     def testTheCountdownIsDrawnWhileTheLevelIsChanging(): Unit \ Assert = {
-        let cleared = { phase = Phase.Cleared, pause = Rules.levelPauseTicks() | start() };
+        let cleared = {phase = Phase.Cleared, pause = Rules.levelPauseTicks() | start()};
         assertTrueWithMsg(
             List.memberOf("${Rules.countdownSteps()}", texts(cleared)),
             "no countdown digit on the cleared screen: ${texts(cleared)}"
@@ -145,13 +144,13 @@ mod TestView {
     @Test
     def testTheLevelBannerNamesTheLevelBeingStarted(): Unit \ Assert = {
         // The one about to be played, not the one just finished.
-        let cleared = { phase = Phase.Cleared, level = 4, pause = 30 | start() };
+        let cleared = {phase = Phase.Cleared, level = 4, pause = 30 | start()};
         assertTrue(List.memberOf("LEVEL 5", texts(cleared)))
     }
 
     @Test
     def testGameOverSaysHowToPlayAgain(): Unit \ Assert = {
-        let lost = { phase = Phase.Lost | start() };
+        let lost = {phase = Phase.Lost | start()};
         let shown = texts(lost);
         assertTrue(List.memberOf("GAME OVER", shown));
         assertTrueWithMsg(
@@ -163,8 +162,8 @@ mod TestView {
     @Test
     def testGameOverAndTheLevelBannerShareABaseline(): Unit \ Assert = {
         // They are the same furniture in the same place; a reader should not have to hunt.
-        let lost = { phase = Phase.Lost | start() };
-        let cleared = { phase = Phase.Cleared, pause = 30 | start() };
+        let lost = {phase = Phase.Lost | start()};
+        let cleared = {phase = Phase.Cleared, pause = 30 | start()};
         assertEq(
             expected = baselineOf("GAME OVER", lost),
             baselineOf("LEVEL ${start()#level + 1}", cleared)

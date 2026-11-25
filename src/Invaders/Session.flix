@@ -23,7 +23,7 @@ pub enum Screen with Eq, Order, ToString {
 /// what gets written to the high-score file and which of two people set a score is not a
 /// property of the score.
 ///
-pub type alias Claim = { player = Int32, entry = Entry }
+pub type alias Claim = {player = Int32, entry = Entry}
 
 /// The arcade cabinet's complete state across games, players, screens, and high scores.
 pub type alias Session = {
@@ -119,7 +119,7 @@ mod Session {
         let count = Vector.length(s#worlds);
         let nextIdx = Int32.remainder(s#current + 1, count);
         let other = if (s#players < 2) 0 else Vector.get(nextIdx, s#worlds)#score;
-        { player = s#current + 1, players = s#players, otherScore = other, ownGameOver = false }
+        {player = s#current + 1, players = s#players, otherScore = other, ownGameOver = false}
     }
 
     /// The world whose turn it is.
@@ -148,7 +148,7 @@ mod Session {
         let freshWorlds = Vector.range(0, players)
             |> Vector.map(i -> {
                 let fresh = Game.initial(s#seed + Int32.toInt64(i));
-                { hiScore = best | fresh }
+                {hiScore = best | fresh}
             });
         {
             screen = Screen.Playing,
@@ -175,7 +175,7 @@ mod Session {
                 let nextSeed = demoSeed(s#seed) + Int32.toInt64(advanced#score) + 1i64;
                 Game.initial(nextSeed)
             } else advanced;
-        let waiting = { demo = restarted, demoHand = nextHand | s };
+        let waiting = {demo = restarted, demoHand = nextHand | s};
         match startRequest(input) {
             case Some(players) => begin(players, waiting)
             case None          => waiting
@@ -209,12 +209,12 @@ mod Session {
         let earned = Vector.toList(s#worlds)
             |> List.mapWithIndex((i, w) -> (i, w))
             |> List.filter(match (_, w) -> Scores.qualifies(w#score, s#scores))
-            |> List.map(match (i, w) -> let entry = { name = "", score = w#score, level = w#level };
-            { player = i, entry = entry });
+            |> List.map(match (i, w) -> let entry = {name = "", score = w#score, level = w#level};
+            {player = i, entry = entry});
         if (List.isEmpty(earned))
-            { screen = Screen.Table, pending = Nil | s }
+            {screen = Screen.Table, pending = Nil | s}
         else
-            { screen = Screen.Entering, pending = earned, typing = "" | s }
+            {screen = Screen.Entering, pending = earned, typing = "" | s}
     }
 
     ///
@@ -231,8 +231,8 @@ mod Session {
     def advanceWorld(input: Snapshot, s: Session): Session \ Sound = {
         let stepped = Game.step(active(s), input);
         let worlds = Vector.update(s#current, stepped, s#worlds);
-        let advanced = { worlds = worlds | s };
-        if (stepped#phase != Phase.Lost) advanced else { over = Rules.gameOverTicks() | advanced }
+        let advanced = {worlds = worlds | s};
+        if (stepped#phase != Phase.Lost) advanced else {over = Rules.gameOverTicks() | advanced}
     }
 
     def playing(input: Snapshot, s: Session): Session \ Sound = {
@@ -240,10 +240,10 @@ mod Session {
         // hand-over does not begin until it has run: switching players first would put the
         // incoming player's field behind the outgoing player's ending.
         if (s#over > 0) {
-            let counted = { over = s#over - 1 | s };
+            let counted = {over = s#over - 1 | s};
             checked_ecast(if (counted#over > 0) counted else afterGameOver(counted))
         } else if (s#handover > 0)
-            checked_ecast({ handover = s#handover - 1 | s })
+            checked_ecast({handover = s#handover - 1 | s})
         else if (allDone(s))
             finish(s)
         else
@@ -257,7 +257,7 @@ mod Session {
     /// following tick, which is where the score table and the initials prompt are decided.
     ///
     def afterGameOver(s: Session): Session = match nextPlayer(s#current, s) {
-        case Some(next) => { current = next, handover = Rules.handoverTicks() | s }
+        case Some(next) => {current = next, handover = Rules.handoverTicks() | s}
         case None       => s
     }
 
@@ -282,16 +282,16 @@ mod Session {
         let hasEnter = Set.memberOf(Key.Enter, input#pressed);
         let hasName = String.length(afterDelete) > 0;
         if (not (hasEnter and hasName))
-            { typing = afterDelete | s }
+            {typing = afterDelete | s}
         else
             match s#pending {
-                case Nil           => { screen = Screen.Table, typing = "" | s }
+                case Nil           => {screen = Screen.Table, typing = "" | s}
                 case claim :: rest => {
-                    let recorded = Scores.insert({ name = afterDelete | claim#entry }, s#scores);
+                    let recorded = Scores.insert({name = afterDelete | claim#entry}, s#scores);
                     if (List.isEmpty(rest))
-                        { screen = Screen.Table, scores = recorded, pending = Nil, typing = "" | s }
+                        {screen = Screen.Table, scores = recorded, pending = Nil, typing = "" | s}
                     else
-                        { scores = recorded, pending = rest, typing = "" | s }
+                        {scores = recorded, pending = rest, typing = "" | s}
                 }
             }
     }
@@ -300,7 +300,7 @@ mod Session {
     def table(input: Snapshot, s: Session): Session = {
         let pressed = input#pressed;
         let pressedKey = Set.memberOf(Key.Enter, pressed) or Set.memberOf(Key.Space, pressed);
-        if (pressedKey) { screen = Screen.Attract | s } else s
+        if (pressedKey) {screen = Screen.Attract | s} else s
     }
 
     ///
@@ -318,7 +318,7 @@ mod Session {
     /// Advances the cabinet session by one tick given user input.
     pub def step(s: Session, input: Snapshot): Session \ Sound = {
         let shown = if (togglesNerds(input)) not s#nerds else s#nerds;
-        { nerds = shown | advance(s, input) }
+        {nerds = shown | advance(s, input)}
     }
 
     def advance(s: Session, input: Snapshot): Session \ Sound = match s#screen {

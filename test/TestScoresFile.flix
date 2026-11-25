@@ -16,7 +16,6 @@ mod TestScoresFile {
     /// with a frozen one rather than the default. Nothing below touches the outside world at
     /// all, not even to ask what time it is.
     ///
-
     type alias FsEffects = Fs.FileRead + Fs.FileWrite + Fs.FileSystem + Time.Clock
 
     def onMemoryFS(f: Unit -> a \ ef): a \ (ef - FsEffects) =
@@ -36,9 +35,9 @@ mod TestScoresFile {
 
     /// A directory that has never existed, so saving has to create it.
     def somewhere(): Scores.Location =
-        { dir = "/nowhere/flix-invaders", file = "/nowhere/flix-invaders/scores.txt" }
+        {dir = "/nowhere/flix-invaders", file = "/nowhere/flix-invaders/scores.txt"}
 
-    def entry(name: String, score: Int32): Entry = { name = name, score = score, level = 3 }
+    def entry(name: String, score: Int32): Entry = {name = name, score = score, level = 3}
 
     def shown(e: Entry): String = "${e#name}/${e#score}/${e#level}"
     def shownAll(es: List[Entry]): List[String] = List.map(shown, es)
@@ -132,7 +131,7 @@ mod TestScoresFile {
         run {
             f()
         } with handler Fs.FileRead {
-            def read(_file, k) = k(Err(failure()))
+            def read(_file, k)      = k(Err(failure()))
             def readBytes(_file, k) = k(Err(failure()))
             def readLines(_file, k) = k(Err(failure()))
         }
@@ -145,8 +144,7 @@ mod TestScoresFile {
             () ->
                 match Scores.load(somewhere()) {
                     case Ok(entries) => assertTrue(List.isEmpty(entries))
-                    case Err(why)    =>
-                        Assert.fail("NotFound should mean no scores yet, got ${why}")
+                    case Err(why) => Assert.fail("NotFound should mean no scores yet, got ${why}")
                 }
         )
 

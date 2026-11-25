@@ -20,7 +20,7 @@ pub type alias Outcome = {
 }
 
 /// The bot's movement and progress while eight or fewer invaders remain in a formation.
-pub type alias Endgame = { pixels = Float32, ticks = Int32, kills = Int32 }
+pub type alias Endgame = {pixels = Float32, ticks = Int32, kills = Int32}
 
 ///
 /// Measuring the computer player.
@@ -94,7 +94,7 @@ mod Bench {
 
     def alive(w: World): Int32 = Vector.count(inv -> inv#alive, w#invaders)
 
-    def emptyEndgame(): Endgame = { pixels = 0.0f32, ticks = 0, kills = 0 }
+    def emptyEndgame(): Endgame = {pixels = 0.0f32, ticks = 0, kills = 0}
 
     ///
     /// A tick the bot can act on, with eight or fewer invaders left.
@@ -132,7 +132,7 @@ mod Bench {
     /// One run in progress: the ticks left in its budget, the world, the bot's hand, and the
     /// figures gathered so far.
     ///
-    type alias BenchState = { left = Int32, world = World, hand = Hand, acc = BenchAccumulator }
+    type alias BenchState = {left = Int32, world = World, hand = Hand, acc = BenchAccumulator}
 
     ///
     /// One tick of a run: the bot decides, the world steps, and the figures take note.
@@ -154,7 +154,7 @@ mod Bench {
             ticks = acc#ticks + 1,
             endgame = observeEndgame(w, stepped, acc#endgame)
         };
-        { left = st#left - 1, world = stepped, hand = nextHand, acc = nextAcc }
+        {left = st#left - 1, world = stepped, hand = nextHand, acc = nextAcc}
     }
 
     ///
@@ -194,7 +194,7 @@ mod Bench {
                 }
             } else loop(stepBench(tuning, st))
         };
-        let initAcc = { deaths = 0, kills = 0, drops = 0, ticks = 0, endgame = emptyEndgame() };
+        let initAcc = {deaths = 0, kills = 0, drops = 0, ticks = 0, endgame = emptyEndgame()};
         loop({
             left = budget(),
             world = Game.initial(seed),
@@ -389,8 +389,8 @@ mod Bench {
             else {
                 let (improved, improvedScore) = List.foldLeft(tryKnob, (best, bestScore), knobs());
                 println(
-                    "  round ${rounds - remaining + 1}: merit ${improvedScore}" +
-                        (if (improvedScore > bestScore) "" else "  (no improvement)")
+                    "  round ${rounds - remaining + 1}: merit ${improvedScore}"
+                        + (if (improvedScore > bestScore) "" else "  (no improvement)")
                 );
                 if (improvedScore <= bestScore)
                     (best, bestScore)
@@ -418,60 +418,60 @@ mod Bench {
         List.map(
             by -> ((t: Tuning) ->
                 let dw = scaled(t#dangerWidth, by);
-                { dangerWidth = dw | t }),
+                {dangerWidth = dw | t}),
             spread()
         )
             :: List.map(
                 by -> ((t: Tuning) ->
                     let sp = scaled(t#selfPreservation, by);
-                    { selfPreservation = sp | t }),
+                    {selfPreservation = sp | t}),
                 spread()
             )
             :: List.map(
                 by -> ((t: Tuning) ->
                     let u = scaled(t#urgency, by);
-                    { urgency = u | t }),
+                    {urgency = u | t}),
                 spread()
             )
             :: List.map(
                 by -> ((t: Tuning) ->
                     let bc = scaled(t#blockedCost, by);
-                    { blockedCost = bc | t }),
+                    {blockedCost = bc | t}),
                 spread()
             )
             :: List.map(
                 by -> ((t: Tuning) ->
                     let sr = scaled(t#shelterRelief, by);
-                    { shelterRelief = sr | t }),
+                    {shelterRelief = sr | t}),
                 spread()
             )
             :: List.map(
                 by -> ((t: Tuning) ->
                     let c = scaled(t#calm, by);
-                    { calm = c | t }),
+                    {calm = c | t}),
                 spread()
             )
             :: List.map(
                 by -> ((t: Tuning) ->
                     let ff = scaled(t#finishFlank, by);
-                    { finishFlank = ff | t }),
+                    {finishFlank = ff | t}),
                 spread()
             )
             :: List.map(
                 by -> ((t: Tuning) ->
                     let sa = scaled(t#startAt, by);
-                    { startAt = sa | t }),
+                    {startAt = sa | t}),
                 spread()
             )
             :: List.map(
                 by -> ((t: Tuning) ->
                     let ra = scaled(t#reverseAt, by);
-                    { reverseAt = ra | t }),
+                    {reverseAt = ra | t}),
                 spread()
             )
-            :: List.map(n -> ((t: Tuning) -> { aimJitter = t#aimJitter + n | t }), bumps())
-            :: List.map(n -> ((t: Tuning) -> { judgeFor = t#judgeFor + n * 4 | t }), bumps())
-            :: List.map(n -> ((t: Tuning) -> { lapseFor = t#lapseFor + n | t }), bumps())
+            :: List.map(n -> ((t: Tuning) -> {aimJitter = t#aimJitter + n | t}), bumps())
+            :: List.map(n -> ((t: Tuning) -> {judgeFor = t#judgeFor + n * 4 | t}), bumps())
+            :: List.map(n -> ((t: Tuning) -> {lapseFor = t#lapseFor + n | t}), bumps())
             :: Nil
 
     // -- reporting --------------------------------------------------------------------------
@@ -509,8 +509,8 @@ mod Bench {
         List.forEach(r -> println(row(r)), runs);
         println("");
         let meanMsg =
-            "  mean level      ${showTenths(meanLevelTenths(runs))}" +
-                "   (worst ${worstLevel(runs)}, best ${bestLevel(runs)})";
+            "  mean level      ${showTenths(meanLevelTenths(runs))}"
+                + "   (worst ${worstLevel(runs)}, best ${bestLevel(runs)})";
         println(meanMsg);
         let dRate = showTenths(rateTenths(deaths(runs), ticks));
         println("  deaths          ${deaths(runs)} = ${dRate} per 10000 ticks");
@@ -520,20 +520,20 @@ mod Bench {
         println("  row drops       ${drops(runs)} = ${rRate} per 10000 ticks");
         let endg = endgame(runs);
         let egMsg =
-            "  <=8 invaders    ${pixelsPerKill(endg)} px/kill, " +
-                "${ticksPerKill(endg)} ticks/kill" +
-                " (${endg#pixels} px, ${endg#ticks} ticks, ${endg#kills} kills)";
+            "  <=8 invaders    ${pixelsPerKill(endg)} px/kill, "
+                + "${ticksPerKill(endg)} ticks/kill"
+                + " (${endg#pixels} px, ${endg#ticks} ticks, ${endg#kills} kills)";
         println(egMsg);
         let endedMsg =
-            "  ended by        ${invasions(runs)} invaded, " +
-                "${List.length(runs) - invasions(runs)} out of lives";
+            "  ended by        ${invasions(runs)} invaded, "
+                + "${List.length(runs) - invasions(runs)} out of lives";
         println(endedMsg);
 
         let cut = unfinished(runs);
         if (cut > 0) {
             let warnMsg =
-                "  WARNING         ${cut} game(s) hit the budget and were cut short; " +
-                    "raise budget() before trusting these numbers";
+                "  WARNING         ${cut} game(s) hit the budget and were cut short; "
+                    + "raise budget() before trusting these numbers";
             println(warnMsg)
         } else ()
     }
@@ -577,8 +577,8 @@ mod Bench {
             optionIds = 'r' :: Nil,
             optionNames = "recalc" :: Nil,
             argDescriptor = ArgDescr.OptArg(parseRounds, "ROUNDS"),
-            explanation = "search for a better tuning " +
-                "(default ${defaultRounds()} rounds) and save it if it wins"
+            explanation = "search for a better tuning "
+                + "(default ${defaultRounds()} rounds) and save it if it wins"
         };
         let configOpt = {
             optionIds = 'c' :: Nil,
@@ -596,9 +596,9 @@ mod Bench {
             optionIds = 'w' :: Nil,
             optionNames = "wide" :: Nil,
             argDescriptor = ArgDescr.NoArg(Flag.Wide),
-            explanation = "play ${List.length(wideSeeds())} seeds " +
-                "instead of ${List.length(seeds())}; " +
-                "slower, and the only sample that can settle a close call"
+            explanation = "play ${List.length(wideSeeds())} seeds "
+                + "instead of ${List.length(seeds())}; "
+                + "slower, and the only sample that can settle a close call"
         };
         helpOpt :: recalcOpt :: configOpt :: defaultsOpt :: wideOpt :: Nil
     }

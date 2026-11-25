@@ -119,9 +119,9 @@ mod TestContrast {
                             ()
                         else {
                             let same =
-                                Color.redOf(a) == Color.redOf(b) and
-                                    Color.greenOf(a) == Color.greenOf(b) and
-                                    Color.blueOf(a) == Color.blueOf(b);
+                                Color.redOf(a) == Color.redOf(b)
+                                    and Color.greenOf(a) == Color.greenOf(b)
+                                    and Color.blueOf(a) == Color.blueOf(b);
                             assertTrueWithMsg(not same, "two accents are identical: ${a}")
                         },
                     accents

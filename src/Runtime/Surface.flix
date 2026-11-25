@@ -136,8 +136,8 @@ mod Surface {
     ///
     pub def offscreen(
         rc: Region[r],
-        width: { width = Int32 },
-        height: { height = Int32 },
+        width: {width = Int32},
+        height: {height = Int32},
         fontPath: Option[String]
     ): Sheet[r] \ IO + r = {
         let w = width#width;
@@ -310,8 +310,8 @@ mod Surface {
     pub def open(
         rc: Region[r],
         title: String,
-        width: { width = Int32 },
-        height: { height = Int32 },
+        width: {width = Int32},
+        height: {height = Int32},
         fontPath: Option[String]
     ): Window[r] \ IO + r = {
         let sheet = offscreen(rc, width, height, fontPath);

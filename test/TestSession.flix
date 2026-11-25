@@ -149,7 +149,7 @@ mod TestSession {
     def testAFinishedGameLeavesThePlayField(): Unit \ Assert = {
         // However it ends, the cabinet stops simulating and moves on to the score screens.
         let playing = tick(start(), digit(1));
-        let lost = { worlds = Vector#{{ phase = Phase.Lost | Session.active(playing) }} | playing };
+        let lost = {worlds = Vector#{{phase = Phase.Lost | Session.active(playing)}} | playing};
         assertNeq(unexpected = Screen.Playing, tick(lost, Input.empty())#screen)
     }
 
@@ -208,10 +208,10 @@ mod TestSession {
     /// Puts a bomb on the active cannon so the next step destroys it.
     def aboutToDie(s: Session): Session = {
         let w = Session.active(s);
-        let pos = { x = w#playerX, y = Rules.playerY() };
+        let pos = {x = w#playerX, y = Rules.playerY()};
         let bomb = Rules.bombAt(pos, BombKind.Slow);
-        let updatedWorld = { bombs = bomb :: Nil | w };
-        { worlds = Vector.update(s#current, updatedWorld, s#worlds) | s }
+        let updatedWorld = {bombs = bomb :: Nil | w};
+        {worlds = Vector.update(s#current, updatedWorld, s#worlds) | s}
     }
 
     @Test
@@ -241,7 +241,7 @@ mod TestSession {
         // ...and only then.
         let s = twoPlayer();
         let onLastLife = {
-            worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) }, s#worlds) | s
+            worlds = Vector.update(0, {lives = 1 | Vector.get(0, s#worlds)}, s#worlds) | s
         };
         // Past the death pause *and* the GAME OVER beat, which now comes between the two.
         let after =
@@ -294,11 +294,7 @@ mod TestSession {
         // Player two is out; the turn must come back to player one rather than stalling.
         let s = twoPlayer();
         let out = {
-            worlds = Vector.update(
-                1,
-                { phase = Phase.Lost | Vector.get(1, s#worlds) },
-                s#worlds
-            ) | s
+            worlds = Vector.update(1, {phase = Phase.Lost | Vector.get(1, s#worlds)}, s#worlds) | s
         };
         assertEq(expected = Some(0), Session.nextPlayer(0, out))
     }
@@ -306,7 +302,7 @@ mod TestSession {
     @Test
     def testNobodyLeftEndsTheSession(): Unit \ Assert = {
         let s = twoPlayer();
-        let over = { worlds = Vector.map(w -> { phase = Phase.Lost | w }, s#worlds) | s };
+        let over = {worlds = Vector.map(w -> {phase = Phase.Lost | w}, s#worlds) | s};
         assertEq(expected = (None: Option[Int32]), Session.nextPlayer(0, over));
         assertTrue(Session.allDone(over))
     }
@@ -315,14 +311,14 @@ mod TestSession {
     def testAScorelessGameGoesStraightToTheTable(): Unit \ Assert = {
         // Nothing was earned, so there is nothing to sign for.
         let s = twoPlayer();
-        let over = { worlds = Vector.map(w -> { phase = Phase.Lost | w }, s#worlds) | s };
+        let over = {worlds = Vector.map(w -> {phase = Phase.Lost | w}, s#worlds) | s};
         assertEq(expected = Screen.Table, tick(over, Input.empty())#screen)
     }
 
     @Test
     def testTheTableReturnsToAttract(): Unit \ Assert = {
         let s = twoPlayer();
-        let over = { worlds = Vector.map(w -> { phase = Phase.Lost | w }, s#worlds) | s };
+        let over = {worlds = Vector.map(w -> {phase = Phase.Lost | w}, s#worlds) | s};
         let showing = tick(over, Input.empty());
         assertEq(expected = Screen.Table, ticks(50, showing, Input.empty())#screen);
         assertEq(expected = Screen.Attract, tick(showing, Input.holding(Key.Enter :: Nil))#screen)
@@ -334,7 +330,7 @@ mod TestSession {
     def testTheHudCarriesTheOtherPlayersScore(): Unit \ Assert = {
         let s = twoPlayer();
         let scored = {
-            worlds = Vector.update(1, { score = 750 | Vector.get(1, s#worlds) }, s#worlds) | s
+            worlds = Vector.update(1, {score = 750 | Vector.get(1, s#worlds)}, s#worlds) | s
         };
         assertEq(expected = 750, Session.cabinet(scored)#otherScore);
         assertEq(expected = 1, Session.cabinet(scored)#player)
@@ -352,7 +348,7 @@ mod TestSession {
         // The second slot used to be a hard-coded zero; it must now track a real player.
         let s = twoPlayer();
         let scored = {
-            worlds = Vector.update(1, { score = 1234 | Vector.get(1, s#worlds) }, s#worlds) | s
+            worlds = Vector.update(1, {score = 1234 | Vector.get(1, s#worlds)}, s#worlds) | s
         };
         let cmds = Canvas.commands((640, 480), () -> Screens.render(scored, Stats.empty()));
         assertTrue(
@@ -381,13 +377,13 @@ mod TestSession {
     def testAFullScoreTableFitsAboveThePrompt(): Unit \ Assert = {
         let full =
             List.range(0, Scores.places())
-                |> List.map(i -> { name = "AAA", score = 1000 - i, level = 1 });
-        let s = { screen = Screen.Table | Session.withScores(2026i64, full) };
+                |> List.map(i -> {name = "AAA", score = 1000 - i, level = 1});
+        let s = {screen = Screen.Table | Session.withScores(2026i64, full)};
         let baselines = Canvas.commands((640, 480), () -> Screens.render(s, Stats.empty()))
             |> List.filterMap(cmd -> match cmd {
                 case DrawCmd.Text(t, _, y) =>
                     if (String.startsWith(prefix = "AAA", t)) Some(y) else None
-                case _                     => None
+                case _ => None
             });
         assertTrueWithMsg(
             List.length(baselines) == Scores.places(),
@@ -397,8 +393,8 @@ mod TestSession {
         let prompt = Rules.fieldHeight() - 40.0f32;
         assertTrueWithMsg(
             lowest < prompt,
-            "the last of ${Scores.places()} rows has its baseline at ${lowest}, " +
-                "which is below the PRESS ENTER prompt at ${prompt}"
+            "the last of ${Scores.places()} rows has its baseline at ${lowest}, "
+                + "which is below the PRESS ENTER prompt at ${prompt}"
         )
     }
 
@@ -428,11 +424,11 @@ mod TestSession {
     def qualified(): Session = {
         let s = twoPlayer();
         let w = s#worlds;
-        let p0 = { phase = Phase.Lost, score = 2500 | Vector.get(0, w) };
-        let p1 = { phase = Phase.Lost | Vector.get(1, w) };
+        let p0 = {phase = Phase.Lost, score = 2500 | Vector.get(0, w)};
+        let p1 = {phase = Phase.Lost | Vector.get(1, w)};
         let w0 = Vector.update(0, p0, w);
         let scored = Vector.update(1, p1, w0);
-        tick({ worlds = scored | s }, Input.empty())
+        tick({worlds = scored | s}, Input.empty())
     }
 
     @Test
@@ -485,14 +481,14 @@ mod TestSession {
         let both =
             Vector.update(
                 0,
-                { phase = Phase.Lost, score = 900 | Vector.get(0, s#worlds) },
+                {phase = Phase.Lost, score = 900 | Vector.get(0, s#worlds)},
                 Vector.update(
                     1,
-                    { phase = Phase.Lost, score = 800 | Vector.get(1, s#worlds) },
+                    {phase = Phase.Lost, score = 800 | Vector.get(1, s#worlds)},
                     s#worlds
                 )
             );
-        let asking = tick({ worlds = both | s }, Input.empty());
+        let asking = tick({worlds = both | s}, Input.empty());
         assertEq(expected = 2, List.length(asking#pending));
         let first = tick(tick(asking, letters("A")), Input.holding(Key.Enter :: Nil));
         assertEq(expected = Screen.Entering, first#screen);
@@ -505,8 +501,7 @@ mod TestSession {
     @Test
     def testAKnownHighScoreShowsDuringPlay(): Unit \ Assert = {
         // The HI-SCORE slot should show the table's best, not zero, from the first tick.
-        let withTable =
-            Session.withScores(2026i64, { name = "ZZZ", score = 5000, level = 3 } :: Nil);
+        let withTable = Session.withScores(2026i64, {name = "ZZZ", score = 5000, level = 3} :: Nil);
         assertEq(expected = 5000, Session.active(tick(withTable, digit(1)))#hiScore)
     }
 
@@ -545,11 +540,8 @@ mod TestSession {
         // the screen carries two GAME OVERs and an offer to press a key the cabinet handles.
         let s = twoPlayer();
         let lost = {
-            worlds = Vector.update(
-                s#current,
-                { phase = Phase.Lost | Session.active(s) },
-                s#worlds
-            ) | s
+            worlds = Vector.update(s#current, {phase = Phase.Lost | Session.active(s)}, s#worlds)
+            | s
         };
         let shown = texts(lost);
         assertTrueWithMsg(
@@ -564,7 +556,7 @@ mod TestSession {
         // started on the following one, so nobody ever saw how their own game finished.
         let s = twoPlayer();
         let onLastLife = {
-            worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) }, s#worlds) | s
+            worlds = Vector.update(0, {lives = 1 | Vector.get(0, s#worlds)}, s#worlds) | s
         };
         let ended = ticks(Rules.deathPauseTicks() + 2, aboutToDie(onLastLife), Input.empty());
         assertTrueWithMsg(ended#over > 0, "the game ended without a GAME OVER screen");
@@ -580,7 +572,7 @@ mod TestSession {
 
     @Test
     def testNothingMovesWhileTheEndingIsOnScreen(): Unit \ Assert = {
-        let waiting = { over = Rules.gameOverTicks(), screen = Screen.Playing | twoPlayer() };
+        let waiting = {over = Rules.gameOverTicks(), screen = Screen.Playing | twoPlayer()};
         let before = Session.active(waiting)#tick;
         let later = ticks(30, waiting, Input.holding(Key.Space :: Key.Enter :: Nil));
         assertEq(expected = before, Session.active(later)#tick);
@@ -593,7 +585,7 @@ mod TestSession {
         // else to do it. In the cabinet the session draws its own, and both drawing it put
         // two GAME OVERs on the screen with an invitation to press a key the cabinet had
         // already taken charge of.
-        let waiting = { over = Rules.gameOverTicks(), screen = Screen.Playing | twoPlayer() };
+        let waiting = {over = Rules.gameOverTicks(), screen = Screen.Playing | twoPlayer()};
         let shown = texts(waiting);
         assertEq(expected = 1, List.count(t -> t == "GAME OVER", shown));
         assertTrueWithMsg(
@@ -608,7 +600,7 @@ mod TestSession {
         // reading player one's score.
         let s = twoPlayer();
         let onLastLife = {
-            worlds = Vector.update(0, { lives = 1 | Vector.get(0, s#worlds) }, s#worlds) | s
+            worlds = Vector.update(0, {lives = 1 | Vector.get(0, s#worlds)}, s#worlds) | s
         };
         let handedOver =
             ticks(
@@ -626,7 +618,7 @@ mod TestSession {
     @Test
     def testTheGameIsFrozenWhileTheNextPlayerGetsReady(): Unit \ Assert = {
         // Whatever they do with the controls during the count must not reach the game.
-        let waiting = { handover = Rules.handoverTicks(), screen = Screen.Playing | twoPlayer() };
+        let waiting = {handover = Rules.handoverTicks(), screen = Screen.Playing | twoPlayer()};
         let before = Session.active(waiting)#tick;
         let later = ticks(30, waiting, Input.holding(Key.Space :: Key.Left :: Nil));
         assertEq(expected = before, Session.active(later)#tick);
@@ -672,7 +664,7 @@ mod TestSession {
         assertTrueWithMsg(dimmed, "the get-ready text is drawn straight onto the game");
 
         // ...and it is not there once play begins.
-        let live = { handover = 0 | waiting };
+        let live = {handover = 0 | waiting};
         let plain = Canvas.commands((640, 480), () -> Screens.render(live, Stats.empty()))
             |> List.exists(cmd -> match cmd {
                 case DrawCmd.FillAlpha(_, _) => true
@@ -687,10 +679,8 @@ mod TestSession {
         // hand-edited table could hold a name the game would not let you type.
         let asking = {
             screen = Screen.Entering,
-            pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil | tick(
-                start(),
-                digit(1)
-            )
+            pending = {player = 0, entry = {name = "", score = 5000, level = 4}} :: Nil
+            | tick(start(), digit(1))
         };
         let typed = ticks(1, asking, Input.holding(Key.Other(87) :: Nil))  // W
             |> (s1 -> ticks(1, s1, Input.holding(Key.Other(51) :: Nil)))   // 3
@@ -703,10 +693,8 @@ mod TestSession {
         let asking = {
             screen = Screen.Entering,
             typing = "R2D",
-            pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil | tick(
-                start(),
-                digit(1)
-            )
+            pending = {player = 0, entry = {name = "", score = 5000, level = 4}} :: Nil
+            | tick(start(), digit(1))
         };
         let done = ticks(1, asking, Input.holding(Key.Enter :: Nil));
         assertEq(expected = Some("R2D"), Option.map(e -> e#name, List.head(done#scores)))
@@ -719,8 +707,8 @@ mod TestSession {
         let base = twoPlayer();
         let asking = {
             screen = Screen.Entering,
-            pending = { player = 0, entry = { name = "", score = 5000, level = 4 } }
-                :: { player = 1, entry = { name = "", score = 3130, level = 3 } }
+            pending = {player = 0, entry = {name = "", score = 5000, level = 4}}
+                :: {player = 1, entry = {name = "", score = 3130, level = 3}}
                 :: Nil | base
         };
         assertTrueWithMsg(
@@ -729,7 +717,7 @@ mod TestSession {
         );
 
         // Committing the first moves on to the second, which must name the other player.
-        let second = ticks(1, { typing = "ABC" | asking }, Input.holding(Key.Enter :: Nil));
+        let second = ticks(1, {typing = "ABC" | asking}, Input.holding(Key.Enter :: Nil));
         assertTrueWithMsg(
             List.memberOf("PLAYER 2", texts(second)),
             "the second prompt still names player one: ${texts(second)}"
@@ -742,7 +730,7 @@ mod TestSession {
         let solo = tick(start(), digit(1));
         let asking = {
             screen = Screen.Entering,
-            pending = { player = 0, entry = { name = "", score = 5000, level = 4 } } :: Nil | solo
+            pending = {player = 0, entry = {name = "", score = 5000, level = 4}} :: Nil | solo
         };
         assertFalseWithMsg(
             List.memberOf("PLAYER 1", texts(asking)),
@@ -758,7 +746,7 @@ mod TestSession {
         let asking = {
             screen = Screen.Entering,
             typing = "WLS",
-            pending = { player = 1, entry = { name = "", score = 3130, level = 3 } } :: Nil | base
+            pending = {player = 1, entry = {name = "", score = 3130, level = 3}} :: Nil | base
         };
         let done = ticks(1, asking, Input.holding(Key.Enter :: Nil));
         assertEq(expected = Some(3130), Option.map(e -> e#score, List.head(done#scores)));
@@ -775,12 +763,12 @@ mod TestSession {
         let played = {
             worlds = Vector.update(
                 0,
-                { score = 7310, hiScore = 7310 | Vector.get(0, base#worlds) },
+                {score = 7310, hiScore = 7310 | Vector.get(0, base#worlds)},
                 base#worlds
             ),
-            demo = { score = 90, hiScore = 90 | base#demo },
+            demo = {score = 90, hiScore = 90 | base#demo},
             screen = Screen.Entering,
-            pending = { player = 0, entry = { name = "", score = 7310, level = 5 } } :: Nil | base
+            pending = {player = 0, entry = {name = "", score = 7310, level = 5}} :: Nil | base
         };
         let shown = texts(played);
         assertTrueWithMsg(
@@ -800,12 +788,12 @@ mod TestSession {
         let both = {
             worlds = Vector.update(
                 0,
-                { score = 4400 | Vector.get(0, base#worlds) },
-                Vector.update(1, { score = 2200 | Vector.get(1, base#worlds) }, base#worlds)
+                {score = 4400 | Vector.get(0, base#worlds)},
+                Vector.update(1, {score = 2200 | Vector.get(1, base#worlds)}, base#worlds)
             ),
             current = 1,
             screen = Screen.Entering,
-            pending = { player = 1, entry = { name = "", score = 2200, level = 3 } } :: Nil | base
+            pending = {player = 1, entry = {name = "", score = 2200, level = 3}} :: Nil | base
         };
         let shown = texts(both);
         assertTrue(List.memberOf(View.scoreText(2200), shown));
@@ -817,9 +805,8 @@ mod TestSession {
 
     @Test
     def testTheTableScreenListsTheNames(): Unit \ Assert = {
-        let withTable =
-            Session.withScores(2026i64, { name = "ABC", score = 4321, level = 2 } :: Nil);
-        let showing = { screen = Screen.Table | withTable };
+        let withTable = Session.withScores(2026i64, {name = "ABC", score = 4321, level = 2} :: Nil);
+        let showing = {screen = Screen.Table | withTable};
         let cmds = Canvas.commands((640, 480), () -> Screens.render(showing, Stats.empty()));
         let says = needle -> List.exists(
             cmd -> match cmd {

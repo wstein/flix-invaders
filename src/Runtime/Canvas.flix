@@ -80,19 +80,19 @@ mod Canvas {
             let result = run {
                 f(input)
             } with handler Canvas {
-                def clear(c, k) = {
+                def clear(c, k)            = {
                     emit(DrawCmd.Clear(c));
                     k()
                 }
-                def fill(c, k) = {
+                def fill(c, k)             = {
                     emit(DrawCmd.Fill(c));
                     k()
                 }
-                def fillAlpha(c, a, k) = {
+                def fillAlpha(c, a, k)     = {
                     emit(DrawCmd.FillAlpha(c, a));
                     k()
                 }
-                def rect(x, y, w, h, k) = {
+                def rect(x, y, w, h, k)    = {
                     emit(DrawCmd.Rect(x, y, w, h));
                     k()
                 }
@@ -100,15 +100,15 @@ mod Canvas {
                     emit(DrawCmd.Ellipse(x, y, w, h));
                     k()
                 }
-                def text(s, x, y, k) = {
+                def text(s, x, y, k)       = {
                     emit(DrawCmd.Text(s, x, y));
                     k()
                 }
-                def textSize(px, k) = {
+                def textSize(px, k)        = {
                     emit(DrawCmd.TextSize(px));
                     k()
                 }
-                def dimensions(k) = k(dims)
+                def dimensions(k)          = k(dims)
             };
             let cmds = List.reverse(Ref.get(acc));
             (result, cmds)
@@ -131,14 +131,14 @@ mod Canvas {
         run {
             f()
         } with handler Canvas {
-            def clear(_c, k) = k()
-            def fill(_c, k) = k()
-            def fillAlpha(_c, _a, k) = k()
-            def rect(_x, _y, _w, _h, k) = k()
+            def clear(_c, k)               = k()
+            def fill(_c, k)                = k()
+            def fillAlpha(_c, _a, k)       = k()
+            def rect(_x, _y, _w, _h, k)    = k()
             def ellipse(_x, _y, _w, _h, k) = k()
-            def text(_s, _x, _y, k) = k()
-            def textSize(_px, k) = k()
-            def dimensions(k) = k(dims)
+            def text(_s, _x, _y, k)        = k()
+            def textSize(_px, k)           = k()
+            def dimensions(k)              = k(dims)
         }
 
     ///

@@ -1,7 +1,7 @@
 ///
 /// One line of an overlay: what it says, how big, and in what colour.
 ///
-pub type alias Caption = { text = String, size = Float32, colour = Color }
+pub type alias Caption = {text = String, size = Float32, colour = Color}
 
 ///
 /// Drawing the cabinet, as opposed to drawing the game.
@@ -73,7 +73,7 @@ mod Screens {
     }
 
     def caption(text: String, size: Float32, colour: Color): Caption =
-        { text = text, size = size, colour = colour }
+        {text = text, size = size, colour = colour}
 
     /// Where a block of `captions` starts if it is to sit centred in the field.
     def centredTop(captions: List[Caption]): Float32 =

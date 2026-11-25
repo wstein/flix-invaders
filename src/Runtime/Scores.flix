@@ -1,7 +1,7 @@
 ///
 /// One line of the high-score table.
 ///
-pub type alias Entry = { name = String, score = Int32, level = Int32 }
+pub type alias Entry = {name = String, score = Int32, level = Int32}
 
 ///
 /// The high-score table.
@@ -38,7 +38,7 @@ mod Scores {
                 match (sOpt, lOpt) {
                     case (Some(s), Some(l)) =>
                         let cleanedName = clean(String.trim(name));
-                        Some({ name = cleanedName, score = s, level = l })
+                        Some({name = cleanedName, score = s, level = l})
                     case _ => None
                 }
             case _ => None
@@ -133,7 +133,7 @@ mod Scores {
     /// hunting for the last separator in the path would be guesswork about a string we
     /// assembled ourselves.
     ///
-    pub type alias Location = { dir = String, file = String }
+    pub type alias Location = {dir = String, file = String}
 
     ///
     /// Where the table lives, by the XDG convention.
@@ -151,7 +151,7 @@ mod Scores {
         Option.withDefault(default = fallback, configured)
             |> Option.map(base -> {
                 let dir = "${base}${separator}${folder()}";
-                { dir = dir, file = "${dir}${separator}${fileName()}" }
+                {dir = dir, file = "${dir}${separator}${fileName()}"}
             })
     }
 

@@ -37,9 +37,9 @@ mod Audio {
     /// How many simultaneous voices each sound gets.
     def voicesFor(cmd: SoundCmd): Int32 = match cmd {
         // Firing and kills can stack up; the rest never overlap with themselves.
-        case SoundCmd.Shoot => 3
+        case SoundCmd.Shoot       => 3
         case SoundCmd.InvaderDies => 3
-        case _ => 1
+        case _                    => 1
     }
 
     ///
@@ -60,7 +60,7 @@ mod Audio {
         case None        => unreachable!()
     }
 
-    type alias SweepSpec = { startHz = Float32, endHz = Float32, millis = Int32, volume = Float32 }
+    type alias SweepSpec = {startHz = Float32, endHz = Float32, millis = Int32, volume = Float32}
 
     ///
     /// A square wave sweeping from `startHz` to `endHz`, fading out over its length.
@@ -118,25 +118,25 @@ mod Audio {
     ///
     def samplesFor(rc: Region[r], cmd: SoundCmd): Array[Int8, r] \ r = match cmd {
         case SoundCmd.Shoot           =>
-            let p = { startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32 };
+            let p = {startHz = 820.0f32, endHz = 1500.0f32, millis = 90, volume = 0.55f32};
             sweep(rc, p)
         case SoundCmd.InvaderDies     => burst(rc, 190, 0.7f32)
         case SoundCmd.PlayerDies      => burst(rc, 620, 1.0f32)
         case SoundCmd.MysteryAppears  =>
-            let p = { startHz = 620.0f32, endHz = 900.0f32, millis = 220, volume = 0.4f32 };
+            let p = {startHz = 620.0f32, endHz = 900.0f32, millis = 220, volume = 0.4f32};
             sweep(rc, p)
         case SoundCmd.MysteryDies     =>
-            let params = { startHz = 900.0f32, endHz = 180.0f32, millis = 380, volume = 0.6f32 };
+            let params = {startHz = 900.0f32, endHz = 180.0f32, millis = 380, volume = 0.6f32};
             sweep(rc, params)
         case SoundCmd.ShieldBlock     =>
-            let params = { startHz = 300.0f32, endHz = 1100.0f32, millis = 130, volume = 0.5f32 };
+            let params = {startHz = 300.0f32, endHz = 1100.0f32, millis = 130, volume = 0.5f32};
             sweep(rc, params)
         case SoundCmd.ExtraLife       =>
-            let params = { startHz = 500.0f32, endHz = 1600.0f32, millis = 420, volume = 0.6f32 };
+            let params = {startHz = 500.0f32, endHz = 1600.0f32, millis = 420, volume = 0.6f32};
             sweep(rc, params)
         case SoundCmd.MarchStep(note) => {
             let hz = marchHz(note);
-            let params = { startHz = hz, endHz = hz * 0.92f32, millis = 110, volume = 0.85f32 };
+            let params = {startHz = hz, endHz = hz * 0.92f32, millis = 110, volume = 0.85f32};
             sweep(rc, params)
         }
     }
